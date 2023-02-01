@@ -181,39 +181,9 @@ for (i in 1:length(location)){
      
     }
     
-     data_site_subset_thresh = data_site_subset_beg  
+     data_site_subset_thresh = data_site_subset_beg  %>% 
+       filter(!(elapsed_min > 10 & DO_mg_L < do.thresh))
      
-for (l in 1:length(data_site_subset_thresh)){
-     data_site_subset_thresh =
-       data_site_subset_thresh %>% 
-       filter(
-         if (elapsed_min > 2) {
-           DO_mg_L > do.thresh } 
-         else {
-             DO_mg_L = DO_mg_L
-         }
-       )
-}
-         
-    for (l in 1:length(data_site_subset_thresh)){
-      
-      if(data_site_subset_thresh$elapsed_min[l] > 4 & data_site_subset_thresh$DO_mg_L[l] < do.thresh){
-      
-        data_site_subset_thresh = data_site_subset_thresh[-l,]
-    
-        }
-    else if (data_site_subset_thresh$elapsed_min[l] < 4 & data_site_subset_thresh$DO_mg_L[l] > do.thresh) {
-      data_site_subset_thresh$DO_mg_L = data_site_subset_thresh$DO_mg_L
-    
-      }
-    }
-    
-    data_site_subset_thresh = data_site_subset_beg %>% {if (elapsed_min > 4)}
-      
-      if(data_site_subset_beg$DO_mg_L[k] < median(data_site_subset_beg$DO_mg_L)) {
-      filter(elapsed_min > 4 )
-      
-    
     data_site_subset_fin = data_site_subset_thresh
     
     fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
@@ -285,7 +255,7 @@ for (l in 1:length(data_site_subset_thresh)){
 #     }
       
 #points being removed with increase in r2 after removal
-     if (r < threshold & rtemp > rog &nrow(data_site_subset_fin)>=min.points){
+     if (r < threshold & rtemp > rog & nrow(data_site_subset_fin) >= min.points){
 
       data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
       fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
