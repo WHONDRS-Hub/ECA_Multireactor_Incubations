@@ -13,7 +13,7 @@ rm(list=ls());graphics.off()
 #Example:
 pnnl.user = 'laan208'
 
-input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/ECA/EC 2022 Experiment/Optode multi reactor/Optode_multi_reactor_incubation/")
+input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/")
 
 setwd(input.path)
 
@@ -22,7 +22,7 @@ path <- ("rates/")
 
 #path for reading in samples that go to 0 too quickly
 
-fast.rates <- paste0("C:/Users/", pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/ECA/EC 2022 Experiment/Optode multi reactor/Optode_multi_reactor_incubation/rates/fast_rate_calculations.xlsx")
+fast.rates <- paste0("C:/Users/", pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/fast_rate_calculations.xlsx")
 
 fast.rates <- read_excel(fast.rates)
 
@@ -82,7 +82,7 @@ import_data = function(input.path){
   #pull a list of files in target folder with correct pattern
   #read all files and combine
 
-  map.file <-  list.files(map, recursive = T, pattern = "\\.xlsx$",full.names = T)
+  map.file <-  list.files(input.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
 
 map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast", map.file)]
 
@@ -90,21 +90,24 @@ mapping <- lapply(map.file, read_xlsx)
 
 for (i in 1:length(mapping)){mapping[[i]] <- cbind(mapping[[i]], map.file[i])}
 
-#all.map <- 
+all.map <- 
   do.call(rbind,mapping)
 }
 
-all.map = import_data(input.path) %>% 
+all.map = import_data(input.path)
+
+all.map = all.map %>% 
   rename("source_file" = "map.file[i]") %>% 
   rename("disc_number" = "Disk_ID") %>% 
-  mutate(source_file = str_remove_all(source_file, paste0(map, "/"))) %>% 
+  mutate(source_file = str_remove_all(source_file, paste0(input.path, "/"))) %>% 
   separate(source_file, sep = "/", c("source_file", "file")) %>% 
   mutate(source_file = str_replace(source_file, "EC", "results")) %>% 
   dplyr::select(-`Disk Calibration date`, -Location, -`Time on`, -`Time off`, -SpC, -pH, -Temp, -Notes, -file)
 
 all.samples <- merge(vials, all.map)
 
-bind <- merge(all.samples, fast.rates, all = TRUE)
+bind <- merge(all.samples, fast.rates, all = TRUE) %>% 
+  dplyr::select(-`DO_0_mg_L`,-`v_inc_L`, -`DO_add_mg_L`, -`v_add_L`)
 
 #fill in samples, remove last two columns for cleaner data frame
 
@@ -114,6 +117,8 @@ bind <- merge(all.samples, fast.rates, all = TRUE)
 
 min.points = 2
 threshold = 0.99
+slope.thresh = 0
+do.thresh = 0.5
 ymax = max(na.omit(bind$DO_mg_L))
 ymin = min(na.omit(bind$DO_mg_L))
 
@@ -137,8 +142,6 @@ bind <- bind %>%
   filter(Sample_ID != "EC_13_INC-D4") %>% 
   filter(Sample_ID != "EC_27_INC-D2") 
 
-# negative_min <- bind %>% 
-#   filter(elapsed_min == "2" & DO_mg_L <= 0.3)
 
 for (i in 1:length(location)){
   
@@ -161,7 +164,8 @@ for (i in 1:length(location)){
     
     data_site_subset_beg = data_site_subset_low
     
-    for (k in 1:3) {
+    #this is not fixing 14-W1
+    for (k in 1:4) {
       
       if(data_site_subset_beg$DO_mg_L[k] < median(data_site_subset_beg$DO_mg_L)) {
         
@@ -177,7 +181,40 @@ for (i in 1:length(location)){
      
     }
     
-    data_site_subset_fin = data_site_subset_beg
+     data_site_subset_thresh = data_site_subset_beg  
+     
+for (l in 1:length(data_site_subset_thresh)){
+     data_site_subset_thresh =
+       data_site_subset_thresh %>% 
+       filter(
+         if (elapsed_min > 2) {
+           DO_mg_L > do.thresh } 
+         else {
+             DO_mg_L = DO_mg_L
+         }
+       )
+}
+         
+    for (l in 1:length(data_site_subset_thresh)){
+      
+      if(data_site_subset_thresh$elapsed_min[l] > 4 & data_site_subset_thresh$DO_mg_L[l] < do.thresh){
+      
+        data_site_subset_thresh = data_site_subset_thresh[-l,]
+    
+        }
+    else if (data_site_subset_thresh$elapsed_min[l] < 4 & data_site_subset_thresh$DO_mg_L[l] > do.thresh) {
+      data_site_subset_thresh$DO_mg_L = data_site_subset_thresh$DO_mg_L
+    
+      }
+    }
+    
+    data_site_subset_thresh = data_site_subset_beg %>% {if (elapsed_min > 4)}
+      
+      if(data_site_subset_beg$DO_mg_L[k] < median(data_site_subset_beg$DO_mg_L)) {
+      filter(elapsed_min > 4 )
+      
+    
+    data_site_subset_fin = data_site_subset_thresh
     
     fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
     u = fit$coefficients
@@ -190,15 +227,99 @@ for (i in 1:length(location)){
     
     temp = data_site_subset_fin[-nrow(data_site_subset_fin),]
     fit.temp = lm(temp$DO_mg_L~temp$elapsed_min)
+    v = fit.temp$coefficients
     rtemp = summary(fit.temp)$r.squared
+    #ctemp = v[[2]]
     
 #points being removed without r2 increasing with removal
-for(l in 1:50){
+# for(l in 1:50){
+# 
+#   if (r < threshold & nrow(data_site_subset_fin)>=min.points & c < slope.thresh){
+# 
+#   data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
+# 
+#     fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+#     u = fit$coefficients
+#     b = u[[1]] #Intercept
+#     c = u[[2]] #rate mg/L min
+#     r = summary(fit)$r.squared
+#     r.adj = summary(fit)$adj.r.squared
+#     p = summary(fit)$coefficients[4]
+#     r2 = r
+#   }
+# }
+#     else if (c > slope.thresh){
+#       if (r < threshold & rtemp > rog &nrow(data_site_subset_fin)>=min.points){
+#         
+#         data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
+#         fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+#         u = fit$coefficients
+#         b = u[[1]] #Intercept
+#         c = u[[2]] #rate mg/L min
+#         r = summary(fit)$r.squared
+#         r.adj = summary(fit)$adj.r.squared
+#         p = summary(fit)$coefficients[4]
+#         r2 = r
+#         if (r < threshold & r > rog&nrow(data_site_subset_fin)>=min.points){
+#           data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
+#           fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+#           u = fit$coefficients
+#           b = u[[1]] #Intercept
+#           c = u[[2]] #rate mg/L min
+#           r = summary(fit)$r.squared
+#           r.adj = summary(fit)$adj.r.squared
+#           p = summary(fit)$coefficients[4]
+#           r3 = r
+#         }
+#         if (r < threshold&r > r2&nrow(data_site_subset_fin)>=min.points){
+#           data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
+#           fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+#           u = fit$coefficients
+#           b = u[[1]] #Intercept
+#           c = u[[2]] #rate mg/L min
+#           r = summary(fit)$r.squared
+#           r.adj = summary(fit)$adj.r.squared
+#           p = summary(fit)$coefficients[4]
+#         }
+#       }
+#     }
+      
+#points being removed with increase in r2 after removal
+     if (r < threshold & rtemp > rog &nrow(data_site_subset_fin)>=min.points){
 
-  if (r < threshold & nrow(data_site_subset_fin)>=min.points){
-
-  data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-
+      data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
+      fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+      u = fit$coefficients
+      b = u[[1]] #Intercept
+      c = u[[2]] #rate mg/L min
+      r = summary(fit)$r.squared
+      r.adj = summary(fit)$adj.r.squared
+      p = summary(fit)$coefficients[4]
+      r2 = r
+      if (r < threshold & r > rog&nrow(data_site_subset_fin)>=min.points){
+        data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
+        fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+        u = fit$coefficients
+        b = u[[1]] #Intercept
+        c = u[[2]] #rate mg/L min
+        r = summary(fit)$r.squared
+        r.adj = summary(fit)$adj.r.squared
+        p = summary(fit)$coefficients[4]
+        r3 = r
+      }
+      if (r < threshold&r > r2&nrow(data_site_subset_fin)>=min.points){
+        data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
+        fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+        u = fit$coefficients
+        b = u[[1]] #Intercept
+        c = u[[2]] #rate mg/L min
+        r = summary(fit)$r.squared
+        r.adj = summary(fit)$adj.r.squared
+        p = summary(fit)$coefficients[4]
+      }
+    }
+  else if(r < threshold & rtemp > rog &nrow(data_site_subset_fin)>=min.points & c > slope.thresh & tail(data_site_subset_fin$DO_mg_L) > do.thresh){
+    data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
   fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
   u = fit$coefficients
   b = u[[1]] #Intercept
@@ -207,45 +328,9 @@ for(l in 1:50){
   r.adj = summary(fit)$adj.r.squared
   p = summary(fit)$coefficients[4]
   r2 = r
-}
-}
 
-#points being removed with increase in r2 after removal
-    #  if (r < threshold & rtemp > rog &nrow(data_site_subset_fin)>=min.points){
-    # 
-    #   data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-    #   fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
-    #   u = fit$coefficients
-    #   b = u[[1]] #Intercept
-    #   c = u[[2]] #rate mg/L min
-    #   r = summary(fit)$r.squared
-    #   r.adj = summary(fit)$adj.r.squared
-    #   p = summary(fit)$coefficients[4]
-    #   r2 = r
-    #   if (r < threshold & r > rog&nrow(data_site_subset_fin)>=min.points){
-    #     data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-    #     fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
-    #     u = fit$coefficients
-    #     b = u[[1]] #Intercept
-    #     c = u[[2]] #rate mg/L min
-    #     r = summary(fit)$r.squared
-    #     r.adj = summary(fit)$adj.r.squared
-    #     p = summary(fit)$coefficients[4]
-    #     r3 = r
-    #   }
-    #   if (r < threshold&r > r2&nrow(data_site_subset_fin)>=min.points){
-    #     data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-    #     fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
-    #     u = fit$coefficients
-    #     b = u[[1]] #Intercept
-    #     c = u[[2]] #rate mg/L min
-    #     r = summary(fit)$r.squared
-    #     r.adj = summary(fit)$adj.r.squared
-    #     p = summary(fit)$coefficients[4]
-    #   }
-    # }
-    # 
-    # 
+  }
+
 
     my.formula <- y ~ x
     final <- ggplot(data_site_subset_fin, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
@@ -304,9 +389,9 @@ for(l in 1:50){
       theme(axis.title =element_text(size = 12,face="bold"))+
       theme(axis.title.y =element_text(size = 12,face="bold"))
     
-   # multi <- (final + high_rem + beg_rem + all) +
-   #  plot_layout(widths = c(2,2))
-   # ggsave(file=paste0(path,"Plots/combined_figures_pts_removed/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
+   multi <- (final + high_rem + beg_rem + all) +
+    plot_layout(widths = c(2,2))
+   ggsave(file=paste0(path,"Plots/combined_figures_pts_removed/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],"increasing_r2.pdf"))
    # ggsave(file=paste0(path,"Plots/optimized rates/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],"on",Sys.Date(),".pdf"))
 
     rate$Sample_ID[j] = as.character(data_site_subset_fin$Sample_ID[1])
