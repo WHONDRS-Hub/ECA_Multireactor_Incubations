@@ -24,6 +24,8 @@ path <- ("rates/")
 
 fast.rates <- paste0("C:/Users/", pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/fast_rate_calculations.xlsx")
 
+##what threshold for bad first point?
+
 fast.rates <- read_excel(fast.rates)
 
 #read in respiration data and clean
@@ -140,7 +142,8 @@ bind <- bind %>%
   filter(Sample_ID != "EC_14_INC-W5") %>% 
   filter(Sample_ID != "EC_13_INC-W5") %>% 
   filter(Sample_ID != "EC_13_INC-D4") %>% 
-  filter(Sample_ID != "EC_27_INC-D2") 
+  filter(Sample_ID != "EC_27_INC-D2") %>% 
+  filter(!(elapsed_min < 8 & Sample_ID == "EC_14_INC-W1"))
 
 
 for (i in 1:length(location)){
@@ -155,7 +158,7 @@ for (i in 1:length(location)){
   
   for (j in 1:length(unique.incubations)){
     
-    data_site_subset = subset(data_location_subset, data_location_subset$Sample_ID == unique.incubations[j])
+    data_site_subset = subset(data_location_subset, data_location_subset$Sample_ID == unique.incubations[i])
     data_site_subset = data_site_subset[order(data_site_subset$elapsed_min, decreasing = FALSE),]
     data_site_subset$elapsed_min = as.numeric(data_site_subset$elapsed_min)
     
@@ -164,7 +167,7 @@ for (i in 1:length(location)){
     
     data_site_subset_beg = data_site_subset_low
     
-    for (k in 1:2) {
+    for (k in 1:3) {
       
       if(data_site_subset_beg$DO_mg_L[k] < median(data_site_subset_beg$DO_mg_L)) {
         
@@ -339,6 +342,7 @@ for (i in 1:length(location)){
 respiration = respiration[-1,]
 
 respiration = respiration %>% 
-  mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression))
+  mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
+  mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
 
 write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
