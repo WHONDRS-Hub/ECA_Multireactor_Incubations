@@ -63,10 +63,10 @@ data = import_data(path)
 data_long = 
   data %>% 
   mutate(disc_number = str_remove_all(disc_number, "X")) %>%
- mutate(source_file = str_remove_all(source_file, "optode data/"),source_file = str_remove_all(source_file, ".csv")) %>%  
+  mutate(source_file = str_remove_all(source_file, "optode data/"),source_file = str_remove_all(source_file, ".csv")) %>%  
   filter(elapsed_min > 0) %>% 
   separate(col = source_file, into = c("fol1", "fol2", "fol3","fol4", "source_file"), sep = "/") %>% 
- dplyr::select(-fol1, -fol2, -fol3,-fol4)
+  dplyr::select(-fol1, -fol2, -fol3,-fol4)
 
 vials <- data_long %>% 
   filter(source_file != "results _03a") %>% 
@@ -80,20 +80,20 @@ vials <- data_long %>%
 
 #import mapping files
 import_data = function(input.path){ 
-
+  
   #pull a list of files in target folder with correct pattern
   #read all files and combine
-
+  
   map.file <-  list.files(input.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
-
-map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast", map.file)]
-
-mapping <- lapply(map.file, read_xlsx)
-
-for (i in 1:length(mapping)){mapping[[i]] <- cbind(mapping[[i]], map.file[i])}
-
-all.map <- 
-  do.call(rbind,mapping)
+  
+  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast", map.file)]
+  
+  mapping <- lapply(map.file, read_xlsx)
+  
+  for (i in 1:length(mapping)){mapping[[i]] <- cbind(mapping[[i]], map.file[i])}
+  
+  all.map <- 
+    do.call(rbind,mapping)
 }
 
 all.map = import_data(input.path)
@@ -143,8 +143,12 @@ bind <- bind %>%
   filter(Sample_ID != "EC_13_INC-W5") %>% 
   filter(Sample_ID != "EC_13_INC-D4") %>% 
   filter(Sample_ID != "EC_27_INC-D2") %>% 
-  filter(!(elapsed_min < 8 & Sample_ID == "EC_14_INC-W1"))
-
+  filter(!(elapsed_min < 8 & Sample_ID == "EC_14_INC-W1")) %>% 
+  filter(!(elapsed_min <= 2 & Sample_ID == "EC_05_INC-D4")) %>% 
+  filter(!(elapsed_min <= 2 & Sample_ID == "EC_05_INC-D5")) %>% 
+  filter(!(elapsed_min <= 2 & Sample_ID == "EC_32_INC-D3")) %>% 
+  filter(!(elapsed_min <= 2 & Sample_ID == "EC_56_INC-W3"))
+  
 
 for (i in 1:length(location)){
   
@@ -158,7 +162,7 @@ for (i in 1:length(location)){
   
   for (j in 1:length(unique.incubations)){
     
-    data_site_subset = subset(data_location_subset, data_location_subset$Sample_ID == unique.incubations[i])
+    data_site_subset = subset(data_location_subset, data_location_subset$Sample_ID == unique.incubations[j])
     data_site_subset = data_site_subset[order(data_site_subset$elapsed_min, decreasing = FALSE),]
     data_site_subset$elapsed_min = as.numeric(data_site_subset$elapsed_min)
     
@@ -184,7 +188,7 @@ for (i in 1:length(location)){
     }
     
     data_site_subset_thresh = data_site_subset_beg  %>% 
-      filter(!(elapsed_min > 10 & DO_mg_L < do.thresh))
+      filter(!(elapsed_min > 4 & DO_mg_L < do.thresh))
     
     data_site_subset_fin = data_site_subset_thresh
     
@@ -202,12 +206,37 @@ for (i in 1:length(location)){
     rtemp = summary(fit.temp)$r.squared
     
     #points being removed without r2 increasing with removal
-    for(l in 1:50){
+    # for(l in 1:60){
+      
+    #   if (r < threshold & nrow(data_site_subset_fin)>=min.points){
+    #     
+    #     data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
+    #     
+    #     fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+    #     u = fit$coefficients
+    #     b = u[[1]] #Intercept
+    #     c = u[[2]] #rate mg/L min
+    #     r = summary(fit)$r.squared
+    #     r.adj = summary(fit)$adj.r.squared
+    #     p = summary(fit)$coefficients[4]
+    #     r2 = r
+    #   }
+    # }
+    
+    #points being removed with increase in r2 after removal
+     if (r < threshold & rtemp >= rog & nrow(data_site_subset_fin) >= min.points){
 
-      if (r < threshold & nrow(data_site_subset_fin)>=min.points){
-
+      data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
+      fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+      u = fit$coefficients
+      b = u[[1]] #Intercept
+      c = u[[2]] #rate mg/L min
+      r = summary(fit)$r.squared
+      r.adj = summary(fit)$adj.r.squared
+      p = summary(fit)$coefficients[4]
+      r2 = r
+      if (r < threshold & r >= rog&nrow(data_site_subset_fin)>=min.points){
         data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-
         fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
         u = fit$coefficients
         b = u[[1]] #Intercept
@@ -215,46 +244,21 @@ for (i in 1:length(location)){
         r = summary(fit)$r.squared
         r.adj = summary(fit)$adj.r.squared
         p = summary(fit)$coefficients[4]
-        r2 = r
+        r3 = r
+      }
+      if (r < threshold&r >= r2&nrow(data_site_subset_fin)>=min.points){
+        data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
+        fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+        u = fit$coefficients
+        b = u[[1]] #Intercept
+        c = u[[2]] #rate mg/L min
+        r = summary(fit)$r.squared
+        r.adj = summary(fit)$adj.r.squared
+        p = summary(fit)$coefficients[4]
       }
     }
-
-    #points being removed with increase in r2 after removal
-    #  if (r < threshold & rtemp > rog &nrow(data_site_subset_fin)>=min.points){
-    # 
-    #   data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-    #   fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
-    #   u = fit$coefficients
-    #   b = u[[1]] #Intercept
-    #   c = u[[2]] #rate mg/L min
-    #   r = summary(fit)$r.squared
-    #   r.adj = summary(fit)$adj.r.squared
-    #   p = summary(fit)$coefficients[4]
-    #   r2 = r
-    #   if (r < threshold & r > rog&nrow(data_site_subset_fin)>=min.points){
-    #     data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-    #     fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
-    #     u = fit$coefficients
-    #     b = u[[1]] #Intercept
-    #     c = u[[2]] #rate mg/L min
-    #     r = summary(fit)$r.squared
-    #     r.adj = summary(fit)$adj.r.squared
-    #     p = summary(fit)$coefficients[4]
-    #     r3 = r
-    #   }
-    #   if (r < threshold&r > r2&nrow(data_site_subset_fin)>=min.points){
-    #     data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-    #     fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
-    #     u = fit$coefficients
-    #     b = u[[1]] #Intercept
-    #     c = u[[2]] #rate mg/L min
-    #     r = summary(fit)$r.squared
-    #     r.adj = summary(fit)$adj.r.squared
-    #     p = summary(fit)$coefficients[4]
-    #   }
-    # }
-
-
+    
+    
     
     my.formula <- y ~ x
     final <- ggplot(data_site_subset_fin, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
@@ -270,7 +274,7 @@ for (i in 1:length(location)){
       theme(axis.title.x =element_text(size = 12,face="bold"))+
       theme(axis.title =element_text(size = 12,face="bold"))+
       theme(axis.title.y =element_text(size = 12,face="bold"))
-    
+
     high_rem <- ggplot(data_site_subset_low, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
       geom_smooth(method = "lm", se=F, formula = my.formula) +
       stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_low, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
@@ -284,7 +288,7 @@ for (i in 1:length(location)){
       theme(axis.title.x =element_text(size = 12,face="bold"))+
       theme(axis.title =element_text(size = 12,face="bold"))+
       theme(axis.title.y =element_text(size = 12,face="bold"))
-    
+
     beg_rem <- ggplot(data_site_subset_beg, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
       geom_smooth(method = "lm", se=F, formula = my.formula) +
       stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_beg, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
@@ -298,7 +302,7 @@ for (i in 1:length(location)){
       theme(axis.title.x =element_text(size = 12,face="bold"))+
       theme(axis.title =element_text(size = 12,face="bold"))+
       theme(axis.title.y =element_text(size = 12,face="bold"))
-    
+
     all <- ggplot(data_site_subset, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
       geom_smooth(method = "lm", se=F, formula = my.formula) +
       stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
@@ -312,11 +316,10 @@ for (i in 1:length(location)){
       theme(axis.title.x =element_text(size = 12,face="bold"))+
       theme(axis.title =element_text(size = 12,face="bold"))+
       theme(axis.title.y =element_text(size = 12,face="bold"))
-    
-    # multi <- (final + high_rem + beg_rem + all) +
-    #  plot_layout(widths = c(2,2))
-    # ggsave(file=paste0(path,"Plots/combined_figures_pts_removed/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
-    # ggsave(file=paste0(path,"Plots/optimized rates/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],"on",Sys.Date(),".pdf"))
+
+    multi <- (final + high_rem + beg_rem + all) +
+     plot_layout(widths = c(2,2))
+    ggsave(file=paste0(path,"Plots/combined_figures_pts_removed/20230202_Plots/inc_R2/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
     
     rate$Sample_ID[j] = as.character(data_site_subset_fin$Sample_ID[1])
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
@@ -345,4 +348,4 @@ respiration = respiration %>%
   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
   mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
 
-write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),"_pts_rem.csv"), row.names = F)
