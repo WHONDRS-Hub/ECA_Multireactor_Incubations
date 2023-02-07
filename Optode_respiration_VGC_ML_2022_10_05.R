@@ -45,20 +45,23 @@ import_data = function(path){
     # then add a new column `source` to denote the file name
     df <- read.csv(path, skip = 4)
     df[["source_file"]] <- rep(path, nrow(df)) # add a column for the source file
-    
-    df %>% 
-      # since all rows are in 2-min increments, just multiply the row number by 2
-      tibble::rownames_to_column() %>% 
-      mutate(elapsed_min = as.numeric(rowname) * 2) %>% 
-      dplyr::select(-rowname) %>% 
+
+    df %>%
+      na.omit () %>% 
+      as_tibble(row.names = 1:nrow(df)) %>% 
+        # since all rows are in 2-min increments, just multiply the row number by 2
+       tibble::rownames_to_column() %>%
+       mutate(elapsed_min = as.numeric(rowname)*2) %>%
+       dplyr::select(-rowname) %>% 
       # make longer, so all the data are in a single column
-      pivot_longer(-c(elapsed_min, source_file), names_to = "disc_number", values_to = "DO_mg_L", values_transform = as.numeric) %>% 
+      pivot_longer(-c(elapsed_min,source_file), names_to = "disc_number", values_to = "DO_mg_L", values_transform = as.numeric) %>% 
       # remove unnecessary strings from the source_file name
       mutate(source_file = str_remove_all(source_file, paste0(path, "/")))
   }
   ))
 }
 data = import_data(path)
+
 
 data_long = 
   data %>% 
