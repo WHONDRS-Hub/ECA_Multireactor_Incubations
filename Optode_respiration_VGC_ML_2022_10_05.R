@@ -24,15 +24,17 @@ path <- ("rates/")
 
 fast.sat <- paste0("C:/Users/", pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/fast_rate_calculations.xlsx")
 
-##what threshold for bad first point?
+##what threshold for bad low point?
 
 fast.rates <- read_excel(fast.sat)  
   
 #kits that go to 0 quickly - 23W, 23D, 27W, 40W, 32D2, 32D4, 12W, 11W,  34W, 35W, 35D1245, 69W
 
 fast.rates.kits <- fast.rates %>% 
-  rename("DO_mg_L" = "DO_sat_mg_L") %>% 
-  filter(grepl("EC_11_INC-W|EC_12_INC-W|EC_23_INC|EC_27_INC-W|EC_32_INC-W|EC_32_INC-D2|EC_32_INC-D4|EC_34_INC-W|EC_35_INC-W|EC_35_INC-D1|EC_35_INC-D2|EC_35_INC-D4|EC_35_INC-D5|EC_40_INC-W|EC_51_INC-W", Sample_ID))
+  rename("DO_mg_L" = "DO_sat_mg_L") 
+
+# %>% 
+#   filter(grepl("EC_11_INC-W|EC_12_INC-W|EC_23_INC|EC_27_INC-W|EC_32_INC-W|EC_32_INC-D2|EC_32_INC-D4|EC_34_INC-W|EC_35_INC-W|EC_35_INC-D1|EC_35_INC-D2|EC_35_INC-D4|EC_35_INC-D5|EC_40_INC-W|EC_51_INC-W", Sample_ID))
 
 #read in respiration data and clean
 import_data = function(path){
@@ -77,6 +79,8 @@ data_long =
   separate(col = source_file, into = c("fol1", "fol2", "fol3","fol4", "source_file"), sep = "/") %>% 
   dplyr::select(-fol1, -fol2, -fol3,-fol4)
 
+
+##take out samples incubated in jars
 vials <- data_long %>% 
   filter(source_file != "results _03a") %>% 
   filter(source_file != "results_03b") %>% 
@@ -117,10 +121,11 @@ all.map = all.map %>%
 
 all.samples <- merge(vials, all.map)
 
+#fill in samples, remove last two columns for cleaner data frame
+
 bind <- merge(all.samples, fast.rates.kits, all = TRUE) %>% 
   dplyr::select(-`calibration date`) 
 
-#fill in samples, remove last two columns for cleaner data frame
 
 #generate another dataset (w/ time, DO) with everything that has been removed: high, low (median), at the end, then can plot everything on top of each other with different colors to see what has been removed
 
@@ -128,9 +133,10 @@ bind <- merge(all.samples, fast.rates.kits, all = TRUE) %>%
 
 min.points = 2
 threshold = 0.99
-res.threshold = 0.01
+res.threshold = 0.25
 slope.thresh = 0
 do.thresh = 0.5
+fast = 5
 ymax = max(na.omit(bind$DO_mg_L))
 ymin = min(na.omit(bind$DO_mg_L))
 
@@ -147,7 +153,6 @@ colnames(rate) = c("Sample_ID", "slope_of_the_regression", "rate_mg_per_L_per_mi
 
 #bad kits, fix later
 bind <- bind %>% 
-  filter(Sample_ID != "EC_27_INC-W5") %>% 
   filter(Sample_ID != "EC_27_INC-D1") %>% 
   filter(Sample_ID != "EC_14_INC-W5") %>% 
   filter(Sample_ID != "EC_13_INC-W5") %>% 
@@ -158,6 +163,7 @@ bind <- bind %>%
   filter(!(elapsed_min <= 2 & Sample_ID == "EC_05_INC-D5")) %>% 
   filter(!(elapsed_min <= 2 & Sample_ID == "EC_32_INC-D3")) %>% 
   filter(!(elapsed_min <= 2 & Sample_ID == "EC_56_INC-W3")) %>% 
+  filter(!(elapsed_min > 24 & Sample_ID == "EC_11_INC-D2")) %>% 
   filter(Sample_ID != "EC_72_INC-W5") %>% 
   filter(Sample_ID != "EC_72_INC-D5")
   
@@ -193,13 +199,30 @@ for (i in 1:length(location)){
       else if (data_site_subset_beg$DO_mg_L[k] >= median(data_site_subset_beg$DO_mg_L)){
         #break()
         data_site_subset_beg = data_site_subset_beg
-        #ask James if we want to assume that if the first point is fine, no other points need to be checked
-        
+      
       }
       
     }
     
-    ##remove samples if at >4 minutes, they are below the DO threshold. This is trying to remove low values from the back end of curves
+    data_site_subset_fast = data_site_subset_beg
+    
+  #remove saturation point from kits that didn't go to 0 quickly  
+  for(m in 1:2){
+    
+    if (data_site_subset_fast$DO_mg_L[m] <= fast & data_site_subset_fast$elapsed_min[m] == 2){
+      
+      data_site_subset_fast = data_site_subset_fast
+    
+      } 
+    
+    else if (data_site_subset_fast$DO_mg_L[m] >= fast & data_site_subset_fast$elapsed_min[m] == 2){
+      
+      data_site_subset_fast = data_site_subset_fast[-m,]
+        
+    }
+    }
+    
+     ##remove samples if at >4 minutes, they are below the DO threshold. This is trying to remove low values from the back end of curves
     
     data_site_subset_thresh = data_site_subset_beg  %>% 
       filter(!(elapsed_min > 4 & DO_mg_L < do.thresh))
@@ -222,26 +245,55 @@ for (i in 1:length(location)){
     rtemp = summary(fit.temp)$r.squared
     restemp = deviance(fit.temp)
     
-    #points being removed without r2 increasing with removal
-    # for(l in 1:60){
-    # 
-    #   if (r < threshold & nrow(data_site_subset_fin)>=min.points){
-    # 
-    #     data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-    # 
-    #     fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
-    #     u = fit$coefficients
-    #     b = u[[1]] #Intercept
-    #     c = u[[2]] #rate mg/L min
-    #     r = summary(fit)$r.squared
-    #     r.adj = summary(fit)$adj.r.squared
-    #     p = summary(fit)$coefficients[4]
-    #     r2 = r
-    #   }
-    # }
-    
-    
+#     iterate = as.data.frame(matrix(NA, ncol = 8, nrow = length(data_site_subset_beg)))
+#     
+#     colnames(iterate) = c("Sample_ID", "slope_of_the_regression", "rate_mg_per_L_per_min", "R_squared", "R_squared_adj","residuals", "p_value", "points removed")
+#     
+#     iterate <- iterate[-c(1:4), ]
+#     
+#    
+# for(l in 1:(nrow(data_site_subset_fin)-2)){
+#   
+#   data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),] 
+#   
+#    fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+#   u = fit$coefficients
+#   Sample_ID = as.character(data_site_subset_fin$Sample_ID[1])
+#   slope_of_the_regression = u[[1]]
+#   rate_mg_per_L_per_min = u[[2]]
+#   R_squared = summary(fit)$r.squared
+#   residuals = deviance(fit)
+#   R_squared_adj = summary(fit)$adj.r.squared
+#   p_value = summary(fit)$coefficients[4]
+#   `points removed` = as.numeric(nrow(data_site_subset_beg)-as.numeric(nrow(data_site_subset_fin)))
+#   
+#   output = c(Sample_ID, slope_of_the_regression, rate_mg_per_L_per_min, R_squared, residuals, R_squared_adj, p_value, `points removed`)
+#   
+#   iterate = rbind(iterate, output)
+# 
+#   }
+   
+     #points being removed without r2 increasing with removal
+    for(l in 1:60){
 
+      if (residuals < res.threshold & nrow(data_site_subset_fin)>=min.points){
+
+        data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
+
+        fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+        u = fit$coefficients
+        b = u[[1]] #Intercept
+        c = u[[2]] #rate mg/L min
+        r = summary(fit)$r.squared
+        r.adj = summary(fit)$adj.r.squared
+        residuals = deviance(fit)
+        p = summary(fit)$coefficients[4]
+        r2 = r
+        res2 = residuals
+      }
+    }
+    
+    
     #points being removed with increase in r2 after removal
      # if (((r < threshold & rtemp >= rog) | (residuals > res.threshold & restemp <= residuals)) & nrow(data_site_subset_fin) >= min.points){
      # 
@@ -285,67 +337,67 @@ for (i in 1:length(location)){
     
  
     
-    # my.formula <- y ~ x
-    # final <- ggplot(data_site_subset_fin, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
-    #   geom_smooth(method = "lm", se=F, formula = my.formula) +
-    #   stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_fin, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("          p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
-    #   theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
-    #   labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
-    #   ggtitle("Final " ,data_site_subset_fin$Sample_ID[1]) +
-    #   theme(plot.title = element_text(lineheight=.8, face="bold"))+
-    #   theme(axis.text.x=element_text(colour = c("black","black")))+
-    #   theme(aspect.ratio=1)+
-    #   theme(axis.text.y=element_text(size = 12,face="bold"))+
-    #   theme(axis.title.x =element_text(size = 12,face="bold"))+
-    #   theme(axis.title =element_text(size = 12,face="bold"))+
-    #   theme(axis.title.y =element_text(size = 12,face="bold"))
-    # 
-    # high_rem <- ggplot(data_site_subset_low, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
-    #   geom_smooth(method = "lm", se=F, formula = my.formula) +
-    #   stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_low, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
-    #   theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
-    #   labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
-    #   ggtitle("High Points Removed " ,data_site_subset_low$Sample_ID[1]) +
-    #   theme(plot.title = element_text(lineheight=.8, face="bold"))+
-    #   theme(axis.text.x=element_text(colour = c("black","black")))+
-    #   theme(aspect.ratio=1)+
-    #   theme(axis.text.y=element_text(size = 12,face="bold"))+
-    #   theme(axis.title.x =element_text(size = 12,face="bold"))+
-    #   theme(axis.title =element_text(size = 12,face="bold"))+
-    #   theme(axis.title.y =element_text(size = 12,face="bold"))
-    # 
-    # beg_rem <- ggplot(data_site_subset_beg, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
-    #   geom_smooth(method = "lm", se=F, formula = my.formula) +
-    #   stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_beg, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
-    #   theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
-    #   labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
-    #   ggtitle("Beginning Points Removed ", data_site_subset_beg$Sample_ID[1]) +
-    #   theme(plot.title = element_text(lineheight=.8, face="bold"))+
-    #   theme(axis.text.x=element_text(colour = c("black","black")))+
-    #   theme(aspect.ratio=1)+
-    #   theme(axis.text.y=element_text(size = 12,face="bold"))+
-    #   theme(axis.title.x =element_text(size = 12,face="bold"))+
-    #   theme(axis.title =element_text(size = 12,face="bold"))+
-    #   theme(axis.title.y =element_text(size = 12,face="bold"))
-    # 
-    # all <- ggplot(data_site_subset, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
-    #   geom_smooth(method = "lm", se=F, formula = my.formula) +
-    #   stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
-    #   theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
-    #   labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
-    #   ggtitle("No Points Removed " ,data_site_subset$Sample_ID[1]) +
-    #   theme(plot.title = element_text(lineheight=.8, face="bold"))+
-    #   theme(axis.text.x=element_text(colour = c("black","black")))+
-    #   theme(aspect.ratio=1)+
-    #   theme(axis.text.y=element_text(size = 12,face="bold"))+
-    #   theme(axis.title.x =element_text(size = 12,face="bold"))+
-    #   theme(axis.title =element_text(size = 12,face="bold"))+
-    #   theme(axis.title.y =element_text(size = 12,face="bold"))
-    # 
-    # multi <- (final + high_rem + beg_rem + all) +
-    #  plot_layout(widths = c(2,2))
-    #ggsave(file=paste0(path,"Plots/combined_figures_pts_removed/20230217_Plots/inc_R2/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
-    
+    my.formula <- y ~ x
+     final <- ggplot(data_site_subset_fin, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
+      geom_smooth(method = "lm", se=F, formula = my.formula) +
+      stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_fin, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("          p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+      theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
+      labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
+      ggtitle("Final " ,data_site_subset_fin$Sample_ID[1]) +
+      theme(plot.title = element_text(lineheight=.8, face="bold"))+
+      theme(axis.text.x=element_text(colour = c("black","black")))+
+      theme(aspect.ratio=1)+
+      theme(axis.text.y=element_text(size = 12,face="bold"))+
+      theme(axis.title.x =element_text(size = 12,face="bold"))+
+      theme(axis.title =element_text(size = 12,face="bold"))+
+      theme(axis.title.y =element_text(size = 12,face="bold"))
+
+    high_rem <- ggplot(data_site_subset_low, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
+      geom_smooth(method = "lm", se=F, formula = my.formula) +
+      stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_low, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+      theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
+      labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
+      ggtitle("High Points Removed " ,data_site_subset_low$Sample_ID[1]) +
+      theme(plot.title = element_text(lineheight=.8, face="bold"))+
+      theme(axis.text.x=element_text(colour = c("black","black")))+
+      theme(aspect.ratio=1)+
+      theme(axis.text.y=element_text(size = 12,face="bold"))+
+      theme(axis.title.x =element_text(size = 12,face="bold"))+
+      theme(axis.title =element_text(size = 12,face="bold"))+
+      theme(axis.title.y =element_text(size = 12,face="bold"))
+
+    beg_rem <- ggplot(data_site_subset_beg, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
+      geom_smooth(method = "lm", se=F, formula = my.formula) +
+      stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_beg, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+      theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
+      labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
+      ggtitle("Beginning Points Removed ", data_site_subset_beg$Sample_ID[1]) +
+      theme(plot.title = element_text(lineheight=.8, face="bold"))+
+      theme(axis.text.x=element_text(colour = c("black","black")))+
+      theme(aspect.ratio=1)+
+      theme(axis.text.y=element_text(size = 12,face="bold"))+
+      theme(axis.title.x =element_text(size = 12,face="bold"))+
+      theme(axis.title =element_text(size = 12,face="bold"))+
+      theme(axis.title.y =element_text(size = 12,face="bold"))
+
+    all <- ggplot(data_site_subset, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
+      geom_smooth(method = "lm", se=F, formula = my.formula) +
+      stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+      theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
+      labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
+      ggtitle("No Points Removed " ,data_site_subset$Sample_ID[1]) +
+      theme(plot.title = element_text(lineheight=.8, face="bold"))+
+      theme(axis.text.x=element_text(colour = c("black","black")))+
+      theme(aspect.ratio=1)+
+      theme(axis.text.y=element_text(size = 12,face="bold"))+
+      theme(axis.title.x =element_text(size = 12,face="bold"))+
+      theme(axis.title =element_text(size = 12,face="bold"))+
+      theme(axis.title.y =element_text(size = 12,face="bold"))
+
+    multi <- (final + high_rem + beg_rem + all) +
+     plot_layout(widths = c(2,2))
+    ggsave(file=paste0(path,"Plots/combined_figures_pts_removed/20230221_Plots/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
+
     rate$Sample_ID[j] = as.character(data_site_subset_fin$Sample_ID[1])
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
     rate$rate_mg_per_L_per_min[j] = round(abs(as.numeric((c))),3) #in mg O2/L min
@@ -374,4 +426,4 @@ respiration = respiration %>%
   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
   mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
 
-write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),"_pts_rem.csv"), row.names = F)
+write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),"_pts_rem_res.csv"), row.names = F)
