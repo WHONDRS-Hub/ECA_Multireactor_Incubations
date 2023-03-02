@@ -321,4 +321,4 @@ dev.off()
 
 #write effect size results to csv
 
-write.csv(slope.means, paste0(input.path,"Effect_Size_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+write.csv(slope.means, paste0(input.path,"rates/Effect_Size_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
