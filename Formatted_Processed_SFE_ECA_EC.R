@@ -65,6 +65,13 @@ data_formatted =
   filter(tray_number != "6") 
  
 
+data_flag <- data_formatted %>%
+  separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_") %>% 
+  separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-") %>% 
+  separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)") %>% 
+  group_by(kit, Replicate) %>% 
+  summarise(CV = ((sd(absorbance_562)/mean(absorbance_562))*100))
+  
 #### Formatted absorbance data ####
 write.csv(data_formatted,"02_FormattedData/20230110_Data_Formatted_SFE_ECA_EC_1-270/20230110_Data_Formatted_SFE_ECA_EC_1-270.csv", row.names = F)
   

@@ -99,7 +99,7 @@ import_data = function(input.path){
   
   map.file <-  list.files(input.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
   
-  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|salinity", map.file)]
+  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC", map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
   
@@ -139,6 +139,7 @@ do.thresh = 0.5
 fast = 5
 ymax = max(na.omit(bind$DO_mg_L))
 ymin = min(na.omit(bind$DO_mg_L))
+bpfit = 0.1
 
 respiration <- as.data.frame(matrix(NA, ncol = 13, nrow =1))
 
@@ -209,22 +210,22 @@ for (i in 1:length(location)){
   #remove saturation point from kits that didn't go to 0 quickly  
   for(m in 1:2){
     
-    if (data_site_subset_fast$DO_mg_L[m] <= fast & data_site_subset_fast$elapsed_min[m] == 2){
+    if (data_site_subset_fast$DO_mg_L[2] <= fast & data_site_subset_fast$elapsed_min[2] == 2){
       
       data_site_subset_fast = data_site_subset_fast
     
       } 
     
-    else if (data_site_subset_fast$DO_mg_L[m] >= fast & data_site_subset_fast$elapsed_min[m] == 2){
+    else if (data_site_subset_fast$DO_mg_L[2] >= fast & data_site_subset_fast$elapsed_min[2] == 2){
       
-      data_site_subset_fast = data_site_subset_fast[-m,]
+      data_site_subset_fast = data_site_subset_fast[-1,]
         
     }
     }
     
      ##remove samples if at >4 minutes, they are below the DO threshold. This is trying to remove low values from the back end of curves
     
-    data_site_subset_thresh = data_site_subset_beg  %>% 
+    data_site_subset_thresh = data_site_subset_fast  %>% 
       filter(!(elapsed_min > 4 & DO_mg_L < do.thresh))
     
     data_site_subset_fin = data_site_subset_thresh
@@ -239,11 +240,13 @@ for (i in 1:length(location)){
     p = summary(fit)$coefficients[4]
     rog = r
     resog = residuals
+    bp = bptest(fit)[[4]]
     
     temp = data_site_subset_fin[-nrow(data_site_subset_fin),]
     fit.temp = lm(temp$DO_mg_L~temp$elapsed_min)
     rtemp = summary(fit.temp)$r.squared
     restemp = deviance(fit.temp)
+    bptemp = bptest(fit.temp)[[4]]
     
 #     iterate = as.data.frame(matrix(NA, ncol = 8, nrow = length(data_site_subset_beg)))
 #     
@@ -276,7 +279,7 @@ for (i in 1:length(location)){
      #points being removed without r2 increasing with removal
     for(l in 1:60){
 
-      if (residuals < res.threshold & nrow(data_site_subset_fin)>=min.points){
+      if (bp < bpfit & nrow(data_site_subset_fin)>=min.points){
 
         data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
 
@@ -290,6 +293,7 @@ for (i in 1:length(location)){
         p = summary(fit)$coefficients[4]
         r2 = r
         res2 = residuals
+        bp = bptest(fit)[[4]]
       }
     }
     
@@ -396,7 +400,7 @@ for (i in 1:length(location)){
 
     multi <- (final + high_rem + beg_rem + all) +
      plot_layout(widths = c(2,2))
-    ggsave(file=paste0(path,"Plots/combined_figures_pts_removed/20230221_Plots/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
+    ggsave(file=paste0(path,"Plots/breusch_test_fits/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
 
     rate$Sample_ID[j] = as.character(data_site_subset_fin$Sample_ID[1])
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
