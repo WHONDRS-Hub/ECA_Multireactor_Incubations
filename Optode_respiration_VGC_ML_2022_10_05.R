@@ -2,7 +2,7 @@
 
 library(dplyr); library(ggplot2);library(ggsignif)
 library(ggpubr);library(reshape2);library(ggpmisc)
-library(segmented);library(broom)
+library(segmented);library(broom);library(lmtest)
 library(ggpmisc);library(segmented);library(lubridate); library(readxl);
 library(tidyverse);library(patchwork)
 
@@ -226,7 +226,7 @@ for (i in 1:length(location)){
      ##remove samples if at >4 minutes, they are below the DO threshold. This is trying to remove low values from the back end of curves
     
     data_site_subset_thresh = data_site_subset_fast  %>% 
-      filter(!(elapsed_min > 4 & DO_mg_L < do.thresh))
+      filter(!(elapsed_min > 6 & DO_mg_L < do.thresh))
     
     data_site_subset_fin = data_site_subset_thresh
     
@@ -278,8 +278,14 @@ for (i in 1:length(location)){
    
      #points being removed without r2 increasing with removal
     for(l in 1:60){
+      
+      if (nrow(data_site_subset_fin)<= min.points){
+        
+        data_site_subset_fin = data_site_subset_fin
+        
+      }
 
-      if (bp < bpfit & nrow(data_site_subset_fin)>=min.points){
+      else if (bp < bpfit & nrow(data_site_subset_fin)>=min.points){
 
         data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
 
@@ -295,6 +301,7 @@ for (i in 1:length(location)){
         res2 = residuals
         bp = bptest(fit)[[4]]
       }
+      
     }
     
     
