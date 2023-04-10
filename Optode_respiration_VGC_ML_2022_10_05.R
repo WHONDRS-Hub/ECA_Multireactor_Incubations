@@ -171,10 +171,6 @@ rate = as.data.frame(matrix(NA, ncol = 16, nrow = length(unique(bind$Sample_ID))
 colnames(rate) = c("Sample_ID","slope_beginning", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h","Initial_R_squared", "Final_R_squared", "R_squared_adj","residuals", "initial_p_value", "final_p_value", "total_incubation_time_min", "breusch_p_value","flag_r2", "flag_pos_slope", "flag_heteroscedastic")
 
 
-
-
-  
-
 for (i in 1:length(location)){
   
   data_location_subset = bind[grep(location[i],bind$Sample_ID),]
@@ -434,9 +430,9 @@ for (i in 1:length(location)){
       theme(axis.title =element_text(size = 12,face="bold"))+
       theme(axis.title.y =element_text(size = 12,face="bold"))
 
-    multi <- (final + high_rem + beg_rem + all) +
-     plot_layout(widths = c(2,2))
-    ggsave(file=paste0(path,"Plots/breusch_test_fits/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
+    #multi <- (final + high_rem + beg_rem + all) +
+    # plot_layout(widths = c(2,2))
+    #ggsave(file=paste0(path,"Plots/breusch_test_fits/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
 
     rate$Sample_ID[j] = as.character(data_site_subset_fin$Sample_ID[1])
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
@@ -487,3 +483,6 @@ respiration = respiration[-1,]
 #   mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
 
 write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),"_breusch.csv"), row.names = F)
+
+
+
