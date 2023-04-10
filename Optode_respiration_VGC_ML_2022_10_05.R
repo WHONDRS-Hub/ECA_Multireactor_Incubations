@@ -127,6 +127,20 @@ bind <- merge(all.samples, fast.rates.kits, all = TRUE) %>%
   dplyr::select(-`calibration date`) 
 
 
+
+#14 kit - W1 second low point not being removed in script currently
+#32 kit - low first point, might be partially fixed with heteroscedasticity
+
+bind <- bind %>% 
+  filter(Sample_ID != "EC_13_INC-W5") %>% 
+  filter(Sample_ID != "EC_13_INC-D4") %>% 
+  filter(!(elapsed_min < 8 & Sample_ID == "EC_14_INC-W1")) %>%
+  filter(Sample_ID != "EC_14_INC-W5") %>% 
+  filter(Sample_ID != "EC_27_INC-D1") %>%
+  filter(Sample_ID != "EC_27_INC-D2") %>% 
+  filter(!(elapsed_min <= 2 & Sample_ID == "EC_32_INC-D3")) 
+
+
 #generate another dataset (w/ time, DO) with everything that has been removed: high, low (median), at the end, then can plot everything on top of each other with different colors to see what has been removed
 
 #still need to have it populate into respiration how many points that it removed
@@ -134,39 +148,31 @@ bind <- merge(all.samples, fast.rates.kits, all = TRUE) %>%
 min.points = 2
 threshold = 0.99
 res.threshold = 0.25
-slope.thresh = 0
-do.thresh = 0.5
+slope.thresh = -0.006
+do.thresh = 0.75
+time.thresh = 2
 fast = 5
 ymax = max(na.omit(bind$DO_mg_L))
 ymin = min(na.omit(bind$DO_mg_L))
 bpfit = 0.1
+high.do = 14
+p.value = 0.05
+mean.conc = 7.5
 
-respiration <- as.data.frame(matrix(NA, ncol = 13, nrow =1))
 
-colnames(respiration) = c("Sample_ID", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h", "R_squared", "R_squared_adj","residuals", "p_value", "total_incubation_time_min", "number_of_points", "removed_points_high", "removed_points_beg", "removed_points_end")
+respiration <- as.data.frame(matrix(NA, ncol = 20, nrow =1))
+
+colnames(respiration) = c("Sample_ID","slope_beginning", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h","Initial_R_squared", "Final_R_squared", "R_squared_adj","residuals","initial_p_value", "final_p_value", "total_incubation_time_min", "number_of_points", "removed_points_high", "removed_points_beg", "removed_points_end", "breusch_p_value","flag_r2", "flag_pos_slope", "flag_heteroscedastic")
 
 location = c("-W1", "-W2", "-W3", "-W4", "-W5", "-D1", "-D2", "-D3", "-D4", "-D5")
 
-rate = as.data.frame(matrix(NA, ncol = 9, nrow = length(unique(bind$Sample_ID))))
+rate = as.data.frame(matrix(NA, ncol = 16, nrow = length(unique(bind$Sample_ID))))
 
-colnames(rate) = c("Sample_ID", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h", "R_squared", "R_squared_adj","residuals", "p_value", "total_incubation_time_min")
+colnames(rate) = c("Sample_ID","slope_beginning", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h","Initial_R_squared", "Final_R_squared", "R_squared_adj","residuals", "initial_p_value", "final_p_value", "total_incubation_time_min", "breusch_p_value","flag_r2", "flag_pos_slope", "flag_heteroscedastic")
 
 
-#bad kits, fix later
-bind <- bind %>% 
-  filter(Sample_ID != "EC_27_INC-D1") %>% 
-  filter(Sample_ID != "EC_14_INC-W5") %>% 
-  filter(Sample_ID != "EC_13_INC-W5") %>% 
-  filter(Sample_ID != "EC_13_INC-D4") %>% 
-  filter(Sample_ID != "EC_27_INC-D2") %>% 
-  filter(!(elapsed_min < 8 & Sample_ID == "EC_14_INC-W1")) %>% 
-  filter(!(elapsed_min <= 2 & Sample_ID == "EC_05_INC-D4")) %>% 
-  filter(!(elapsed_min <= 2 & Sample_ID == "EC_05_INC-D5")) %>% 
-  filter(!(elapsed_min <= 2 & Sample_ID == "EC_32_INC-D3")) %>% 
-  filter(!(elapsed_min <= 2 & Sample_ID == "EC_56_INC-W3")) %>% 
-  filter(!(elapsed_min > 24 & Sample_ID == "EC_11_INC-D2")) %>% 
-  filter(Sample_ID != "EC_72_INC-W5") %>% 
-  filter(Sample_ID != "EC_72_INC-D5")
+
+
   
 
 for (i in 1:length(location)){
@@ -175,9 +181,10 @@ for (i in 1:length(location)){
   
   unique.incubations = unique(data_location_subset$Sample_ID)
   
-  rate = as.data.frame(matrix(NA, ncol = 9, nrow = length(unique(bind$Sample_ID))))
+  rate = as.data.frame(matrix(NA, ncol = 16, nrow = length(unique(bind$Sample_ID))))
   
-  colnames(rate) = c("Sample_ID", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h", "R_squared", "R_squared_adj","residuals", "p_value", "total_incubation_time_min")
+  colnames(rate) = c("Sample_ID","slope_beginning", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h","Initial_R_squared", "Final_R_squared", "R_squared_adj","residuals", "initial_p_value", "final_p_value", "total_incubation_time_min", "breusch_p_value","flag_r2", "flag_pos_slope", "flag_heteroscedastic")
+  
   
   for (j in 1:length(unique.incubations)){
     
@@ -185,10 +192,38 @@ for (i in 1:length(location)){
     data_site_subset = data_site_subset[order(data_site_subset$elapsed_min, decreasing = FALSE),]
     data_site_subset$elapsed_min = as.numeric(data_site_subset$elapsed_min)
     
-    data_site_subset_low = data_site_subset %>% 
-      filter(DO_mg_L < 14) 
+    
+    fit_all = lm(data_site_subset$DO_mg_L~data_site_subset$elapsed_min)
+   
+    #remove saturation point from kits that didn't go to 0 quickly  
+    
+    data_site_subset_fast = data_site_subset
+    
+    for(m in 1:2){
+      
+      if (data_site_subset_fast$DO_mg_L[2] <= fast & data_site_subset_fast$elapsed_min[2] == time.thresh){
+        
+        data_site_subset_fast = data_site_subset_fast
+        
+      } 
+      
+      else if (data_site_subset_fast$DO_mg_L[2] >= fast & data_site_subset_fast$elapsed_min[2] == time.thresh){
+        
+        data_site_subset_fast = data_site_subset_fast[-1,]
+        
+      }
+    }
+    
+    #remove points greater than 14 mg/L
+    
+    data_site_subset_low = data_site_subset_fast %>% 
+      filter(DO_mg_L < high.do) 
+    
+    fit_low = lm(data_site_subset_low$DO_mg_L~data_site_subset_low$elapsed_min)
     
     data_site_subset_beg = data_site_subset_low
+    
+    #remove points < median at beginning
     
     for (k in 1:3) {
       
@@ -205,28 +240,12 @@ for (i in 1:length(location)){
       
     }
     
-    data_site_subset_fast = data_site_subset_beg
-    
-  #remove saturation point from kits that didn't go to 0 quickly  
-  for(m in 1:2){
-    
-    if (data_site_subset_fast$DO_mg_L[2] <= fast & data_site_subset_fast$elapsed_min[2] == 2){
-      
-      data_site_subset_fast = data_site_subset_fast
-    
-      } 
-    
-    else if (data_site_subset_fast$DO_mg_L[2] >= fast & data_site_subset_fast$elapsed_min[2] == 2){
-      
-      data_site_subset_fast = data_site_subset_fast[-1,]
-        
-    }
-    }
+    fitog = lm(data_site_subset_beg$DO_mg_L~data_site_subset_beg$elapsed_min)
     
      ##remove samples if at >4 minutes, they are below the DO threshold. This is trying to remove low values from the back end of curves
     
-    data_site_subset_thresh = data_site_subset_fast  %>% 
-      filter(!(elapsed_min > 6 & DO_mg_L < do.thresh))
+    data_site_subset_thresh = data_site_subset_beg %>% 
+      filter(!(elapsed_min > time.thresh & DO_mg_L < do.thresh))
     
     data_site_subset_fin = data_site_subset_thresh
     
@@ -234,13 +253,16 @@ for (i in 1:length(location)){
     u = fit$coefficients
     b = u[[1]]
     c = u[[2]]
+    slope_beginning = c
     r = summary(fit)$r.squared
     residuals = deviance(fit)
     r.adj = summary(fit)$adj.r.squared
     p = summary(fit)$coefficients[4]
+    pog = p
     rog = r
     resog = residuals
     bp = bptest(fit)[[4]]
+    bpog = bptest(fit)[[4]]
     
     temp = data_site_subset_fin[-nrow(data_site_subset_fin),]
     fit.temp = lm(temp$DO_mg_L~temp$elapsed_min)
@@ -248,43 +270,23 @@ for (i in 1:length(location)){
     restemp = deviance(fit.temp)
     bptemp = bptest(fit.temp)[[4]]
     
-#     iterate = as.data.frame(matrix(NA, ncol = 8, nrow = length(data_site_subset_beg)))
-#     
-#     colnames(iterate) = c("Sample_ID", "slope_of_the_regression", "rate_mg_per_L_per_min", "R_squared", "R_squared_adj","residuals", "p_value", "points removed")
-#     
-#     iterate <- iterate[-c(1:4), ]
-#     
-#    
-# for(l in 1:(nrow(data_site_subset_fin)-2)){
-#   
-#   data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),] 
-#   
-#    fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
-#   u = fit$coefficients
-#   Sample_ID = as.character(data_site_subset_fin$Sample_ID[1])
-#   slope_of_the_regression = u[[1]]
-#   rate_mg_per_L_per_min = u[[2]]
-#   R_squared = summary(fit)$r.squared
-#   residuals = deviance(fit)
-#   R_squared_adj = summary(fit)$adj.r.squared
-#   p_value = summary(fit)$coefficients[4]
-#   `points removed` = as.numeric(nrow(data_site_subset_beg)-as.numeric(nrow(data_site_subset_fin)))
-#   
-#   output = c(Sample_ID, slope_of_the_regression, rate_mg_per_L_per_min, R_squared, residuals, R_squared_adj, p_value, `points removed`)
-#   
-#   iterate = rbind(iterate, output)
-# 
-#   }
-   
-     #points being removed without r2 increasing with removal
-    for(l in 1:60){
+
+    if (slope_beginning >= slope.thresh | all(data_site_subset_fin$DO_mg_L >= mean.conc)) {
+      
+      data_site_subset_fin = data_site_subset_fin
+      
+    }
+    
+    else {
+     
+      for(l in 1:60){
       
       if (nrow(data_site_subset_fin)<= min.points){
         
         data_site_subset_fin = data_site_subset_fin
         
       }
-
+      
       else if (bp < bpfit & nrow(data_site_subset_fin)>=min.points){
 
         data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
@@ -300,10 +302,21 @@ for (i in 1:length(location)){
         r2 = r
         res2 = residuals
         bp = bptest(fit)[[4]]
+        
+      }
+      
+      }
+      
+      if (slope_beginning < 0 & c > 0){
+        
+        data_site_subset_fin = data_site_subset_thresh
+        
       }
       
     }
-    
+   
+      
+
     
     #points being removed with increase in r2 after removal
      # if (((r < threshold & rtemp >= rog) | (residuals > res.threshold & restemp <= residuals)) & nrow(data_site_subset_fin) >= min.points){
@@ -346,12 +359,16 @@ for (i in 1:length(location)){
      #  }
      # }
     
- 
-    
-    my.formula <- y ~ x
+  my.format <- "Slope: %s\nR2: %s\np: %s"  
+  my.formula <- y ~ x
      final <- ggplot(data_site_subset_fin, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
       geom_smooth(method = "lm", se=F, formula = my.formula) +
-      stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_fin, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("          p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+      geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
+      label = paste("R2 = ", signif(summary(fit)$r.squared, 3),
+                 "\nP = ", signif(summary(fit)$coefficients[[4]], 3),
+                 "\nSlope = ", signif(fit$coefficients[[2]], 3)))+
+      #geom_text(size = 10)+
+      #stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_fin, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("          p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
       theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
       labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
       ggtitle("Final " ,data_site_subset_fin$Sample_ID[1]) +
@@ -365,7 +382,11 @@ for (i in 1:length(location)){
 
     high_rem <- ggplot(data_site_subset_low, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
       geom_smooth(method = "lm", se=F, formula = my.formula) +
-      stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_low, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+      geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
+                 label = paste("R2 = ", signif(summary(fit_low)$r.squared, 3),
+                               "\nP = ", signif(summary(fit_low)$coefficients[[4]], 3),
+                               "\nSlope = ", signif(fit_low$coefficients[[2]], 3)))+
+      # stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_low, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
       theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
       labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
       ggtitle("High Points Removed " ,data_site_subset_low$Sample_ID[1]) +
@@ -379,7 +400,11 @@ for (i in 1:length(location)){
 
     beg_rem <- ggplot(data_site_subset_beg, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
       geom_smooth(method = "lm", se=F, formula = my.formula) +
-      stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_beg, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+      geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
+                 label = paste("R2 = ", signif(summary(fitog)$r.squared, 3),
+                               "\nP = ", signif(summary(fitog)$coefficients[[4]], 3),
+                               "\nSlope = ", signif(fitog$coefficients[[2]], 3)))+
+      # stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_beg, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
       theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
       labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
       ggtitle("Beginning Points Removed ", data_site_subset_beg$Sample_ID[1]) +
@@ -393,7 +418,11 @@ for (i in 1:length(location)){
 
     all <- ggplot(data_site_subset, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
       geom_smooth(method = "lm", se=F, formula = my.formula) +
-      stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+      geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
+                 label = paste("R2 = ", signif(summary(fit_all)$r.squared, 3),
+                               "\nP = ", signif(summary(fit_all)$coefficients[[4]], 3),
+                               "\nSlope = ", signif(fit_all$coefficients[[2]], 3)))+
+      # stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
       theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
       labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
       ggtitle("No Points Removed " ,data_site_subset$Sample_ID[1]) +
@@ -413,10 +442,13 @@ for (i in 1:length(location)){
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
     rate$rate_mg_per_L_per_min[j] = round(abs(as.numeric((c))),3) #in mg O2/L min
     rate$rate_mg_per_L_per_h[j] = round(abs(as.numeric((c))*60),3) #in mg O2/L h 
-    rate$R_squared[j] = round(as.numeric(abs(r)),3)
+    rate$Initial_R_squared[j] = round(abs(as.numeric((rog))),3)
+    rate$Final_R_squared[j] = round(as.numeric(abs(r)),3)
     rate$R_squared_adj[j] = round(as.numeric(abs(r.adj)),3)
-    rate$p_value[j] = p
+    rate$final_p_value[j] = p
+    rate$initial_p_value[j] = pog
     rate$residuals[j] = round(as.numeric(residuals),3)
+    rate$slope_beginning[j] = round(as.numeric(slope_beginning),3)
     #rate$total_incubation_time_min[j] = as.numeric(difftime(data_site_subset$elapsed_min[nrow(data_site_subset_fin)],data_site_subset_fin$elapsed_min[1],units="mins"))#in minutes
     rate$number_of_points[j] = nrow(data_site_subset_fin)
     rate$removed_points_high[j] = (as.numeric(nrow(data_site_subset)) - as.numeric(nrow(data_site_subset_low)))
@@ -424,8 +456,22 @@ for (i in 1:length(location)){
     rate$removed_points_beg[j] = (as.numeric(nrow(data_site_subset_low)) - as.numeric(nrow(data_site_subset_beg)))
     
     rate$removed_points_end[j] = (as.numeric(nrow(data_site_subset_beg)) - as.numeric(nrow(data_site_subset_fin)))
-  }
+    
+    rate$breusch_p_value[j] = round(as.numeric(bp),3)
+    
+    rate$flag_r2[j] = case_when(rate$Initial_R_squared[j] > rate$Final_R_squared[j] ~ "Final R2 < Initial R2")
+    
+    rate$flag_pos_slope[j] = case_when(rate$slope_beginning[j] < 0 & rate$slope_of_the_regression[j] > 0~ "Final Slope positive - initial slope negative, reporting initial slope")
+    
+    rate$flag_heteroscedastic[j] = case_when( rate$breusch_p_value[j] <= 0.1 ~ "Heteroscedastic but not removing data")
+    
+    }
+  
   # Removing rows where the Sample_ID was an NA  
+  #rate$flag[j] = case_when(
+    #rate$initial_p_value[j] < p.value & rate$final_p_value[j] > p.value ~ "Final P-Value significantly different from 0",
+    
+  
   rate = rate[!is.na(rate$Sample_ID),]   
   # Combining the regression metrics across locations and unique incubations
   respiration = rbind(respiration,rate)
@@ -433,8 +479,11 @@ for (i in 1:length(location)){
 
 respiration = respiration[-1,]
 
-respiration = respiration %>% 
-  mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
-  mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
 
-write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),"_pts_rem_res.csv"), row.names = F)
+#moved this to effect size code
+
+# respiration = respiration %>% 
+#   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
+#   mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
+
+write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),"_breusch.csv"), row.names = F)

@@ -123,11 +123,43 @@ samples =
 #ggplot(samples) +
  # geom_boxplot(aes(x = sample_label, y = mg_Fe_per_L))
 
+data_flag_conc <- samples %>%
+  separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_") %>% 
+  separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-") %>% 
+  separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)") %>% 
+  group_by(kit, Replicate) %>% 
+  summarise(CV = ((sd(mg_Fe_per_L)/mean(mg_Fe_per_L))*100))
+
+
+data_flag_conc <- samples %>%
+  filter(!grepl("dilute", analysis)) %>% 
+  separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_") %>% 
+  separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-") %>% 
+  separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)") %>%  
+  unite(kit_rep, c(kit, Replicate), sep = "_", remove = FALSE) %>% 
+  group_by(kit_rep) %>% 
+  mutate(CV = ((sd(mg_Fe_per_L)/mean(mg_Fe_per_L))*100)) %>% 
+  mutate(range = max(mg_Fe_per_L) - min(mg_Fe_per_L)) %>% 
+  distinct(kit_rep, .keep_all = TRUE) %>% 
+  mutate(flag = case_when(
+    CV <= 10 ~ "fine",
+    CV >= 10 & range >= 0.04~ "flag"
+  )) %>% 
+  select(-c("Project", "kit", "Analysis", "Replicate", "Technical"))
+
+
+
 #largest sd 0.18, for diluted sample with differences in abs 0.2
+#CV for blanks mg/L = -301%, range of 0.06 across all trays
 
 blanks = 
   calibrate_ferrozine_data(data_formatted) %>% 
-  filter(grepl("blank", sample_label)) 
+  filter(grepl("blank", sample_label)) %>% 
+  mutate(CV = ((sd(ppm_calculated)/mean(ppm_calculated))*100)) %>% 
+  mutate(range = max(ppm_calculated) - min(ppm_calculated))
+
+ 
+
   
 # mean(blanks$ppm_calculated)
 # sd(blanks$ppm_calculated)
