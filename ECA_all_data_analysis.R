@@ -13,8 +13,8 @@ pnnl.user = 'laan208'
 #Read in all data
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
 
-#effect size
-effect.size <- paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/Effect_Size_merged_by_laan208_on_2023-03-01.csv")
+#effect size - change date to most recent
+effect.size <- paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/Effect_Size_merged_by_laan208_on_2023-04-10.csv")
 
 effect <- read_csv(effect.size)
 

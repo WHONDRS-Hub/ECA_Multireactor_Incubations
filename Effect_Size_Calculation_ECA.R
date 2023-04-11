@@ -58,7 +58,7 @@ all.data <- data %>%
 slope.new <- all.data %>% 
   unite(kit_treat, kit, Treat, remove = FALSE) %>% 
   group_by(kit_treat) %>% 
-  mutate(Mean.Slope.All = mean(slope_of_the_regression)) %>% 
+  mutate(Mean_Slope_All = mean(slope_of_the_regression)) %>% 
   ungroup() %>% 
   dplyr::select(-slope_beginning,-Initial_R_squared, -Final_R_squared, -R_squared_adj,-residuals,-initial_p_value,-final_p_value,-total_incubation_time_min,-number_of_points,-removed_points_high,-removed_points_beg,-removed_points_end,-breusch_p_value,-flag_r2,-flag_pos_slope,-flag_heteroscedastic)
 
@@ -66,16 +66,20 @@ slope.new <- all.data %>%
 slope.new <- slope.new %>% 
   #add_column(newColname = "cv") %>% 
   group_by(kit_treat) %>% 
-  mutate(cv.before.removal = cv(slope_of_the_regression)) %>% 
+  mutate(cv_before_removal = cv(slope_of_the_regression)) %>% 
 ungroup()
 
-slope.new$Slope_Removed_Mean <- NA
-slope.new$cv_after_removal <- NA
-slope.new$Slope_Removed <- NA
+slope.final <- as.data.frame(matrix(NA, ncol = 13, nrow =1))
+
+colnames(slope.final) = c("slope.temp","Sample_ID", "ECA", "kit_treat", "kit", "rep", "rate_mg_per_L_per_min","rate_mg_per_L_per_h", "Treat", "Mean_Slope_All","cv_before_removal", "cv_after_removal", "Slope_Removed_Mean")
+
+
+# slope.new$Slope_Removed_Mean <- NA
+# slope.new$cv_after_removal <- NA
+# slope.new$Slope_Removed <- NA
+slope.final$flag <- NA
 slope.new$flag <- NA
 
-#ggplot(slope.new, aes(x = cv.before.removal)) +
-  #geom_histogram(binwidth = 0.5)
 
 #dist matrix doesn't work when there are 0's present and we set all of the positive slopes to 0 - breaks the dist matrix because of dividing by 0. hence making 0's non-zero below
 
@@ -91,8 +95,10 @@ unique.samples = unique(slope.new$kit_treat)
 
 for (i in 1:length(unique.samples)) {
   
-  slope.temp = as.numeric(slope.new$slope_of_the_regression[which(slope.new$kit_treat == unique.samples[i])])
-  
+  data_subset = subset(slope.new, slope.new$kit_treat == unique.samples[i])
+    
+  slope.temp = as.numeric(data_subset$slope_of_the_regression)
+                          
   slope.temp.sd <- sd(slope.temp)
   slope.temp.mean <- mean(slope.temp)
   CV = abs((slope.temp.sd/slope.temp.mean)*100)
@@ -139,36 +145,44 @@ for (i in 1:length(unique.samples)) {
     # }
     
    # else {
-    
    
-    slope.new$Slope_Removed[which(slope.new$kit_treat == unique.samples[i])] = as.numeric(slope.temp)
-      
-    slope.new$cv_after_removal[which(slope.new$kit_treat == unique.samples[i])] = as.numeric(abs((sd(slope.temp)/mean(slope.temp))*100))
+    
+    slope.combined <- as.data.frame(slope.temp)
+    
+    slope.removed <- merge(slope.combined, data_subset, by.x = "slope.temp", by.y = "slope_of_the_regression", all.x = TRUE)
+    
+    slope.removed <- slope.removed[!duplicated(slope.removed$Sample_ID), ]
+    
+    slope.removed$cv_after_removal = as.numeric(abs((sd(slope.temp)/mean(slope.temp))*100))
+    
+    slope.removed$Slope_Removed_Mean = as.numeric(mean(slope.temp))
+ 
+    #slope.new$cv_after_removal[which(slope.new$kit_treat == unique.samples[i])] = as.numeric(abs((sd(slope.temp)/mean(slope.temp))*100))
     
     
-   slope.new$Slope_Removed_Mean[which(slope.new$kit_treat == unique.samples[i])] = as.numeric(mean(slope.temp))
+  # slope.new$Slope_Removed_Mean[which(slope.new$kit_treat == unique.samples[i])] = as.numeric(mean(slope.temp))
    
       #  }
     
   }
   
+  slope.final = rbind(slope.removed, slope.final)
+  
   rm('slope.temp')
 }
 
-slope.new$flag <- ifelse(slope.new$cv.before.removal < slope.new$cv_after_removal, "Issue in dropping sample", NA)
 
+## This data frame has removed samples 
+slope.final$flag <- ifelse(slope.final$cv_before_removal < slope.final$cv_after_removal, "Issue in dropping sample", NA)
 
-#slope.new$rem.sample = abs(slope.new$slope_of_the_regression) - abs(slope.new$Slope_Removed)  
-
-slope.new <- slope.new %>% 
-  separate(kit_treat, c("kit", "Treat"), sep = "_", remove = FALSE)
+slope.final <- rename(slope.final, "slope_of_the_regression" = "slope.temp")
 
 
 #Histogram of all slopes from 40 mL vials with facet by wet vs. dry treatment
 
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_all_slope_facet_histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
-ggplot(slope.new, aes(x = slope_of_the_regression, fill = Treat))+
+ggplot(slope.final, aes(x = slope_of_the_regression, fill = Treat))+
   geom_histogram(binwidth = 0.15)+
   facet_grid(~Treat)+
   scale_fill_brewer(palette="Set2")+
@@ -185,24 +199,28 @@ ggplot(slope.new, aes(x = slope_of_the_regression, fill = Treat))+
 
 dev.off()
 
-slope.new.data = slope.new %>%
+##turn all positive rates to 0
+
+slope.final.clean = slope.final %>%
   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>%
-  mutate(rate_mg = if_else(slope_of_the_regression>0,0,rate_mg_per_L_per_min))
+  mutate(rate_mg = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_min)) %>% 
+  mutate(Slope_Removed_Mean = if_else(Slope_Removed_Mean>0,0,Slope_Removed_Mean))
 
-#log10 transformation of positive rate data - can't log transform negative data
+#log10 transformation of positive rate data +1 - can't log transform negative data or 0
 
-slope.new.data$log_rate_mg_per_L_per_min = log10(slope.new.data$rate_mg+1)
+slope.final.clean$log_rate_mg_per_L_per_min = log10(slope.final.clean$rate_mg+1)
 
-slope.new.na$log_slope_mg_per_L_per_min = log10(slope.new.na$slope_of_the_regression)
 
 #log10 transformation of positive rate data faceted by treatment
 
+cbPalette <- c("#D55E00","#0072B2","#999999","#E69F00", "#56B4E9","#009E73","#F0E442","#CC79A7")
+
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Log_All_Slopes_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
-ggplot(slope.new.data, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
+ggplot(slope.final.clean, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
   geom_histogram(binwidth = 0.04)+
   facet_grid(~Treat)+
-  scale_fill_brewer(palette="Set2")+
+  scale_fill_manual(values=cbPalette, labels = c("Dry", "Wet"))+
   theme_bw()+
   #ggtitle("Histogram of All Slopes")+
   theme(axis.title.x = element_text(size = 24, margin = margin(b = 5)),
@@ -216,14 +234,18 @@ ggplot(slope.new.data, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
 
 dev.off()
 
-wet <- slope.new.data %>% 
+#
+
+wet <- slope.final.clean %>% 
   filter(Treat == "Wet")
-#log10 histogram of wet treatments (rate + 1)
+
+
+#log10 histogram of wet treatments with dist removals(rate + 1)
 
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Log_All_Wet_Slopes_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(wet, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
-  geom_histogram(fill = "#FC8D62", binwidth = 0.04)+
+  geom_histogram(fill = "#0072B2", binwidth = 0.04)+
   #facet_grid(~Treat)+
   #scale_fill_brewer(fill="66C2A5")+
   theme_bw()+
@@ -239,15 +261,15 @@ ggplot(wet, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
 
 dev.off()
 
-dry <- slope.new.data %>% 
+dry <- slope.final.clean %>% 
   filter(Treat == "Dry")
 
-#log10 histogram of dry treatments (rate + 1)
+#log10 histogram of dry treatments with removals (rate + 1)
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Log_All_Dry_Slopes_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"Log_All_Dry_Slopes_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(dry, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
-  geom_histogram(fill = "#66C2A5", binwidth = 0.04)+
+  geom_histogram(fill = "#D55E00", binwidth = 0.04)+
   #facet_grid(~Treat)+
   #scale_fill_brewer(palette="Set2")+
   theme_bw()+
@@ -267,7 +289,7 @@ dev.off()
 
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/ECA/EC 2022 Experiment/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_all_slope_hist_no_facet.png"), width = 8, height = 8, units = "in", res = 300)
 
-ggplot(slope.new.na,aes(x = slope_of_the_regression))+
+ggplot(slope.final.clean,aes(x = slope_of_the_regression))+
   geom_histogram(fill = "cornflowerblue", color = "black", binwidth = 0.08)+
   scale_fill_brewer(palette="Set2")+
   theme_bw()+
@@ -287,7 +309,7 @@ dev.off()
 
 png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/ECA/EC 2022 Experiment/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_log_all_slope_hist_no_facet.png"), width = 8, height = 8, units = "in", res = 300)
 
-ggplot(slope.new.na, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
+ggplot(slope.final.clean, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
   geom_histogram(fill = "cornflowerblue", color = "black", binwidth = 0.08)+
   scale_fill_brewer(palette="Set2")+
   theme_bw()+
@@ -307,7 +329,7 @@ dev.off()
 
 png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/ECA/EC 2022 Experiment/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_log_all_slope_hist_facet.png"), width = 8, height = 8, units = "in", res = 300)
 
-ggplot(slope.new.na, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
+ggplot(slope.final.clean, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
   geom_histogram(binwidth = 0.08)+
   facet_grid(~Treat)+
   scale_fill_brewer(palette="Set2")+
@@ -326,14 +348,14 @@ dev.off()
 
 #calculate mean slopes by Kit and Treatment (wet or dry)
 
-slope.means <- slope.new.data %>% 
+slope.means <- slope.final.clean %>% 
   distinct(kit_treat, .keep_all = TRUE) %>% 
   filter(Slope_Removed_Mean != "Too Variable") 
 
 slope.means$Slope_Removed_Mean <- as.numeric(slope.means$Slope_Removed_Mean)
 
 #Histogram of mean slopes
-ggplot(slope.means, aes(x = Slope.Rem, fill = Treat))+
+ggplot(slope.means, aes(x = Slope_Removed_Mean, fill = Treat))+
   geom_histogram(binwidth = 0.05)+
   facet_wrap(~Treat)+
   ggtitle("Histogram of Slopes averaged by kit and treatment")
@@ -345,24 +367,23 @@ ggplot(slope.means, aes(x = reorder(kit,Slope.Rem), y = Slope.Rem, fill = Treat)
   xlab("Kit")
 
 #these kits were from the same site? and 27 only has 3 dry replicates
-eca <- slope.means %>% 
-  filter(kit != "27") 
 
-%>% 
-  filter(kit != "14")
 
 #effect size wet - dry
-eca <- eca %>% 
+eca <- slope.means %>% 
+  filter(kit != "27") %>% 
   group_by(kit) %>% 
+  
   mutate(effect = (Slope_Removed_Mean[Treat == "Wet"] - Slope_Removed_Mean[Treat == "Dry"])) %>% 
-  mutate(log_effect = log10(abs(effect)))
+  mutate(log_effect = log10(abs(effect))) %>% 
+  mutate(pos_effect = (abs(Slope_Removed_Mean[Treat == "Wet"] - Slope_Removed_Mean[Treat == "Dry"])))
 
 
 
 ##Effect Size graph without 27 and 14
 png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_effect_size.png"), width = 10, height = 10, units = "in", res = 300)
 
-ggplot(eca, aes(x = reorder(kit, effect), y = effect))+
+ggplot(eca, aes(x = reorder(kit, pos_effect), y = pos_effect))+
   geom_bar(fill = "cornflowerblue",col = "black", stat = "summary") +
   theme_bw()+
   theme(axis.title.x = element_text(size = 24),
