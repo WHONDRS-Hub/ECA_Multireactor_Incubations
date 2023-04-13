@@ -303,11 +303,11 @@ all_grav_final <- all_grav %>%
   unite(kit_treat, kit, Treat, remove = FALSE) %>% 
   unite(Sample, Project, kit, Analysis, sep = "_", remove = FALSE) %>% 
  unite(Sample_ID, Sample, Replicate, sep = "-") %>% 
-  select(-c(Date, Tare_weight_g, Sample_weight_g,Project, Analysis,Water_added_initial_g,Sample_weight_final_g)) 
+  dplyr::select(-c(Date, Tare_weight_g, Sample_weight_g,Project, Analysis,Water_added_initial_g,Sample_weight_final_g)) 
 
 all_grav_ind <- all_grav_final %>% 
   distinct(Sample_ID, .keep_all = TRUE) %>% 
-  select(-c(Sample_weight_initial_g,mean_wet_grav,mass_sed,mass_water_initial,mass_water_final_g))
+  dplyr::select(-c(Sample_weight_initial_g,mean_wet_grav,mass_sed,mass_water_initial,mass_water_final_g))
 
 #Use this for wet/dry correlation matrix
 average_grav <- all_grav_final %>% 
@@ -323,8 +323,8 @@ average_grav <- all_grav_final %>%
 average_grav_lost <- average_grav %>% 
   separate(col = kit_treat, into = c("kit", "Treat"), sep = "_") %>% 
   group_by(kit) %>% 
-  mutate(grav_final_diff = (average_grav_final[Treat == "Wet"] - average_grav_final[Treat == "Dry"])) %>% 
-  dplyr::select(c(kit, grav_final_diff)) %>% 
+  mutate(Final_Gravimetric_Moisture_Difference = (average_grav_final[Treat == "Wet"] - average_grav_final[Treat == "Dry"])) %>% 
+  dplyr::select(c(kit, Final_Gravimetric_Moisture_Difference)) %>% 
   distinct(kit, .keep_all = TRUE)
 
 ##Individual Samples Correlation Matrix
