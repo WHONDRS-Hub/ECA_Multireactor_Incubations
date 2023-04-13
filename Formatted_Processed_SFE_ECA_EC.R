@@ -128,11 +128,16 @@ data_flag_conc <- samples %>%
   separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-") %>% 
   separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)") %>% 
   group_by(kit, Replicate) %>% 
-  summarise(CV = ((sd(mg_Fe_per_L)/mean(mg_Fe_per_L))*100))
+  mutate(CV = ((sd(mg_Fe_per_L)/mean(mg_Fe_per_L))*100)) %>% 
+  mutate(range = max(mg_Fe_per_L) - min(mg_Fe_per_L)) %>% 
+  #distinct(kit_rep, .keep_all = TRUE) %>% 
+  mutate(flag = case_when(
+    CV <= 10 | range < 0.04 ~ "fine",
+    CV >= 10 & range >= 0.04~ "flag"
+  )) 
 
 
 data_flag_conc <- samples %>%
-  filter(!grepl("dilute", analysis)) %>% 
   separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_") %>% 
   separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-") %>% 
   separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)") %>%  

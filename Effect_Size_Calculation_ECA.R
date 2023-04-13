@@ -177,6 +177,9 @@ slope.final$flag <- ifelse(slope.final$cv_before_removal < slope.final$cv_after_
 
 slope.final <- rename(slope.final, "slope_of_the_regression" = "slope.temp")
 
+input.path,"/Effect_Size_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+
+
 
 #Histogram of all slopes from 40 mL vials with facet by wet vs. dry treatment
 
@@ -206,6 +209,8 @@ slope.final.clean = slope.final %>%
   mutate(rate_mg = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_min)) %>% 
   mutate(Slope_Removed_Mean = if_else(Slope_Removed_Mean>0,0,Slope_Removed_Mean))
 
+
+write.csv(slope.final.clean,paste0(input.path,"/removed_respiration_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
 #log10 transformation of positive rate data +1 - can't log transform negative data or 0
 
 slope.final.clean$log_rate_mg_per_L_per_min = log10(slope.final.clean$rate_mg+1)

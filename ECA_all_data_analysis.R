@@ -1,6 +1,6 @@
 #read in libraries
 
-library(lubridate);library(writexl);library(raster);library(tidyverse);library(devtools);library(readxl)
+library(lubridate);library(writexl);library(raster);library(tidyverse);library(devtools);library(readxl);library(corrplot)
 
 ##### Load data ######
 rm(list=ls());graphics.off()
@@ -13,25 +13,23 @@ pnnl.user = 'laan208'
 #Read in all data
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
 
-#effect size - change date to most recent
-effect.size <- paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/Effect_Size_merged_by_laan208_on_2023-04-10.csv")
+###effect size - change date to most recent
+effect_size <- read_csv(paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/Effect_Size_merged_by_laan208_on_2023-04-11.csv"))
 
-effect <- read_csv(effect.size)
 
-#Respiration rates
-respiration <- paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_laan208_on_2023-03-07_pts_rem_res.csv")
+#Respiration rates 
+respiration <- read.csv(paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/removed_respiration_merged_by_laan208_on_2023-04-12.csv"))
+#
+ 
 
-resp <- read_csv(respiration)
 
 #ECA Iron
-iron <- paste0("FE/03_ProcessedData/20230110_Data_Processed_SFE_ECA_EC_1-270/20230110_Data_Processed_SFE_ECA_EC_1-270.csv")
+iron <- read_csv(paste0("FE/03_ProcessedData/20230110_Data_Processed_SFE_ECA_EC_1-270/20230110_Data_Processed_SFE_ECA_EC_1-270.csv"))
 
-fe <- read_csv(iron)
 
 #ICON Grain Size
-grain <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ICON_ModEx_SSS/09_Grain_Size/03_ProcessedData/20221230_Grain_Size_SBR_RC4_CM_1-42/20221230_Data_Processed_Grain_Size_SBR_RC4_CM_1-42.csv")
+grain <- read_csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ICON_ModEx_SSS/09_Grain_Size/03_ProcessedData/20221230_Grain_Size_SBR_RC4_CM_1-42/20221230_Data_Processed_Grain_Size_SBR_RC4_CM_1-42.csv"))
 
-grn <- read_csv(grain)
 
 #All incubation pH, SpC, temp
 chemistry <- paste0("Optode multi reactor/Optode_multi_reactor_incubation/")
@@ -55,20 +53,41 @@ import_data = function(chemistry){
 
 map = import_data(chemistry)
 
-all.chem = map %>% 
-  dplyr::select(-`Disk Calibration date`, -Location, -`Time on`, -`Time off`, -Notes, -`Disk_ID`, -`map.file[i]`) %>% 
-  filter(!grepl("Blank", Sample_ID))
+#Gravimetric Moisture
 
+grav_inc <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_merged_by_laan208_on_2023-04-13.csv"))
+
+wet_wt <- read.csv(paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/EC_Moisture_Content_2022.csv"))
+
+###EFFECT SIZE/RESPIRATION###
+
+#Use this for individual samples correlation matrix
+
+resp <- respiration %>% 
+  mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>%
+  mutate(rate_mg = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_min)) %>% 
+  mutate(Slope_Removed_Mean = if_else(Slope_Removed_Mean>0,0,Slope_Removed_Mean))
+
+
+
+
+#Use this for wet/dry correlation matrix
+effect_all <- effect_size %>%
+  mutate(Average_Rate = abs(Slope_Removed_Mean)) %>% 
+  dplyr::select(c(kit_treat,kit,Treat,Average_Rate,pos_effect))
+ 
+#Use this for effect size correlation matrix
+effect_diff <- effect_all %>% 
+  distinct(kit, .keep_all = TRUE) %>% 
+  dplyr::select(-c(Average_Rate, kit_treat,Treat))
 
 ###IRON DATA
 
 #calculate mean Fe for kit/treatment
-mean_fe <- fe %>% 
+mean_fe <- iron %>% 
   separate(Sample_Name, into = c("Sample_ID", "rep"), sep = -1, convert = TRUE) %>% 
   group_by(Sample_ID) %>% 
-  summarise_at(vars(Fe_mg_per_kg_sediment), list(mean = mean)) 
-
-mean_fe <- mean_fe %>% 
+  summarise_at(vars(Fe_mg_per_kg_sediment), list(mean = mean)) %>% 
   separate(Sample_ID, c("ECA", "kit", "rep"), sep = "_", remove = FALSE) %>% 
   mutate(Treat = case_when(
     endsWith(rep, "W1") ~ "Wet",
@@ -81,88 +100,91 @@ mean_fe <- mean_fe %>%
     endsWith(rep, "D3") ~ "Dry",
     endsWith(rep, "D4") ~ "Dry",
     endsWith(rep, "D5") ~ "Dry"
-  ))
+  )) %>% 
+  rename("Fe_mg_kg" = "mean") %>% 
+  mutate(Log_Fe_mg_kg = log10(Fe_mg_kg)) %>% 
+  unite(kit_treat, kit, Treat, remove = FALSE) %>% 
+  mutate(rep = str_replace(rep, "SFE", "INC")) %>% 
+  mutate(Sample_ID = str_replace(Sample_ID, "SFE", "INC"))
 
 ##All Fe data
-ggplot(mean_fe, aes(x = mean))+
-  geom_histogram(binwidth = 0.1, fill = "cornflowerblue", col = "black")+
-  theme_bw()+
-  theme(axis.title.x = element_text(size = 18), 
-        axis.title.y = element_text(size = 18), 
-        axis.text.x = element_text(size = 16),
-        axis.text.y = element_text(size = 16))+
-  xlab("\n Fe (II) (mg/L)")+
-  ylab("Count\n")
+# ggplot(mean_fe, aes(x = Mean_Fe_mg_kg))+
+#   geom_histogram(binwidth = 0.1, fill = "cornflowerblue", col = "black")+
+#   theme_bw()+
+#   theme(axis.title.x = element_text(size = 18), 
+#         axis.title.y = element_text(size = 18), 
+#         axis.text.x = element_text(size = 16),
+#         axis.text.y = element_text(size = 16))+
+#   xlab("\n Fe (II) (mg/L)")+
+#   ylab("Count\n")
 
 #All Fe data, faceted by wet vs dry
-ggplot(mean_fe, aes(x = mean, fill = Treat))+
-  geom_histogram(binwidth = 0.1)+
-  facet_wrap(~Treat)+
-  theme_bw()+
-  theme(axis.title.x = element_text(size = 18), 
-        axis.title.y = element_text(size = 18), 
-        axis.text.x = element_text(size = 16),
-        axis.text.y = element_text(size = 16))+
-  xlab("\n Fe (II) (mg/L)")+
-  ylab("Count\n")
+# ggplot(mean_fe, aes(x = Mean_Fe_mg_kg, fill = Treat))+
+#   geom_histogram(binwidth = 0.1)+
+#   facet_wrap(~Treat)+
+#   theme_bw()+
+#   theme(axis.title.x = element_text(size = 18), 
+#         axis.title.y = element_text(size = 18), 
+#         axis.text.x = element_text(size = 16),
+#         axis.text.y = element_text(size = 16))+
+#   xlab("\n Fe (II) (mg/L)")+
+#   ylab("Count\n")
 
-#log Fe data, not faceted
-mean_fe$log_iron_mean = log10(mean_fe$mean)
+
 
 #png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/ECA/EC 2022 Experiment/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_log_fe_hist.png"), width = 8, height = 8, units = "in", res = 300)
 
-ggplot(mean_fe, aes(x = log_iron_mean))+
-  geom_histogram(binwidth = 0.1, fill = "cornflowerblue", col = "black")+
-  theme_bw()+
-  theme(axis.title.x = element_text(size = 18), 
-        axis.title.y = element_text(size = 18), 
-        axis.text.x = element_text(size = 16),
-        axis.text.y = element_text(size = 16))+
-  xlab("\n Log of Fe (II) (mg/L)")+
-  ylab("Count\n")
-
-#dev.off()
+# ggplot(mean_fe, aes(x = log_iron_mean))+
+#   geom_histogram(binwidth = 0.1, fill = "cornflowerblue", col = "black")+
+#   theme_bw()+
+#   theme(axis.title.x = element_text(size = 18), 
+#         axis.title.y = element_text(size = 18), 
+#         axis.text.x = element_text(size = 16),
+#         axis.text.y = element_text(size = 16))+
+#   xlab("\n Log of Fe (II) (mg/L)")+
+#   ylab("Count\n")
+# 
+# #dev.off()
 
 #Log Fe, facetted by wet vs. dry
-ggplot(mean_fe, aes(x = log_iron_mean, fill = Treat))+
-  geom_histogram(binwidth = 0.1)+
-  facet_wrap(~Treat)+
-  theme_bw()+
-  theme(axis.title.x = element_text(size = 18), 
-        axis.title.y = element_text(size = 18), 
-        axis.text.x = element_text(size = 16),
-        axis.text.y = element_text(size = 16))+
-  xlab("\n Log of Fe (II) (mg/L)")+
-  ylab("Count\n")
+# ggplot(mean_fe, aes(x = log_iron_mean, fill = Treat))+
+#   geom_histogram(binwidth = 0.1)+
+#   facet_wrap(~Treat)+
+#   theme_bw()+
+#   theme(axis.title.x = element_text(size = 18), 
+#         axis.title.y = element_text(size = 18), 
+#         axis.text.x = element_text(size = 16),
+#         axis.text.y = element_text(size = 16))+
+#   xlab("\n Log of Fe (II) (mg/L)")+
+#   ylab("Count\n")
 
-#all means
-mean_fe_all <- mean_fe %>% 
+#Individual Fe Samples
+fe_all <- mean_fe %>% 
+  mutate(rep = str_replace(rep, "SFE", "INC")) %>% 
+  dplyr::select(-c(rep, ECA))
+
+#Fe Means for use in wet/dry correlation matrix
+mean_fe_treat <- mean_fe %>% 
+  group_by(kit_treat) %>%
+  mutate(Mean_Fe_mg_kg = mean(Fe_mg_kg)) %>% 
+  mutate(Log_Mean_Fe_mg_kg = log10(Mean_Fe_mg_kg)) %>% 
+  dplyr::select(c(kit_treat, kit, Treat, Mean_Fe_mg_kg)) %>% 
+  distinct(kit_treat, .keep_all = TRUE)
+
+#Differences for Effect Size Correlation Matrix
+mean_fe_diff <- mean_fe_treat %>% 
   group_by(kit) %>% 
-  summarise_at(vars(mean), list(mean_all = mean))
-
-#wet kit means
-fe_wet <- mean_fe %>% 
-  group_by(kit, Treat) %>% 
-  summarise_at(vars(mean), list(mean_wet = mean)) %>% 
-  filter(Treat != "Dry")
-
-#dry kit means
-fe_dry <- mean_fe %>% 
-  group_by(kit, Treat) %>% 
-  summarise_at(vars(mean), list(mean_dry = mean)) %>% 
-  filter(Treat != "Wet")
-
-#change names to merge with rates
-fe.new <- mean_fe %>% 
-  unite(kit_treat, kit, Treat, remove = FALSE) %>%
-  mutate(rep = str_replace(rep, "SFE", "INC"))
+  mutate(Fe_Difference = (Mean_Fe_mg_kg[Treat == "Wet"] - Mean_Fe_mg_kg[Treat == "Dry"])) %>% 
+  dplyr::select(-c(Mean_Fe_mg_kg, kit_treat ,Treat)) %>% 
+  distinct(kit, .keep_all = TRUE)
+ 
 
 
 ###Grain Size Data
 
 #this is the only data type that is not vial specific
 
-grn <- grn %>% 
+grn <- grain %>% 
   separate(Sample_ID, c("CM", "kit", "an"), sep = "_", remove = FALSE) %>%
   filter(kit != "001") %>% 
   filter(kit != "002") %>% 
@@ -177,28 +199,36 @@ grn <- grn %>%
   filter(kit != "028") %>% 
   filter(kit != "043") %>% 
   filter(kit != "050") %>% 
-  filter(kit != "062")
+  filter(kit != "062") %>% 
+  mutate(Percent_Mud = Percent_Clay + Percent_Silt) %>% 
+  dplyr::select(-c(CM, an, Sample_ID)) 
 
 grn$kit <- sub('.', '', grn$kit)
 
-grn$percent_mud <- grn$Percent_Clay + grn$Percent_Silt
 
-grn_long <- grn %>% 
-  dplyr::select(-c("CM", "kit", "an")) %>% 
-  pivot_longer(!Sample_ID, names_to = "size", values_to = "percent") %>% 
-  filter(size != "Percent_Tot_Sand")
+# grn_long <- grn %>% 
+#   dplyr::select(-c("CM", "kit", "an")) %>% 
+#   pivot_longer(!Sample_ID, names_to = "size", values_to = "percent") %>% 
+#   filter(size != "Percent_Tot_Sand")
 
-png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_GRN_stacked.png"), width = 8, height = 8, units = "in", res = 300)
+# png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_GRN_stacked.png"), width = 8, height = 8, units = "in", res = 300)
+# 
+# ggplot(grn_long, aes(fill = size, y = percent, x = Sample_ID)) + 
+#   geom_bar(position="fill", stat="identity")+
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust =1))
+# 
+# dev.off()
 
-ggplot(grn_long, aes(fill = size, y = percent, x = Sample_ID)) + 
-  geom_bar(position="fill", stat="identity")+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust =1))
 
-dev.off()
+###pH, SpC, temp data
 
+#Use this for individual correlation matrix
+chem_all = map %>% 
+  dplyr::select(-`Disk Calibration date`, -Location, -`Time on`, -`Time off`, -Notes, -`Disk_ID`, -`map.file[i]`) %>% 
+  filter(!grepl("Blank", Sample_ID))
 
-#pH, SpC, temp data
-all.chem <- all.chem %>% 
+#Use this for wet/dry correlation matrices
+mean_chem <- chem_all %>% 
   separate(Sample_ID, c("ECA", "kit", "Analysis"), sep = "_", remove = FALSE)%>% 
   mutate(Treat = case_when(
     endsWith(Sample_ID, "W1") ~ "Wet",
@@ -211,97 +241,213 @@ all.chem <- all.chem %>%
     endsWith(Sample_ID, "D3") ~ "Dry",
     endsWith(Sample_ID, "D4") ~ "Dry",
     endsWith(Sample_ID, "D5") ~ "Dry"
-  ))
+  )) %>% 
+  unite(kit_treat, kit, Treat, remove = FALSE ) %>% 
+  group_by(kit_treat) %>% 
+  mutate(Mean_Sp_Conductivity = mean(SpC)) %>% 
+  mutate(Mean_Temperature = mean(Temp)) %>% 
+  mutate(Mean_pH = mean(pH)) %>% 
+  dplyr::select(c(kit_treat, kit, Treat,Mean_Sp_Conductivity, Mean_Temperature, Mean_pH)) %>% 
+  distinct(kit_treat, .keep_all = TRUE)
 
-#means, if needed
-mean.chem <- all.chem %>% 
-  group_by(kit, Treat) %>% 
-  summarise_at(vars("SpC", "Temp", "pH"), mean) 
+#Use this for effect size matrix
+mean_chem_diff <- mean_chem %>% 
+  group_by(kit) %>% 
+  mutate(Sp_Conductivity_Difference = (Mean_Sp_Conductivity[Treat == "Wet"] - Mean_Sp_Conductivity[Treat == "Dry"])) %>% 
+  mutate(Temp_Difference = (Mean_Temperature[Treat == "Wet"] - Mean_Temperature[Treat == "Dry"])) %>% 
+  mutate(pH_Difference = (Mean_pH[Treat == "Wet"] - Mean_pH[Treat == "Dry"])) %>% 
+  dplyr::select(-c(Mean_Sp_Conductivity,Mean_Temperature, Mean_pH,kit_treat,Treat)) %>% 
+  distinct(kit, .keep_all = TRUE)  
 
-mean.chem <- mean.chem %>% 
-  separate(Sample_ID, c("ECA", "kit", "Analysis"), sep = "_", remove = FALSE) 
+###Gravimetric Moisture 
+
+mean_wet_wt <- wet_wt %>% 
+  separate(col = sample_name, into = c("Project", "kit", "analysis"), sep = "_") %>%  
+  separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-") %>% 
+  group_by(kit) %>% 
+  summarise(mean_wet_grav = (mean(percent_water_content_wet)/100))
+
+grav <- grav_inc %>% 
+  group_by(Sample_Name) %>% 
+  mutate(Sample_weight_initial_g = first(Sample_weight_g)) %>% 
+  mutate(Sample_weight_final_g = last(Sample_weight_g)) %>% 
+  ungroup() %>% 
+  separate(col = Sample_Name, into = c("Project", "kit", "analysis"), sep = "_") %>%  
+  separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-")
 
 
-###Iron vs. rates (FIX)
-fe_do <- merge(fe.new, slope.new, by = c("rep", "kit_treat"), all = TRUE)
+final_grav <- merge(grav, mean_wet_wt, by = "kit")
 
-mean_fe$log_iron_mean = log10(mean_fe$mean)
+all_grav <- final_grav %>% 
+  mutate(mass_sed = (Sample_weight_initial_g - (Sample_weight_initial_g * mean_wet_grav))) %>% 
+  mutate(mass_water_initial = (Sample_weight_initial_g * mean_wet_grav) + Water_added_initial_g) %>%  
+  mutate(grav_dry_initial = mass_water_initial/mass_sed) %>% 
+  mutate(mass_water_final_g = (Sample_weight_final_g - mass_sed)+Water_added_initial_g) %>% 
+  mutate(grav_dry_final = mass_water_final_g/mass_sed) %>% 
+  mutate(lost_grav_perc = grav_dry_initial - grav_dry_final)
 
-lmFe = lm(mean~rate_mg_per_L_per_min, data = fe_do)
+#Use this for individual correlation matrix
+all_grav_final <- all_grav %>% 
+  mutate(Treat = case_when(
+    endsWith(Replicate, "W1") ~ "Wet",
+    endsWith(Replicate, "W2") ~ "Wet",
+    endsWith(Replicate, "W3") ~ "Wet",
+    endsWith(Replicate, "W4") ~ "Wet", 
+    endsWith(Replicate, "W5") ~ "Wet",
+    endsWith(Replicate, "D1") ~ "Dry",
+    endsWith(Replicate, "D2") ~ "Dry",
+    endsWith(Replicate, "D3") ~ "Dry",
+    endsWith(Replicate, "D4") ~ "Dry",
+    endsWith(Replicate, "D5") ~ "Dry"
+  )) %>% 
+  unite(kit_treat, kit, Treat, remove = FALSE) %>% 
+  unite(Sample, Project, kit, Analysis, sep = "_", remove = FALSE) %>% 
+ unite(Sample_ID, Sample, Replicate, sep = "-") %>% 
+  select(-c(Date, Tare_weight_g, Sample_weight_g,Project, Analysis,Water_added_initial_g,Sample_weight_final_g)) 
 
-summary(lmFe)
+all_grav_ind <- all_grav_final %>% 
+  distinct(Sample_ID, .keep_all = TRUE) %>% 
+  select(-c(Sample_weight_initial_g,mean_wet_grav,mass_sed,mass_water_initial,mass_water_final_g))
 
-png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/ECA/EC 2022 Experiment/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"do_by_fe.png"), width = 8, height = 8, units = "in", res = 300)
+#Use this for wet/dry correlation matrix
+average_grav <- all_grav_final %>% 
+  group_by(kit_treat) %>% 
+  mutate(average_grav_intial = mean(grav_dry_initial)) %>% 
+  mutate(average_grav_final = mean(grav_dry_final)) %>% 
+  mutate(average_grav_lost_subt = average_grav_intial - average_grav_final) %>% 
+  mutate(average_grav_lost = mean(lost_grav_perc)) %>% 
+  distinct(kit_treat, .keep_all = TRUE) %>% 
+  dplyr::select(c(kit_treat,average_grav_intial,average_grav_final,average_grav_lost))
 
-ggplot(fe_do, aes(x = mean, y = rate_mg_per_L_per_min))+
-  geom_point()+
-  stat_smooth(method = "lm", 
-              formula = y ~ x, 
-              geom = "smooth")+
-  ylab(expression(paste("Rate (mg " ~L^-1 ~ min^-1~")"))) +
-  xlab(expression(paste('Fe (II)  (mg' ~ L^-1~")")))+
-  theme_bw()
+#use this for effect difference correlation matrix
+average_grav_lost <- average_grav %>% 
+  separate(col = kit_treat, into = c("kit", "Treat"), sep = "_") %>% 
+  group_by(kit) %>% 
+  mutate(grav_final_diff = (average_grav_final[Treat == "Wet"] - average_grav_final[Treat == "Dry"])) %>% 
+  dplyr::select(c(kit, grav_final_diff)) %>% 
+  distinct(kit, .keep_all = TRUE)
+
+##Individual Samples Correlation Matrix
+
+##start here on 4/13/2023
+all_list <- list(fe_all, resp, chem_all, all_grav_ind)
+
+all_samples <- all_list %>% 
+  reduce(merge, by = "Sample_ID")%>% 
+  dplyr::select(-c(kit_treat.x,kit.x,Treat.x,kit_treat.y, kit.y, Treat.y, Log_Fe_mg_kg, ECA,rep, cv_before_removal, cv_after_removal,flag, rate_mg_per_L_per_min, rate_mg_per_L_per_h, Mean_Slope_All, Slope_Removed_Mean, slope_of_the_regression))
+
+all_samples_grn <- merge(all_samples, grn, by = "kit")
+
+all_samples_clean <- all_samples_grn %>% 
+  na.omit()  %>% 
+  remove_rownames %>% 
+  column_to_rownames(var = "Sample_ID") %>% 
+  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat", "kit_treat"))
+
+all_samples_corr <- cor(all_samples_clean, method = "spearman")
+
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_All_Samples_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
+
+corrplot(all_samples_corr, title = "All Samples Correlation")
 
 dev.off()
 
+all_samples_dry <- all_samples_grn %>%
+  na.omit()  %>% 
+  filter(!grepl("Wet", kit_treat)) %>% 
+  remove_rownames %>% 
+  column_to_rownames(var = "Sample_ID") %>% 
+  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat", "kit_treat"))
 
-###Grain Size vs. Iron
-fe_grn <- merge (mean_fe_all, grn, by = "kit")
+all_samples_dry_corr <- cor(all_samples_dry, method = "spearman")
 
-lmFeGrn = lm(mean_all~percent_mud, data = fe_grn)
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_All_Dry_Samples_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
 
-summary(lmFeGrn)
+corrplot(all_samples_dry_corr, title = "All Dry Samples Correlation")
 
-ggplot(fe_grn, aes(x = percent_mud, y = mean_all))+
-  geom_point()+
-  stat_smooth(method = "lm", 
-              formula = y ~ x, 
-              geom = "smooth")+
-  ylab(expression(paste('Fe (II)  (mg' ~ kg^-1~")"))) +
-  xlab(expression(paste('Percent Mud')))+
-  theme_bw()
+dev.off()
 
-fe_wet_grn <- merge(fe_wet, grn, by = "kit")
+all_samples_wet <- all_samples_grn %>%
+  na.omit()  %>% 
+  filter(!grepl("Dry", kit_treat)) %>% 
+  remove_rownames %>% 
+  column_to_rownames(var = "Sample_ID") %>% 
+  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat", "kit_treat"))
 
-lmFeWetGrn = lm(mean_wet~percent_mud, data = fe_wet_grn)
+all_samples_wet_corr <- cor(all_samples_wet, method = "spearman")
 
-summary(lmFeWetGrn)
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_All_Wet_Samples_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
 
-ggplot(fe_wet_grn, aes(x = percent_mud, y = mean_wet))+
-  geom_point()+
-  stat_smooth(method = "lm", 
-              formula = y ~ x, 
-              geom = "smooth")+
-  ylab(expression(paste('Fe (II) Wet (mg' ~ kg^-1~")"))) +
-  xlab(expression(paste('Percent Mud')))+
-  theme_bw()
+corrplot(all_samples_wet_corr, title = "All Wet Samples Correlation")
 
-fe_dry_grn <- merge(fe_dry, grn, by = "kit")
+dev.off()
 
-lmFeDryGrn = lm(mean_dry~percent_mud, data = fe_dry_grn)
+##Wet/Dry Correlation Matrices
+wd_list <- list(mean_fe_treat, mean_chem, effect_all, average_grav)
 
-summary(lmFeDryGrn)
+#merge all data frames in list
+wet_dry <- wd_list %>% 
+  reduce(merge, by = "kit_treat") %>% 
+  dplyr::select(-c(kit.x,Treat.x, kit.y, Treat.y))
 
-ggplot(fe_dry_grn, aes(x = percent_mud, y = mean_dry))+
-  geom_point()+
-  stat_smooth(method = "lm", 
-              formula = y ~ x, 
-              geom = "smooth")+
-  ylab(expression(paste('Fe (II) Dry (mg' ~ kg^-1~")"))) +
-  xlab(expression(paste('Percent Mud')))+
-  theme_bw()
+all_wet_dry <- merge(wet_dry, grn, by = "kit")
+
+all_wet <- all_wet_dry %>%
+  na.omit()  %>% 
+  filter(!grepl("Dry", kit_treat)) %>% 
+  remove_rownames %>% 
+  column_to_rownames(var = "kit_treat") %>% 
+  rename(Positive_Effect_Size = pos_effect) %>% 
+  rename(Initial_Gravimetric_Water = average_grav_intial) %>% 
+  rename(Final_Gravimetric_Water = average_grav_final) %>% 
+  rename(Lost_Gravimetric_Water = average_grav_lost) %>% 
+  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat","Mean_Temperature"))
+
+all_wet_corr <- cor(all_wet, method = "spearman")
+
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Wet_Treatment_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
+
+corrplot(all_wet_corr, title = "Wet Treatment Correlation")
+
+dev.off()
+
+all_dry <- all_wet_dry %>%
+  na.omit()  %>% 
+  filter(!grepl("Wet", kit_treat)) %>% 
+  remove_rownames %>% 
+  column_to_rownames(var = "kit_treat") %>% 
+  rename(Positive_Effect_Size = pos_effect) %>% 
+  rename(Initial_Gravimetric_Water = average_grav_intial) %>% 
+  rename(Final_Gravimetric_Water = average_grav_final) %>% 
+  rename(Lost_Gravimetric_Water = average_grav_lost) %>% 
+  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat","Mean_Temperature"))
+
+all_dry_corr <- cor(all_dry, method = "spearman")
+
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Dry_Treatment_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
+
+corrplot(all_dry_corr, title = "Dry Treatment Correlation")
+
+dev.off()
+
+##Effect Differences Correlation Matrix
+
+effect_list <- list(effect_diff, mean_fe_diff, mean_chem_diff, average_grav_lost,grn)
+
+#merge all data frames in list
+effect <- effect_list %>% 
+  reduce(merge, by = "kit") %>% 
+  rename(Positive_Effect_Size = pos_effect) %>% 
+  na.omit()  %>% 
+  remove_rownames %>% 
+  column_to_rownames(var = "kit") %>% 
+  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay"))
 
 
-### Fe vs. Grain Size vs. rates (FIX)
+effect_corr <- cor(effect, method = "spearman")
 
-fe_do_grn <- merge(fe_do, grn, by = c("kit"), all = TRUE)
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Effect_Difference_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
 
-fe_do_grn <- fe_do_grn %>%
-  filter(!is.na(slope_of_the_regression))
+corrplot(effect_corr, title = "Differences Correlation")
 
-fe_do_grn_pca <- prcomp (fe_do_grn[,c(7, 10, 29:34)], center = TRUE, scale. = TRUE)
-
-summary(fe_do_grn_pca)
-
-ggbiplot(fe_do_grn_pca, labels = fe_do_grn$Sample_ID.x)
-
+dev.off()
