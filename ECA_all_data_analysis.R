@@ -1,6 +1,8 @@
 #read in libraries
 
-library(lubridate);library(writexl);library(raster);library(tidyverse);library(devtools);library(readxl);library(corrplot)
+library(lubridate);library(writexl);library(raster);library(tidyverse);library(devtools)
+library(readxl)
+library(corrplot)
 
 ##### Load data ######
 rm(list=ls());graphics.off()
@@ -205,6 +207,9 @@ grn <- grain %>%
 
 grn$kit <- sub('.', '', grn$kit)
 
+##Dg = exp(0.01 * sum(%mass * ln(mean particle size)))
+#Coarse sand = , med sand = , fine sand = , silt = , clay =
+
 
 # grn_long <- grn %>% 
 #   dplyr::select(-c("CM", "kit", "an")) %>% 
@@ -383,50 +388,66 @@ corrplot(all_samples_wet_corr, title = "All Wet Samples Correlation")
 dev.off()
 
 ##Wet/Dry Correlation Matrices
-wd_list <- list(mean_fe_treat, mean_chem, effect_all, average_grav)
+wd_list <- list(effect_all, mean_fe_treat, mean_chem, average_grav)
 
 #merge all data frames in list
 wet_dry <- wd_list %>% 
   reduce(merge, by = "kit_treat") %>% 
   dplyr::select(-c(kit.x,Treat.x, kit.y, Treat.y))
 
-all_wet_dry <- merge(wet_dry, grn, by = "kit")
+mean_wet_dry <- merge(wet_dry, grn, by = "kit")
 
-all_wet <- all_wet_dry %>%
+mean_wet <- mean_wet_dry %>%
   na.omit()  %>% 
   filter(!grepl("Dry", kit_treat)) %>% 
   remove_rownames %>% 
   column_to_rownames(var = "kit_treat") %>% 
-  rename(Positive_Effect_Size = pos_effect) %>% 
-  rename(Initial_Gravimetric_Water = average_grav_intial) %>% 
-  rename(Final_Gravimetric_Water = average_grav_final) %>% 
-  rename(Lost_Gravimetric_Water = average_grav_lost) %>% 
+  rename(`Effect Size` = pos_effect) %>% 
+  rename(`Mean Rate (mg/L)` = Average_Rate) %>% 
+  rename(`Initial Gravimetric Water` = average_grav_intial) %>% 
+  rename(`Final Gravimetric Water` = average_grav_final) %>% 
+  rename(`Lost Gravimetric Water` = average_grav_lost) %>% 
+  rename(`Fe (II) (mg/kg)`  = Mean_Fe_mg_kg) %>% 
+  rename(`Sp. Conducitivity` = Mean_Sp_Conductivity) %>% 
+  rename(`pH` = Mean_pH) %>% 
+  rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
+  rename(`% Med. Sand` = Percent_Med_Sand) %>% 
+  rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
+  rename(`% Mud` = Percent_Mud) %>% 
   dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat","Mean_Temperature"))
+ 
+mean_wet_corr <- cor(mean_wet, method = "spearman")
 
-all_wet_corr <- cor(all_wet, method = "spearman")
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Mean_Wet_Treatment_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Wet_Treatment_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
-
-corrplot(all_wet_corr, title = "Wet Treatment Correlation")
+corrplot(mean_wet_corr, title = "Wet Treatment Correlation", type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25)
 
 dev.off()
 
-all_dry <- all_wet_dry %>%
+mean_dry <- mean_wet_dry %>%
   na.omit()  %>% 
   filter(!grepl("Wet", kit_treat)) %>% 
   remove_rownames %>% 
   column_to_rownames(var = "kit_treat") %>% 
-  rename(Positive_Effect_Size = pos_effect) %>% 
-  rename(Initial_Gravimetric_Water = average_grav_intial) %>% 
-  rename(Final_Gravimetric_Water = average_grav_final) %>% 
-  rename(Lost_Gravimetric_Water = average_grav_lost) %>% 
+  rename(`Effect Size` = pos_effect) %>% 
+  rename(`Mean Rate (mg/L)` = Average_Rate) %>% 
+  rename(`Initial Gravimetric Water` = average_grav_intial) %>% 
+  rename(`Final Gravimetric Water` = average_grav_final) %>% 
+  rename(`Lost Gravimetric Water` = average_grav_lost) %>% 
+  rename(`Fe (II) (mg/kg)`  = Mean_Fe_mg_kg) %>% 
+  rename(`Sp. Conducitivity` = Mean_Sp_Conductivity) %>% 
+  rename(`pH` = Mean_pH) %>% 
+  rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
+  rename(`% Med. Sand` = Percent_Med_Sand) %>% 
+  rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
+  rename(`% Mud` = Percent_Mud) %>% 
   dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat","Mean_Temperature"))
 
-all_dry_corr <- cor(all_dry, method = "spearman")
+mean_dry_corr <- cor(mean_dry, method = "spearman")
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Dry_Treatment_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Mean_Dry_Treatment_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
 
-corrplot(all_dry_corr, title = "Dry Treatment Correlation")
+corrplot(mean_dry_corr, title = "Dry Treatment Correlation", type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25)
 
 dev.off()
 
@@ -437,17 +458,84 @@ effect_list <- list(effect_diff, mean_fe_diff, mean_chem_diff, average_grav_lost
 #merge all data frames in list
 effect <- effect_list %>% 
   reduce(merge, by = "kit") %>% 
-  rename(Positive_Effect_Size = pos_effect) %>% 
+  rename(`Effect Size` = pos_effect) %>% 
+  rename(`Fe (II) Diff.`  = Fe_Difference) %>% 
+  rename(`SpC Diff.` = Sp_Conductivity_Difference) %>% 
+  rename(`Temp. Diff.` = Temp_Difference) %>% 
+  rename(`pH Diff.` = pH_Difference) %>% 
+  rename(`Moisture Diff.` = Final_Gravimetric_Moisture_Difference) %>% 
+  rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
+  rename(`% Med. Sand` = Percent_Med_Sand) %>% 
+  rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
+  rename(`% Mud` = Percent_Mud) %>% 
   na.omit()  %>% 
   remove_rownames %>% 
   column_to_rownames(var = "kit") %>% 
   dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay"))
-
+  
 
 effect_corr <- cor(effect, method = "spearman")
 
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Effect_Difference_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
 
-corrplot(effect_corr, title = "Differences Correlation")
+corrplot(effect_corr, type = 'upper', tl.col = "black", tl.cex = 1.6, cl.cex = 1.25)
 
 dev.off()
+
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Effect_vs_Mud_Scatter.png"), width = 8, height = 8, units = "in", res = 300)
+
+ggplot(effect, aes(x = Percent_Fine_Sand, y = Positive_Effect_Size))+
+  geom_point()+
+  geom_smooth(method = lm)
+
+dev.off()
+
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Effect_vs_Mud_Lowess.png"), width = 8, height = 8, units = "in", res = 300)
+
+par(mar = c(5 ,6 , 4, 1))
+
+plot(effect$`% Mud`, effect$`Effect Size`, cex= 1.8, cex.lab = 2.2, cex.axis = 1.8 ,xlab = "% Mud" , ylab = "Effect Size", lwd = 2)
+
+lines(lowess(effect$`% Mud`, effect$`Effect Size`), col = "blue", lwd = 3)
+
+dev.off()
+
+###PCA/RDA
+
+mean_wet_pca <- princomp(mean_wet_corr)
+summary(mean_wet_pca)
+
+mean_wet_pca$loadings[, 1:2]
+
+fviz_pca_var(mean_wet_pca, col.var = "black")
+
+
+mean_dry_pca <- princomp(mean_dry_corr)
+summary(mean_dry_pca)
+
+mean_dry_pca$loadings[, 1:2]
+
+fviz_pca_var(mean_dry_pca, col.var = "black")
+
+
+mean_wet_rda <- rda(mean_wet$`Mean Rate (mg/L)` ~., data = mean_wet)
+
+
+summary(mean_wet_rda)
+
+fwd_wet <- ordiR2step(rda(mean_wet$`Mean Rate (mg/L)` ~ 1, data = mean_wet), 
+          scope = formula(mean_wet_rda), 
+          direction = "forward", 
+          R2scope = TRUE,
+          pstep = 1000,
+          trace = FALSE)
+
+fwd_wet$call
+
+mean_wet_signif <- rda(formula = mean_wet$`Mean Rate (mg/L)` ~ `% Coarse Sand` + `Initial Gravimetric Water`, data = mean_wet)
+
+RsquareAdj(mean_wet_signif)
+
+ordiplot(mean_wet_signif, scaling = 1, type = "text")
+
+ordiplot(mean_wet_rda, scaling = 1, type = "text")
