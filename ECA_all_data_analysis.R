@@ -85,7 +85,10 @@ effect_diff <- effect_all %>%
 
 ###IRON DATA
 
-#calculate mean Fe for kit/treatment
+#look at individual samples
+
+#calculate mean Fe for kit/treatment from analytical replicates
+
 mean_fe <- iron %>% 
   separate(Sample_Name, into = c("Sample_ID", "rep"), sep = -1, convert = TRUE) %>% 
   group_by(Sample_ID) %>% 
@@ -109,16 +112,34 @@ mean_fe <- iron %>%
   mutate(rep = str_replace(rep, "SFE", "INC")) %>% 
   mutate(Sample_ID = str_replace(Sample_ID, "SFE", "INC"))
 
+mean_fe_check <- mean_fe %>% 
+  group_by(kit_treat) %>% 
+  mutate(CV = (sd(Fe_mg_kg)/mean(Fe_mg_kg))*100)
+
+mean_fe_check$Fe_mg_kg <- format(mean_fe_check$Fe_mg_kg, scientific = FALSE)
+
 ##All Fe data
-# ggplot(mean_fe, aes(x = Mean_Fe_mg_kg))+
+# ggplot(mean_fe, aes(x = Fe_mg_kg))+
 #   geom_histogram(binwidth = 0.1, fill = "cornflowerblue", col = "black")+
 #   theme_bw()+
-#   theme(axis.title.x = element_text(size = 18), 
-#         axis.title.y = element_text(size = 18), 
+#   theme(axis.title.x = element_text(size = 18),
+#         axis.title.y = element_text(size = 18),
 #         axis.text.x = element_text(size = 16),
 #         axis.text.y = element_text(size = 16))+
 #   xlab("\n Fe (II) (mg/L)")+
 #   ylab("Count\n")
+
+ggplot(mean_fe, aes(y = Fe_mg_kg, x = kit_treat))+
+    geom_boxplot()+
+    theme_bw()+
+    theme(axis.title.x = element_text(size = 18),
+          axis.title.y = element_text(size = 18),
+          axis.text.x = element_text(size = 16),
+          axis.text.y = element_text(size = 16))+
+    xlab("\n Fe (II) (mg/L)")+
+    ylab("Count\n")
+  
+
 
 #All Fe data, faceted by wet vs dry
 # ggplot(mean_fe, aes(x = Mean_Fe_mg_kg, fill = Treat))+

@@ -91,6 +91,8 @@ slope.new$flag <- NA
 #   mutate(slope_of_the_regression = if_else(slope_of_the_regression==0,-0.0001,slope_of_the_regression)) %>% 
 #   mutate(rate_mg = if_else(slope_of_the_regression==0,0.0001,slope_of_the_regression)) 
 
+##if more than 4 samples and CV > 10%, then remove 1 sample
+
 unique.samples = unique(slope.new$kit_treat)
 
 for (i in 1:length(unique.samples)) {
@@ -176,10 +178,6 @@ for (i in 1:length(unique.samples)) {
 slope.final$flag <- ifelse(slope.final$cv_before_removal < slope.final$cv_after_removal, "Issue in dropping sample", NA)
 
 slope.final <- rename(slope.final, "slope_of_the_regression" = "slope.temp")
-
-input.path,"/Effect_Size_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
-
-
 
 #Histogram of all slopes from 40 mL vials with facet by wet vs. dry treatment
 
@@ -371,7 +369,7 @@ ggplot(slope.means, aes(x = reorder(kit,Slope.Rem), y = Slope.Rem, fill = Treat)
   ggtitle("Mean slope by kit and treatment")+
   xlab("Kit")
 
-#these kits were from the same site? and 27 only has 3 dry replicates
+#27 and 39 from same site, 56 and 57 from same site
 
 
 #effect size wet - dry
