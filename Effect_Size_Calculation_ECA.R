@@ -260,7 +260,8 @@ ggplot(wet, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
         title = element_text(size = 24),
         legend.text = element_text(size = 18))+
   ylab("Count\n") +
-  xlab(expression(paste("Log of Rate (mg " ~L^-1 ~ min^-1~")")))
+  xlab(expression(paste("Log of Rate (mg " ~L^-1 ~ min^-1~")")))+
+  scale_y_continuous(limits = c(0,130), breaks = c(0, 25, 50, 75, 100, 125))
 
 dev.off()
 
@@ -269,7 +270,7 @@ dry <- slope.final.clean %>%
 
 #log10 histogram of dry treatments with removals (rate + 1)
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"Log_All_Dry_Slopes_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Log_All_Dry_Slopes_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(dry, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
   geom_histogram(fill = "#D55E00", binwidth = 0.04)+
@@ -284,7 +285,8 @@ ggplot(dry, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
         title = element_text(size = 24),
         legend.text = element_text(size = 18))+
   ylab("Count\n") +
-  xlab(expression(paste("Log of Rate (mg " ~L^-1 ~ min^-1~")")))
+  xlab(expression(paste("Log of Rate (mg " ~L^-1 ~ min^-1~")")))+
+  scale_y_continuous(limits = c(0,130), breaks = c(0, 25, 50, 75, 100, 125))
 
 dev.off()
 

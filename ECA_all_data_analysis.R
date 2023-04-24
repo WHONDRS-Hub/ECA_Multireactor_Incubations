@@ -71,8 +71,6 @@ resp <- respiration %>%
   mutate(Slope_Removed_Mean = if_else(Slope_Removed_Mean>0,0,Slope_Removed_Mean))
 
 
-
-
 #Use this for wet/dry correlation matrix
 effect_all <- effect_size %>%
   mutate(Average_Rate = abs(Slope_Removed_Mean)) %>% 
@@ -92,7 +90,9 @@ effect_diff <- effect_all %>%
 mean_fe <- iron %>% 
   separate(Sample_Name, into = c("Sample_ID", "rep"), sep = -1, convert = TRUE) %>% 
   group_by(Sample_ID) %>% 
-  summarise_at(vars(Fe_mg_per_kg_sediment), list(mean = mean)) %>% 
+  mutate(Mean_Fe_mg_per_L = mean(Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_kg= mean(Fe_mg_per_kg_sediment)) %>% 
+ # summarise_at(vars(Fe_mg_per_kg_sediment), list(mean = mean)) %>% 
   separate(Sample_ID, c("ECA", "kit", "rep"), sep = "_", remove = FALSE) %>% 
   mutate(Treat = case_when(
     endsWith(rep, "W1") ~ "Wet",
@@ -106,11 +106,12 @@ mean_fe <- iron %>%
     endsWith(rep, "D4") ~ "Dry",
     endsWith(rep, "D5") ~ "Dry"
   )) %>% 
-  rename("Fe_mg_kg" = "mean") %>% 
+ # rename("Fe_mg_kg" = "mean") %>% 
   mutate(Log_Fe_mg_kg = log10(Fe_mg_kg)) %>% 
   unite(kit_treat, kit, Treat, remove = FALSE) %>% 
   mutate(rep = str_replace(rep, "SFE", "INC")) %>% 
-  mutate(Sample_ID = str_replace(Sample_ID, "SFE", "INC"))
+  mutate(Sample_ID = str_replace(Sample_ID, "SFE", "INC")) %>% 
+  distinct(Sample_ID, .keep_all = TRUE)
 
 mean_fe_check <- mean_fe %>% 
   group_by(kit_treat) %>% 
@@ -355,7 +356,6 @@ average_grav_lost <- average_grav %>%
 
 ##Individual Samples Correlation Matrix
 
-##start here on 4/13/2023
 all_list <- list(fe_all, resp, chem_all, all_grav_ind)
 
 all_samples <- all_list %>% 
@@ -368,7 +368,84 @@ all_samples_clean <- all_samples_grn %>%
   na.omit()  %>% 
   remove_rownames %>% 
   column_to_rownames(var = "Sample_ID") %>% 
-  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat", "kit_treat"))
+  rename(`Rate (mg/L)` = rate_mg) %>% 
+  rename(`Initial Gravimetric Water` = grav_dry_initial) %>% 
+  rename(`Final Gravimetric Water` = grav_dry_final) %>% 
+  rename(`Lost Gravimetric Water` = lost_grav_perc) %>% 
+  rename(`Fe (II) (mg/kg)`  = Fe_mg_kg) %>% 
+  rename(`Sp. Conducitivity` = SpC) %>% 
+  rename(`pH` = pH) %>% 
+  rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
+  rename(`% Med. Sand` = Percent_Med_Sand) %>% 
+  rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
+  rename(`% Mud` = Percent_Mud) %>% 
+  separate(kit_treat, into = c("kit", "Treat"), sep = "_") 
+
+%>% 
+  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat","Temp"))
+
+"#D55E00" "#0072B2"
+###EGU figures
+
+all_samples_clean$Treat <- as.factor(all_samples_clean$Treat)
+
+color_pallete <- colorRampPalette(colors = c("#D55E00", "#0072B2"))
+
+num_colors <- nlevels(all_samples_clean$Treat)
+
+samples_colors <- color_pallete(num_colors)
+
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Respiration_vs_Mud_lowess.png"), width = 8, height = 8, units = "in", res = 300)
+
+par(mar = c(5 ,6 , 6, 6), xpd = FALSE)
+
+plot(all_samples_clean$`% Mud`, all_samples_clean$`Rate (mg/L)`, cex= 1.8, cex.lab = 2.2, cex.axis = 1.8 ,xlab = "% Mud" , ylab = "Rate (mg/L)", lwd = 2, col = samples_colors[all_samples_clean$Treat], pch = c(16,17)[as.numeric(all_samples_clean$Treat)])
+
+lines(lowess(all_samples_clean$`% Mud`[all_samples_clean$Treat=="Dry"], all_samples_clean$`Rate (mg/L)`[all_samples_clean$Treat=="Dry"]), col = "#D55E00", lwd = 3)
+
+
+lines(lowess(all_samples_clean$`% Mud`[all_samples_clean$Treat=="Wet"], all_samples_clean$`Rate (mg/L)`[all_samples_clean$Treat=="Wet"]), col = "#0072B2", lwd = 3)
+
+par(xpd = TRUE)
+
+legend(x = "topright", inset = c(-0.15,0.45), legend = paste(levels(all_samples_clean$Treat)), col = samples_colors, pch = c(16,17), cex = 1)
+
+dev.off()
+
+
+##Fe (mg/L) vs. Respiration
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Respiration_vs_Fe_lowess.png"), width = 8, height = 8, units = "in", res = 300)
+
+par(mar = c(5 ,6 , 6, 6), xpd = FALSE)
+
+plot(all_samples_clean$`Mean_Fe_mg_per_L`, all_samples_clean$`Rate (mg/L)`, cex= 1.8, cex.lab = 2.2, cex.axis = 1.8 ,xlab = "Fe (II) (mg/L)" , ylab = "Rate (mg/L)", lwd = 2, col = samples_colors[all_samples_clean$Treat], pch = c(16,17)[as.numeric(all_samples_clean$Treat)])
+
+lines(lowess(all_samples_clean$`Mean_Fe_mg_per_L`[all_samples_clean$Treat=="Dry"], all_samples_clean$`Rate (mg/L)`[all_samples_clean$Treat=="Dry"]), col = "#D55E00", lwd = 3)
+
+
+lines(lowess(all_samples_clean$`Mean_Fe_mg_per_L`[all_samples_clean$Treat=="Wet"], all_samples_clean$`Rate (mg/L)`[all_samples_clean$Treat=="Wet"]), col = "#0072B2", lwd = 3)
+
+par(xpd = TRUE)
+
+legend(x = "topright", inset = c(-0.15,0.45), legend = paste(levels(all_samples_clean$Treat)), col = samples_colors,  pch = c(16,17), cex = 1)
+
+dev.off()
+
+##Fe (mg/kg) vs. Respiration
+
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Respiration_vs_Fe_mg_kg_lowess.png"), width = 8, height = 8, units = "in", res = 300)
+
+par(mar = c(5 ,6 , 6, 6), xpd = FALSE)
+
+plot(all_samples_clean$`Fe (II) (mg/kg)`, all_samples_clean$`Rate (mg/L)`, cex= 1.8, cex.lab = 2.2, cex.axis = 1.8 ,xlab = "Fe (II) (mg/kg)" , ylab = "Rate (mg/L)", lwd = 2, col = samples_colors[all_samples_clean$Treat], pch = 20)
+
+lines(lowess(all_samples_clean$`Mean_Fe_mg_per_L`, all_samples_clean$`Rate (mg/L)`), col = "blue", lwd = 3)
+
+par(xpd = TRUE)
+
+legend(x = "topright", inset = c(-0.15,0.45), legend = paste(levels(all_samples_clean$Treat)), col = samples_colors, pch = 19, cex = 1)
+
+dev.off()
 
 all_samples_corr <- cor(all_samples_clean, method = "spearman")
 
@@ -528,7 +605,11 @@ summary(mean_wet_pca)
 
 mean_wet_pca$loadings[, 1:2]
 
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Wet_Mean_PCA.png"), width = 8, height = 8, units = "in", res = 300)
+
 fviz_pca_var(mean_wet_pca, col.var = "black")
+
+dev.off()
 
 
 mean_dry_pca <- princomp(mean_dry_corr)
@@ -536,8 +617,11 @@ summary(mean_dry_pca)
 
 mean_dry_pca$loadings[, 1:2]
 
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Dry_Mean_PCA.png"), width = 8, height = 8, units = "in", res = 300)
+
 fviz_pca_var(mean_dry_pca, col.var = "black")
 
+dev.off()
 
 mean_wet_rda <- rda(mean_wet$`Mean Rate (mg/L)` ~., data = mean_wet)
 
