@@ -5,7 +5,7 @@ pnnl.user = 'laan208'
 
 
 ##update this to have most recent date
-effect <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Effect_Size_Merged_by_laan208_on_2023-04-11.csv"))
+effect <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Effect_Size_Merged_by_laan208_on_2023-04-26.csv"))
 
 effect = effect[,c("Sample_ID", "pos_effect")]
 effect = effect[!duplicated(effect$pos_effect), ]

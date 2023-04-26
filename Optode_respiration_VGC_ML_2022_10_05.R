@@ -129,7 +129,7 @@ bind <- merge(all.samples, fast.rates.kits, all = TRUE) %>%
 
 
 #14 kit - W1 second low point not being removed in script currently
-#32 kit - low first point, might be partially fixed with heteroscedasticity
+#32-D3 kit - low first point, might be partially fixed with heteroscedasticity
 
 bind <- bind %>% 
   filter(Sample_ID != "EC_13_INC-W5") %>% 
@@ -137,8 +137,8 @@ bind <- bind %>%
   filter(!(elapsed_min < 8 & Sample_ID == "EC_14_INC-W1")) %>%
   filter(Sample_ID != "EC_14_INC-W5") %>% 
   filter(Sample_ID != "EC_27_INC-D1") %>%
-  filter(Sample_ID != "EC_27_INC-D2") %>% 
-  filter(!(elapsed_min <= 2 & Sample_ID == "EC_32_INC-D3")) 
+  filter(Sample_ID != "EC_27_INC-D2") #%>% 
+ # filter(!(elapsed_min == 2 & Sample_ID == "EC_32_INC-D3")) 
 
 
 #generate another dataset (w/ time, DO) with everything that has been removed: high, low (median), at the end, then can plot everything on top of each other with different colors to see what has been removed
@@ -149,7 +149,7 @@ min.points = 2
 threshold = 0.99
 res.threshold = 0.25
 slope.thresh = -0.006
-do.thresh = 0.75
+do.thresh = 1
 time.thresh = 2
 fast = 5
 ymax = max(na.omit(bind$DO_mg_L))
@@ -221,29 +221,38 @@ for (i in 1:length(location)){
     
     #remove points < median at beginning
     
-    for (k in 1:3) {
-      
-      if(data_site_subset_beg$DO_mg_L[k] < median(data_site_subset_beg$DO_mg_L)) {
-        
-        data_site_subset_beg = data_site_subset_beg[-k,]
-        
-      }
-      else if (data_site_subset_beg$DO_mg_L[k] >= median(data_site_subset_beg$DO_mg_L)){
-        #break()
-        data_site_subset_beg = data_site_subset_beg
-      
-      }
-      
-    }
-    
+    # for (k in 1:3) {
+    #   
+    #   if(data_site_subset_beg$DO_mg_L[k] < median(data_site_subset_beg$DO_mg_L)) {
+    #     
+    #     data_site_subset_beg = data_site_subset_beg[-k,]
+    #     
+    #   }
+    #   else if (data_site_subset_beg$DO_mg_L[k] >= median(data_site_subset_beg$DO_mg_L)){
+    #     #break()
+    #     data_site_subset_beg = data_site_subset_beg
+    #   
+    #   }
+    #   
+    # }
+    # 
     fitog = lm(data_site_subset_beg$DO_mg_L~data_site_subset_beg$elapsed_min)
     
      ##remove samples if at >4 minutes, they are below the DO threshold. This is trying to remove low values from the back end of curves
     
     data_site_subset_thresh = data_site_subset_beg %>% 
-      filter(!(elapsed_min > time.thresh & DO_mg_L < do.thresh))
+      filter(!(elapsed_min > time.thresh & DO_mg_L < do.thresh)) 
     
     data_site_subset_fin = data_site_subset_thresh
+    
+    for(n in 1:2){
+      if(data_site_subset_fin$elapsed_min[2] == 2 & data_site_subset_fin$DO_mg_L[2] <= 5){
+        
+        data_site_subset_fin = data_site_subset_fin %>% 
+          filter(!elapsed_min > 2 )
+        
+      }
+    }
     
     fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
     u = fit$coefficients
@@ -273,6 +282,8 @@ for (i in 1:length(location)){
       
     }
     
+  
+   
     else {
      
       for(l in 1:60){
@@ -282,7 +293,9 @@ for (i in 1:length(location)){
         data_site_subset_fin = data_site_subset_fin
         
       }
+        
       
+     
       else if (bp < bpfit & nrow(data_site_subset_fin)>=min.points){
 
         data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
@@ -430,9 +443,9 @@ for (i in 1:length(location)){
       theme(axis.title =element_text(size = 12,face="bold"))+
       theme(axis.title.y =element_text(size = 12,face="bold"))
 
-    #multi <- (final + high_rem + beg_rem + all) +
-    # plot_layout(widths = c(2,2))
-    #ggsave(file=paste0(path,"Plots/breusch_test_fits/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
+    multi <- (final + high_rem + beg_rem + all) +
+     plot_layout(widths = c(2,2))
+    ggsave(file=paste0(path,"Plots/breusch_test_fits/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
 
     rate$Sample_ID[j] = as.character(data_site_subset_fin$Sample_ID[1])
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
@@ -482,7 +495,7 @@ respiration = respiration[-1,]
 #   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
 #   mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
 
-write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),"_breusch.csv"), row.names = F)
+write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),"_fastbreusch.csv"), row.names = F)
 
 
 

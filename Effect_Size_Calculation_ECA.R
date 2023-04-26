@@ -25,7 +25,7 @@ import_data = function(path){
   
   files <- list.files(path, pattern = ".csv", recursive = T, full.names = T)
   
-  all <- files[grep("2023-04-06", files)]
+  all <- files[grep("fastbreusch", files)]
   
   data <- lapply(all, read.table, sep = ",", header = T)
   
@@ -105,7 +105,7 @@ for (i in 1:length(unique.samples)) {
   slope.temp.mean <- mean(slope.temp)
   CV = abs((slope.temp.sd/slope.temp.mean)*100)
   
-  #why 1:10? looping to get 4 out of 5 best samples
+  #looping to get 4 out of 5 best samples
   for (sample.reduction in 1:5)  {
     
     if (slope.temp.mean == 0) {
@@ -233,7 +233,7 @@ ggplot(slope.final.clean, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
         title = element_text(size = 24),
         legend.text = element_text(size = 18))+
   ylab("Count\n") +
-  xlab(expression(paste("Log of Rate (mg " ~L^-1 ~ min^-1~")")))
+  xlab(expression(paste("Log of Rate (mg O"[2]* " L"^-1* "min"^-1*")")))
 
 dev.off()
 
@@ -260,7 +260,7 @@ ggplot(wet, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
         title = element_text(size = 24),
         legend.text = element_text(size = 18))+
   ylab("Count\n") +
-  xlab(expression(paste("Log of Rate (mg " ~L^-1 ~ min^-1~")")))+
+  xlab(expression(paste("Log of Rate (mg O"[2]* " L"^-1* " min"^-1*")")))+
   scale_y_continuous(limits = c(0,130), breaks = c(0, 25, 50, 75, 100, 125))
 
 dev.off()
@@ -285,7 +285,7 @@ ggplot(dry, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
         title = element_text(size = 24),
         legend.text = element_text(size = 18))+
   ylab("Count\n") +
-  xlab(expression(paste("Log of Rate (mg " ~L^-1 ~ min^-1~")")))+
+  xlab(expression(paste("Log of Rate (mg O"[2]* " L"^-1* " min"^-1*")")))+
   scale_y_continuous(limits = c(0,130), breaks = c(0, 25, 50, 75, 100, 125))
 
 dev.off()
@@ -395,7 +395,7 @@ ggplot(eca, aes(x = reorder(kit, pos_effect), y = pos_effect))+
         axis.title.y = element_text(size = 24),
         axis.text.x = element_text(size = 18, angle = 90, vjust = 0.5, hjust = 1),
         axis.text.y = element_text(size =18))+
-  ylab("Wet - Dry Rate\n")+
+  ylab(expression(paste("Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")))+
   xlab("\nSite Number")
 
 dev.off()
