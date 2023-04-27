@@ -381,7 +381,7 @@ eca <- slope.means %>%
   
   mutate(effect = (Slope_Removed_Mean[Treat == "Wet"] - Slope_Removed_Mean[Treat == "Dry"])) %>% 
   mutate(log_effect = log10(abs(effect))) %>% 
-  mutate(pos_effect = (abs(Slope_Removed_Mean[Treat == "Wet"] - Slope_Removed_Mean[Treat == "Dry"])))
+  mutate(pos_effect = (abs(Slope_Removed_Mean[Treat == "Wet"])) - (abs(Slope_Removed_Mean[Treat == "Dry"])))
 
 
 

@@ -9,15 +9,12 @@ input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Fi
 setwd(input.path)
 
 raw.data = ("01_Rawdata/")
-formatted.data = ("02_FormattedData/")
-processed.data = ("03_ProcessedData/")
+
+formatted.data = ("02_FormattedData/20230110_Data_Formatted_SFE_ECA_EC_1-270/")
+
+processed.data = ("03_ProcessedData/20230110_Data_Formatted_SFE_ECA_EC_1-270/")
 
 
-#read in masses of sediment used in incubation
-
-inc.masses <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/01_RawData/")
-
-#import_iron = function(input.path){
   
   # import map
   ferrozine_map = read_excel("01_Rawdata/20230110_Data_Raw_SFE_ECA_EC_1-270/20230110_Mapping_SFE_ECA_EC_1-270.xlsx", sheet = "map") %>% mutate_all(as.character) 
@@ -28,11 +25,6 @@ inc.masses <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-F
     df = df %>% mutate(source = basename(raw.data))
     df}))
   
- # list(ferrozine_map = ferrozine_map,
- #     ferrozine_data = ferrozine_data)
-  #}
-
-
 
 # clean the map
 map_processed = 
@@ -41,7 +33,7 @@ map_processed =
   filter(!is.na(sample_name) & !is.na(tray_number)) %>% 
   rename(sample_label = sample_name)
 
-#remove trays 4 and 6, figure out how to remove bad dilutions in 12 and 13
+#remove trays 4 and 6, bad dilutions in 12 and 13
 
 data_formatted = 
   ferrozine_data %>% 
@@ -65,15 +57,8 @@ data_formatted =
   filter(tray_number != "6") 
  
 
-data_flag <- data_formatted %>%
-  separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_") %>% 
-  separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-") %>% 
-  separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)") %>% 
-  group_by(kit, Replicate) %>% 
-  summarise(CV = ((sd(absorbance_562)/mean(absorbance_562))*100))
-  
 #### Formatted absorbance data ####
-write.csv(data_formatted,"02_FormattedData/20230110_Data_Formatted_SFE_ECA_EC_1-270/20230110_Data_Formatted_SFE_ECA_EC_1-270.csv", row.names = F)
+write.csv(data_formatted, paste0(formatted.data,"20230110_Data_Formatted_SFE_ECA_EC_1-270.csv"), row.names = F)
   
 
 ####Processed Data #####
@@ -120,8 +105,6 @@ samples =
   rename("mg_Fe_per_L" = "ppm_calculated") %>% 
   mutate(mg_Fe_per_L = if_else(mg_Fe_per_L<0,0,mg_Fe_per_L))
 
-#ggplot(samples) +
- # geom_boxplot(aes(x = sample_label, y = mg_Fe_per_L))
 
 data_flag_conc <- samples %>%
   separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_") %>% 
@@ -137,41 +120,15 @@ data_flag_conc <- samples %>%
   )) 
 
 
-data_flag_conc <- samples %>%
-  separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_") %>% 
-  separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-") %>% 
-  separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)") %>%  
-  unite(kit_rep, c(kit, Replicate), sep = "_", remove = FALSE) %>% 
-  group_by(kit_rep) %>% 
-  mutate(CV = ((sd(mg_Fe_per_L)/mean(mg_Fe_per_L))*100)) %>% 
-  mutate(range = max(mg_Fe_per_L) - min(mg_Fe_per_L)) %>% 
-  distinct(kit_rep, .keep_all = TRUE) %>% 
-  mutate(flag = case_when(
-    CV <= 10 ~ "fine",
-    CV >= 10 & range >= 0.04~ "flag"
-  )) %>% 
-  select(-c("Project", "kit", "Analysis", "Replicate", "Technical"))
-
-
-
-#largest sd 0.18, for diluted sample with differences in abs 0.2
-#CV for blanks mg/L = -301%, range of 0.06 across all trays
-
 blanks = 
   calibrate_ferrozine_data(data_formatted) %>% 
   filter(grepl("blank", sample_label)) %>% 
   mutate(CV = ((sd(ppm_calculated)/mean(ppm_calculated))*100)) %>% 
   mutate(range = max(ppm_calculated) - min(ppm_calculated))
 
- 
+###Processed data not corrected for mass
 
-  
-# mean(blanks$ppm_calculated)
-# sd(blanks$ppm_calculated)
-# 
-# mean(blanks$absorbance_562)
-# sd(blanks$absorbance_562)
-  
+
 ### pull in moisture data to correct to mg Fe/kg dry sediment
 
 moisture <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/EC_Moisture_Content_2022.csv"))
