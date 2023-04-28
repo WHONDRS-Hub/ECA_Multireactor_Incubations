@@ -1,12 +1,12 @@
-###### Load Library ######
+#### Load Library ####
 
 library(lubridate);library(writexl);library(raster);library(tidyverse);library(devtools)
 
-##### Load data ######
+#### Load data #####
 rm(list=ls());graphics.off()
 
 # Set working directory to data file
-#Example:
+
 pnnl.user = 'laan208'
 
 input.path <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates")
@@ -17,6 +17,8 @@ path <- ("Plots")
 
 #change date to most recent respiration rate csv
 
+date = '2023-04-26_fastbreusch'
+
 #read in all files, remove csv that are not rate data files, bind all results files together, 
 import_data = function(path){
   
@@ -25,7 +27,7 @@ import_data = function(path){
   
   files <- list.files(path, pattern = ".csv", recursive = T, full.names = T)
   
-  all <- files[grep("fastbreusch", files)]
+  all <- files[grep(paste0(date), files)]
   
   data <- lapply(all, read.table, sep = ",", header = T)
   
@@ -34,62 +36,40 @@ import_data = function(path){
 
 data = import_data(path)
 
+#### Clean Data ####
 
 #separate names, add Treatment (wet or dry), replace NAs with blanks
 
 all.data <- data %>% 
   separate(Sample_ID, c("ECA", "kit", "rep"), sep = "_", remove = FALSE) %>% 
-  mutate(Treat = case_when(
-    endsWith(rep, "W1") ~ "Wet",
-    endsWith(rep, "W2") ~ "Wet",
-    endsWith(rep, "W3") ~ "Wet",
-    endsWith(rep, "W4") ~ "Wet", 
-    endsWith(rep, "W5") ~ "Wet",
-    endsWith(rep, "D1") ~ "Dry",
-    endsWith(rep, "D2") ~ "Dry",
-    endsWith(rep, "D3") ~ "Dry",
-    endsWith(rep, "D4") ~ "Dry",
-    endsWith(rep, "D5") ~ "Dry"
-  ))
-
-
+  mutate(Treat = case_when(grepl("W",rep)~"Wet",
+                           grepl("D", rep) ~"Dry")) %>% 
+  relocate(Treat, .after = rep) %>% 
+  select(c(Sample_ID,ECA,kit,rep,slope_of_the_regression,rate_mg_per_L_per_min,rate_mg_per_L_per_h,Treat))
+    
+          
 #choosing best 4 out of 5 samples to keep using dist matrix
 
 slope.new <- all.data %>% 
   unite(kit_treat, kit, Treat, remove = FALSE) %>% 
   group_by(kit_treat) %>% 
   mutate(Mean_Slope_All = mean(slope_of_the_regression)) %>% 
-  ungroup() %>% 
-  dplyr::select(-slope_beginning,-Initial_R_squared, -Final_R_squared, -R_squared_adj,-residuals,-initial_p_value,-final_p_value,-total_incubation_time_min,-number_of_points,-removed_points_high,-removed_points_beg,-removed_points_end,-breusch_p_value,-flag_r2,-flag_pos_slope,-flag_heteroscedastic)
+  ungroup()
 
 
 slope.new <- slope.new %>% 
-  #add_column(newColname = "cv") %>% 
-  group_by(kit_treat) %>% 
+   group_by(kit_treat) %>% 
   mutate(cv_before_removal = cv(slope_of_the_regression)) %>% 
 ungroup()
 
-slope.final <- as.data.frame(matrix(NA, ncol = 13, nrow =1))
-
-colnames(slope.final) = c("slope.temp","Sample_ID", "ECA", "kit_treat", "kit", "rep", "rate_mg_per_L_per_min","rate_mg_per_L_per_h", "Treat", "Mean_Slope_All","cv_before_removal", "cv_after_removal", "Slope_Removed_Mean")
-
-
-# slope.new$Slope_Removed_Mean <- NA
-# slope.new$cv_after_removal <- NA
-# slope.new$Slope_Removed <- NA
-slope.final$flag <- NA
 slope.new$flag <- NA
 
+slope.final <- as.data.frame(matrix(NA, ncol = 14, nrow =1))
 
-#dist matrix doesn't work when there are 0's present and we set all of the positive slopes to 0 - breaks the dist matrix because of dividing by 0. hence making 0's non-zero below
+colnames(slope.final) = c("slope.temp","Sample_ID", "ECA", "kit_treat", "kit", "rep", "rate_mg_per_L_per_min","rate_mg_per_L_per_h", "Treat", "Mean_Slope_All","cv_before_removal", "cv_after_removal", "Mean_Slope_Removed","flag")
 
-# all.data = all.data %>% 
-#   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
-#   mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression))
-# 
-# slope.new.na <- slope.new %>% 
-#   mutate(slope_of_the_regression = if_else(slope_of_the_regression==0,-0.0001,slope_of_the_regression)) %>% 
-#   mutate(rate_mg = if_else(slope_of_the_regression==0,0.0001,slope_of_the_regression)) 
+
+
 
 ##if more than 4 samples and CV > 10%, then remove 1 sample
 
@@ -157,7 +137,7 @@ for (i in 1:length(unique.samples)) {
     
     slope.removed$cv_after_removal = as.numeric(abs((sd(slope.temp)/mean(slope.temp))*100))
     
-    slope.removed$Slope_Removed_Mean = as.numeric(mean(slope.temp))
+    slope.removed$Mean_Slope_Removed = as.numeric(mean(slope.temp))
  
     #slope.new$cv_after_removal[which(slope.new$kit_treat == unique.samples[i])] = as.numeric(abs((sd(slope.temp)/mean(slope.temp))*100))
     
@@ -179,8 +159,9 @@ slope.final$flag <- ifelse(slope.final$cv_before_removal < slope.final$cv_after_
 
 slope.final <- rename(slope.final, "slope_of_the_regression" = "slope.temp")
 
-#Histogram of all slopes from 40 mL vials with facet by wet vs. dry treatment
+slope.final$rem <- abs(slope.final$slope_of_the_regression) - slope.final$rate_mg_per_L_per_min
 
+#Histogram of all slopes from 40 mL vials with facet by wet vs. dry treatment ####
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_all_slope_facet_histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(slope.final, aes(x = slope_of_the_regression, fill = Treat))+
@@ -200,18 +181,25 @@ ggplot(slope.final, aes(x = slope_of_the_regression, fill = Treat))+
 
 dev.off()
 
-##turn all positive rates to 0
+# Finalize respiration data with removals ####
+#turn all positive rates to 0
 
 slope.final.clean = slope.final %>%
   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>%
   mutate(rate_mg = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_min)) %>% 
-  mutate(Slope_Removed_Mean = if_else(Slope_Removed_Mean>0,0,Slope_Removed_Mean))
+  mutate(Mean_Slope_Removed = if_else(Mean_Slope_Removed>0,0,Mean_Slope_Removed)) %>% 
+  select(c(Sample_ID,rate_mg)) %>% 
+  rename(rate_mg_per_L_per_min = rate_mg) %>% 
+  mutate(rate_mg_per_L_per_h = rate_mg_per_L_per_min*60)
 
 
 write.csv(slope.final.clean,paste0(input.path,"/removed_respiration_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+
+# Log Transformations and Slope Histograms####
 #log10 transformation of positive rate data +1 - can't log transform negative data or 0
 
-slope.final.clean$log_rate_mg_per_L_per_min = log10(slope.final.clean$rate_mg+1)
+slope.final.clean$log_rate_mg_per_L_per_min = log10(slope.final.clean$rate_mg_per_L_per_min+1)
+
 
 
 #log10 transformation of positive rate data faceted by treatment
@@ -351,13 +339,18 @@ ggplot(slope.final.clean, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
 
 dev.off()
 
+#Effect Size Calc ####
 #calculate mean slopes by Kit and Treatment (wet or dry)
 
 slope.means <- slope.final.clean %>% 
-  distinct(kit_treat, .keep_all = TRUE) %>% 
-  filter(Slope_Removed_Mean != "Too Variable") 
+  separate(Sample_ID, into = c("kit", "rep"), sep = "-") %>% 
+  mutate(Treat = case_when(grepl("W", rep)~"Wet",
+                           grepl("D", rep) ~"Dry")) %>% group_by(kit, Treat) %>% 
+  mutate(Mean_Slope_Removed = mean(rate_mg_per_L_per_min)) %>% 
+  distinct(kit, Treat, .keep_all = TRUE) %>% 
+  select(c(kit,Treat,Mean_Slope_Removed))
 
-slope.means$Slope_Removed_Mean <- as.numeric(slope.means$Slope_Removed_Mean)
+slope.means$Mean_Slope_Removed <- as.numeric(slope.means$Mean_Slope_Removed)
 
 #Histogram of mean slopes
 ggplot(slope.means, aes(x = Slope_Removed_Mean, fill = Treat))+
@@ -376,12 +369,12 @@ ggplot(slope.means, aes(x = reorder(kit,Slope.Rem), y = Slope.Rem, fill = Treat)
 
 #effect size wet - dry
 eca <- slope.means %>% 
-  filter(kit != "27") %>% 
+  filter(kit != "EC_27_INC") %>% 
   group_by(kit) %>% 
   
-  mutate(effect = (Slope_Removed_Mean[Treat == "Wet"] - Slope_Removed_Mean[Treat == "Dry"])) %>% 
+  mutate(effect = (Mean_Slope_Removed[Treat == "Wet"] - Mean_Slope_Removed[Treat == "Dry"])) %>% 
   mutate(log_effect = log10(abs(effect))) %>% 
-  mutate(pos_effect = (abs(Slope_Removed_Mean[Treat == "Wet"])) - (abs(Slope_Removed_Mean[Treat == "Dry"])))
+  mutate(pos_effect = (abs(Mean_Slope_Removed[Treat == "Wet"])) - (abs(Mean_Slope_Removed[Treat == "Dry"])))
 
 
 

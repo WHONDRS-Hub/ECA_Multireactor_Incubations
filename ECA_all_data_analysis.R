@@ -1,3 +1,7 @@
+##ECA Data Analysis 
+
+#### Read in Data ####
+
 #read in libraries
 
 library(lubridate);library(writexl);library(raster);library(tidyverse);library(devtools)
@@ -8,26 +12,27 @@ library(vegan)
 library(FactoMineR)
 library(factoextra)
 
-##### Load data ######
 rm(list=ls());graphics.off()
 
 # Set working directory to data file
 #Example:
 pnnl.user = 'laan208'
 
+# choose file dates to read in 
+
+effect.date = '2023-04-26'
+respiration.date = '2023-04-26'
+grav.date = '2023-04-13'
 
 #Read in all data
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
 
-###effect size - change date to most recent
-effect_size <- read_csv(paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/Effect_Size_merged_by_laan208_on_2023-04-26.csv"))
+#effect size - change date to most recent
+effect_size <- read_csv(paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/Effect_Size_merged_by_laan208_on_",effect.date,".csv"))
 
 
-#Respiration rates 
-respiration <- read.csv(paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/removed_respiration_merged_by_laan208_on_2023-04-26.csv"))
-#
- 
-
+#Respiration rates with removals from dist matrix to calculate effect size 
+respiration <- read.csv(paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/removed_respiration_merged_by_laan208_on_",respiration.date,".csv"))
 
 #ECA Iron
 iron <- read_csv(paste0("FE/03_ProcessedData/20230110_Data_Processed_SFE_ECA_EC_1-270/20230110_Data_Processed_SFE_ECA_EC_1-270.csv"))
@@ -61,19 +66,17 @@ map = import_data(chemistry)
 
 #Gravimetric Moisture
 
-grav_inc <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_merged_by_laan208_on_2023-04-13.csv"))
+grav_inc <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_merged_by_laan208_on_",grav.date,".csv"))
 
 wet_wt <- read.csv(paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/EC_Moisture_Content_2022.csv"))
 
-###EFFECT SIZE/RESPIRATION###
+
+
+#### EFFECT SIZE/RESPIRATION #### 
 
 #Use this for individual samples correlation matrix
 
-resp <- respiration %>% 
-  mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>%
-  mutate(rate_mg = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_min)) %>% 
-  mutate(Slope_Removed_Mean = if_else(Slope_Removed_Mean>0,0,Slope_Removed_Mean))
-
+resp <- respiration 
 
 #Use this for wet/dry correlation matrix
 effect_all <- effect_size %>%
@@ -85,7 +88,8 @@ effect_diff <- effect_all %>%
   distinct(kit, .keep_all = TRUE) %>% 
   dplyr::select(-c(Average_Rate, kit_treat,Treat))
 
-###IRON DATA
+
+#### IRON ####
 
 #look at individual samples
 
@@ -207,8 +211,7 @@ mean_fe_diff <- mean_fe_treat %>%
   distinct(kit, .keep_all = TRUE)
  
 
-
-###Grain Size Data
+#### GRAIN SIZE ####
 
 #this is the only data type that is not vial specific
 
@@ -251,7 +254,7 @@ grn$kit <- sub('.', '', grn$kit)
 # dev.off()
 
 
-###pH, SpC, temp data
+#### pH, SpC, Temp ####
 
 #Use this for individual correlation matrix
 chem_all = map %>% 
@@ -290,7 +293,7 @@ mean_chem_diff <- mean_chem %>%
   dplyr::select(-c(Mean_Sp_Conductivity,Mean_Temperature, Mean_pH,kit_treat,Treat)) %>% 
   distinct(kit, .keep_all = TRUE)  
 
-###Gravimetric Moisture 
+#### Gravimetric Moisture ####
 
 mean_wet_wt <- wet_wt %>% 
   separate(col = sample_name, into = c("Project", "kit", "analysis"), sep = "_") %>%  
@@ -358,7 +361,7 @@ average_grav_lost <- average_grav %>%
   dplyr::select(c(kit, Final_Gravimetric_Moisture_Difference)) %>% 
   distinct(kit, .keep_all = TRUE)
 
-##Individual Samples Correlation Matrix
+#### Individual Samples Correlation Matrix ####
 
 all_list <- list(fe_all, resp, chem_all, all_grav_ind)
 
@@ -388,7 +391,7 @@ all_samples_clean <- all_samples_grn %>%
 %>% 
   dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat","Temp"))
 
-###EGU figures
+#### EGU figures
 
 all_samples_clean$Treat <- as.factor(all_samples_clean$Treat)
 
@@ -463,7 +466,7 @@ all_samples_dry <- all_samples_grn %>%
   filter(!grepl("Wet", kit_treat)) %>% 
   remove_rownames %>% 
   column_to_rownames(var = "Sample_ID") %>% 
-  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat", "kit_treat"))
+  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat", "kit_treat", "analysis"))
 
 all_samples_dry_corr <- cor(all_samples_dry, method = "spearman")
 
@@ -478,7 +481,7 @@ all_samples_wet <- all_samples_grn %>%
   filter(!grepl("Dry", kit_treat)) %>% 
   remove_rownames %>% 
   column_to_rownames(var = "Sample_ID") %>% 
-  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat", "kit_treat"))
+  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay","kit","Treat", "kit_treat", "analysis"))
 
 all_samples_wet_corr <- cor(all_samples_wet, method = "spearman")
 
@@ -488,7 +491,7 @@ corrplot(all_samples_wet_corr, title = "All Wet Samples Correlation")
 
 dev.off()
 
-##Wet/Dry Correlation Matrices
+#### Wet/Dry Correlation Matrices ####
 wd_list <- list(effect_all, mean_fe_treat, mean_chem, average_grav)
 
 #merge all data frames in list
@@ -552,7 +555,7 @@ corrplot(mean_dry_corr, title = "Dry Treatment Correlation", type = "upper", tl.
 
 dev.off()
 
-##Effect Differences Correlation Matrix
+#### Effect Differences Correlation Matrix ####
 
 effect_list <- list(effect_diff, mean_fe_diff, mean_chem_diff, average_grav_lost,grn)
 
@@ -601,7 +604,7 @@ plot(effect$`% Mud`, effect$`Effect Size`, cex= 1.8, cex.lab = 1.8, cex.axis = 1
 
 dev.off()
 
-###PCA/RDA
+#### PCA/RDA ####
 mean_wet <- mean_wet %>% 
   dplyr::select(-c("Initial Gravimetric Water", "Lost Gravimetric Water"))
 
@@ -637,7 +640,9 @@ fviz_pca_var(mean_dry_pca, col.var = "black")
 
 dev.off()
 
-mean_wet_rda <- rda(mean_wet$`Mean Rate (mg/L)` ~., data = mean_wet)
+
+
+mean_wet_rda <- rda(mean_wet_norm$`Mean Rate (mg/L)` ~., data = mean_wet_norm)
 
 
 summary(mean_wet_rda)
