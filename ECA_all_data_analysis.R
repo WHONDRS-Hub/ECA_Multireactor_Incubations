@@ -20,7 +20,7 @@ pnnl.user = 'laan208'
 
 # choose file dates to read in 
 
-effect.date = '2023-04-26'
+effect.date = '2023-04-28'
 respiration.date = '2023-04-26'
 grav.date = '2023-04-13'
 
@@ -28,7 +28,7 @@ grav.date = '2023-04-13'
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
 
 #effect size - change date to most recent
-effect_size <- read_csv(paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/Effect_Size_merged_by_laan208_on_",effect.date,".csv"))
+effect_size <- read_csv(paste0("Optode multi reactor/Optode_multi_reactor_incubation/effect size/Effect_Size_Data/Effect_Size_merged_by_laan208_on_",effect.date,".csv"))
 
 
 #Respiration rates with removals from dist matrix to calculate effect size 
@@ -52,7 +52,7 @@ import_data = function(chemistry){
   
   map.file <-  list.files(chemistry, recursive = T, pattern = "\\.xlsx$",full.names = T)
   
-  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC", map.file)]
+  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC|QA", map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
   
@@ -80,13 +80,13 @@ resp <- respiration
 
 #Use this for wet/dry correlation matrix
 effect_all <- effect_size %>%
-  mutate(Average_Rate = abs(Slope_Removed_Mean)) %>% 
-  dplyr::select(c(kit_treat,kit,Treat,Average_Rate,pos_effect))
+  mutate(Average_Rate = abs(Mean_Slope_Removed)) %>% 
+  dplyr::select(c(kit,Treat,Average_Rate,pos_effect,log_effect))
  
 #Use this for effect size correlation matrix
 effect_diff <- effect_all %>% 
   distinct(kit, .keep_all = TRUE) %>% 
-  dplyr::select(-c(Average_Rate, kit_treat,Treat))
+  dplyr::select(-c(Average_Rate,Treat))
 
 
 #### IRON ####
@@ -98,34 +98,25 @@ effect_diff <- effect_all %>%
 mean_fe <- iron %>% 
   separate(Sample_Name, into = c("Sample_ID", "rep"), sep = -1, convert = TRUE) %>% 
   group_by(Sample_ID) %>% 
-  mutate(Mean_Fe_mg_per_L = mean(Fe_mg_per_L)) %>% 
-  mutate(Fe_mg_kg= mean(Fe_mg_per_kg_sediment)) %>% 
- # summarise_at(vars(Fe_mg_per_kg_sediment), list(mean = mean)) %>% 
+  mutate(Mean_Rep_Fe_mg_per_L = mean(Fe_mg_per_L)) %>% 
+  mutate(Mean_Rep_Fe_mg_kg= mean(Fe_mg_per_kg_sediment)) %>% 
   separate(Sample_ID, c("ECA", "kit", "rep"), sep = "_", remove = FALSE) %>% 
-  mutate(Treat = case_when(
-    endsWith(rep, "W1") ~ "Wet",
-    endsWith(rep, "W2") ~ "Wet",
-    endsWith(rep, "W3") ~ "Wet",
-    endsWith(rep, "W4") ~ "Wet", 
-    endsWith(rep, "W5") ~ "Wet",
-    endsWith(rep, "D1") ~ "Dry",
-    endsWith(rep, "D2") ~ "Dry",
-    endsWith(rep, "D3") ~ "Dry",
-    endsWith(rep, "D4") ~ "Dry",
-    endsWith(rep, "D5") ~ "Dry"
-  )) %>% 
- # rename("Fe_mg_kg" = "mean") %>% 
-  mutate(Log_Fe_mg_kg = log10(Fe_mg_kg)) %>% 
+  mutate(Treat = case_when(grepl("W",rep)~"Wet",
+                           grepl("D", rep) ~"Dry")) %>% 
+  relocate(Treat, .after = rep) %>% 
+  mutate(Log_Mean_Rep_Fe_mg_kg = log10(Mean_Rep_Fe_mg_kg + 1)) %>% 
   unite(kit_treat, kit, Treat, remove = FALSE) %>% 
   mutate(rep = str_replace(rep, "SFE", "INC")) %>% 
   mutate(Sample_ID = str_replace(Sample_ID, "SFE", "INC")) %>% 
-  distinct(Sample_ID, .keep_all = TRUE)
+  distinct(Sample_ID, .keep_all = TRUE) %>% 
+  select(-c(analysis, Fe_mg_per_L,Fe_mg_per_kg_sediment))
 
+##Check CV for Mean_Rep_Fe_mg_kg for all reps (W/D)
 mean_fe_check <- mean_fe %>% 
   group_by(kit_treat) %>% 
-  mutate(CV = (sd(Fe_mg_kg)/mean(Fe_mg_kg))*100)
+  mutate(CV = (sd(Mean_Rep_Fe_mg_kg)/mean(Mean_Rep_Fe_mg_kg))*100)
 
-mean_fe_check$Fe_mg_kg <- format(mean_fe_check$Fe_mg_kg, scientific = FALSE)
+mean_fe_check$Mean_Rep_Fe_mg_kg <- format(mean_fe_check$Mean_Rep_Fe_mg_kg, scientific = FALSE)
 
 ##All Fe data
 # ggplot(mean_fe, aes(x = Fe_mg_kg))+
@@ -138,17 +129,16 @@ mean_fe_check$Fe_mg_kg <- format(mean_fe_check$Fe_mg_kg, scientific = FALSE)
 #   xlab("\n Fe (II) (mg/L)")+
 #   ylab("Count\n")
 
-ggplot(mean_fe, aes(y = Fe_mg_kg, x = kit_treat))+
-    geom_boxplot()+
-    theme_bw()+
-    theme(axis.title.x = element_text(size = 18),
-          axis.title.y = element_text(size = 18),
-          axis.text.x = element_text(size = 16),
-          axis.text.y = element_text(size = 16))+
-    xlab("\n Fe (II) (mg/L)")+
-    ylab("Count\n")
+# ggplot(mean_fe, aes(y = Fe_mg_kg, x = kit_treat))+
+#     geom_boxplot()+
+#     theme_bw()+
+#     theme(axis.title.x = element_text(size = 18),
+#           axis.title.y = element_text(size = 18),
+#           axis.text.x = element_text(size = 16),
+#           axis.text.y = element_text(size = 16))+
+#     xlab("\n Fe (II) (mg/L)")+
+#     ylab("Count\n")
   
-
 
 #All Fe data, faceted by wet vs dry
 # ggplot(mean_fe, aes(x = Mean_Fe_mg_kg, fill = Treat))+
@@ -190,24 +180,24 @@ ggplot(mean_fe, aes(y = Fe_mg_kg, x = kit_treat))+
 #   xlab("\n Log of Fe (II) (mg/L)")+
 #   ylab("Count\n")
 
-#Individual Fe Samples
+#Individual Fe Samples after averaging for analytical reps
 fe_all <- mean_fe %>% 
-  mutate(rep = str_replace(rep, "SFE", "INC")) %>% 
   dplyr::select(-c(rep, ECA))
 
 #Fe Means for use in wet/dry correlation matrix
 mean_fe_treat <- mean_fe %>% 
   group_by(kit_treat) %>%
-  mutate(Mean_Fe_mg_kg = mean(Fe_mg_kg)) %>% 
-  mutate(Log_Mean_Fe_mg_kg = log10(Mean_Fe_mg_kg)) %>% 
-  dplyr::select(c(kit_treat, kit, Treat, Mean_Fe_mg_kg)) %>% 
+  mutate(Mean_Treat_Fe_mg_L = mean(Mean_Rep_Fe_mg_per_L)) %>% 
+  mutate(Mean_Treat_Fe_mg_kg = mean(Mean_Rep_Fe_mg_kg)) %>% 
+  mutate(Log_Mean_Treat_Fe_mg_kg = log10(Mean_Treat_Fe_mg_kg)) %>% 
+  dplyr::select(c(kit,Treat,kit_treat,Mean_Treat_Fe_mg_L,Mean_Treat_Fe_mg_kg,Log_Mean_Treat_Fe_mg_kg)) %>% 
   distinct(kit_treat, .keep_all = TRUE)
 
 #Differences for Effect Size Correlation Matrix
 mean_fe_diff <- mean_fe_treat %>% 
   group_by(kit) %>% 
-  mutate(Fe_Difference = (Mean_Fe_mg_kg[Treat == "Wet"] - Mean_Fe_mg_kg[Treat == "Dry"])) %>% 
-  dplyr::select(-c(Mean_Fe_mg_kg, kit_treat ,Treat)) %>% 
+  mutate(Fe_Difference_mg_kg = (Mean_Treat_Fe_mg_kg[Treat == "Wet"] - Mean_Treat_Fe_mg_kg[Treat == "Dry"])) %>% 
+  dplyr::select(-c(Mean_Treat_Fe_mg_L, Mean_Treat_Fe_mg_kg, Log_Mean_Treat_Fe_mg_kg, kit_treat ,Treat)) %>% 
   distinct(kit, .keep_all = TRUE)
  
 
@@ -236,8 +226,104 @@ grn <- grain %>%
 
 grn$kit <- sub('.', '', grn$kit)
 
-##Dg = exp(0.01 * sum(%mass * ln(mean particle size)))
-#Coarse sand = , med sand = , fine sand = , silt = , clay =
+grn <- grn %>% 
+  mutate(geom_rusle = exp(0.01 * ((Percent_Coarse_Sand* log(1.25)) + (Percent_Med_Sand* log(0.375)) + (Percent_Fine_Sand * log(0.1)) + (Percent_Silt * log(0.026)) + (Percent_Clay * log(0.01))))) %>% 
+  mutate(geom = ((Percent_Coarse_Sand/100)*1.25) + ((Percent_Med_Sand/100) * 0.375) + ((Percent_Fine_Sand/100) *0.1) + ((Percent_Silt/100) * 0.026) + ((Percent_Clay/100 * 0.01))) 
+
+grn_all <- grn %>% 
+  select(-c(geom_rusle, geom, Percent_Tot_Sand, Percent_Mud)) %>% 
+  mutate(Percent_Coarse_Sand_Finer = Percent_Coarse_Sand + Percent_Med_Sand + Percent_Fine_Sand + Percent_Silt + Percent_Clay) %>% 
+  mutate(Percent_Med_Sand_Finer = Percent_Med_Sand + Percent_Fine_Sand + Percent_Silt + Percent_Clay) %>% 
+  mutate(Percent_Fine_Sand_Finer = Percent_Fine_Sand + Percent_Silt + Percent_Clay) %>% 
+  mutate(Percent_Silt_Finer = Percent_Silt + Percent_Clay) %>% 
+  mutate(Percent_Clay_Finer = Percent_Clay) %>% 
+  select(-c(Percent_Coarse_Sand, Percent_Med_Sand, Percent_Fine_Sand, Percent_Silt, Percent_Clay)) %>% 
+  pivot_longer(cols = c("Percent_Coarse_Sand_Finer", "Percent_Med_Sand_Finer", "Percent_Fine_Sand_Finer", "Percent_Silt_Finer", "Percent_Clay_Finer"), names_to = "Category", values_to = "fraction") %>% 
+  mutate(size = case_when(
+    grepl("Coarse", Category) ~ 1.25,
+    grepl("Med", Category) ~ 0.375,
+    grepl("Fine_Sand", Category) ~ 0.1,
+    grepl("Silt", Category) ~ 0.026, 
+    grepl("Clay", Category) ~ 0.01)) %>% 
+  mutate(y_int = 50) %>% 
+  group_by(kit) %>% 
+  mutate(slope = if_else(fraction[Category == "Percent_Med_Sand_Finer"] < 50, ((fraction[Category == "Percent_Coarse_Sand_Finer"] - fraction[Category == "Percent_Med_Sand_Finer"]) / (size[Category == "Percent_Coarse_Sand_Finer"] - size[Category == "Percent_Med_Sand_Finer"])), 
+                if_else(fraction[Category == "Percent_Fine_Sand_Finer"] < 50, ((fraction[Category == "Percent_Med_Sand_Finer"] - fraction[Category == "Percent_Fine_Sand_Finer"]) / (size[Category == "Percent_Med_Sand_Finer"] - size[Category == "Percent_Fine_Sand_Finer"])), 
+                if_else(fraction[Category == "Percent_Silt_Finer"] < 50, ((fraction[Category == "Percent_Fine_Sand_Finer"] - fraction[Category == "Percent_Silt_Finer"]) / (size[Category == "Percent_Fine_Sand_Finer"] - size[Category == "Percent_Silt_Finer"])), ((fraction[Category == "Percent_Silt_Finer"] - fraction[Category == "Percent_Clay_Finer"]) / (size[Category == "Percent_Silt_Finer"] - size[Category == "Percent_Clay_Finer"]))
+    )))) %>% 
+  mutate(x_int = if_else(fraction[Category == "Percent_Med_Sand_Finer"] < 50, (((50 - fraction[Category == "Percent_Med_Sand_Finer"])/slope[Category == "Percent_Coarse_Sand_Finer"])+size[Category == "Percent_Med_Sand_Finer"]),
+                  if_else(fraction[Category == "Percent_Fine_Sand_Finer"] < 50, (((50 - fraction[Category == "Percent_Fine_Sand_Finer"])/slope[Category == "Percent_Med_Sand_Finer"])+size[Category == "Percent_Fine_Sand_Finer"]),
+                  if_else(fraction[Category == "Percent_Silt_Finer"] < 50,(((50 - fraction[Category == "Percent_Silt_Finer"])/slope[Category == "Percent_Fine_Sand_Finer"])+size[Category == "Percent_Silt_Finer"]), (((50 - fraction[Category == "Percent_Clay_Finer"])/slope[Category == "Percent_Silt_Finer"])+size[Category == "Percent_Clay_Finer"])))))
+  
+destination = "C:/Users/laan208/OneDrive - PNNL/Documents/d50_plots"
+
+
+
+pdf(file = "C:/Users/laan208/OneDrive - PNNL/Documents/d50_plots/my_plots.pdf")
+
+unique.samples = unique(grn_all$kit)
+
+for (i in 1:length(unique.samples)){
+
+  site_subset = subset(grn_all, grn_all$kit == unique.samples[i])
+  
+kit <- ggplot(site_subset, aes(x = size, y = fraction))+
+        geom_point()+
+        geom_line()+
+        geom_hline(yintercept = 50, color = "red", linetype = "dashed")+
+        geom_vline(xintercept = site_subset$x_int, color = "red", linetype = "dashed") +
+  ggtitle(site_subset$kit[1])
+
+print(kit)
+
+}
+
+dev.off()
+
+d50 <- grn_all %>% 
+  distinct(kit, .keep_all = TRUE) %>% 
+  select(c(kit, x_int)) %>% 
+  rename(d50 = x_int)
+
+geom <- grn %>% 
+  select(c(kit, geom_rusle,geom)) %>% 
+  rename(log_geom_mean = geom_rusle) %>% 
+  rename(geom_mean = geom)
+
+all_geom <- left_join(d50, geom, by = c("kit"))
+
+plot_d50 <- ggplot(all_geom, aes(x = x_int))+
+  geom_histogram()
+
+plot_rusle <- ggplot(all_geom, aes(x = geom_rusle))+
+  geom_histogram()
+
+plot_geom <- ggplot(all_geom, aes(x = geom))+
+  geom_histogram()
+
+multi <- (plot_d50 + plot_rusle + plot_geom) +
+  plot_layout(widths = c(2,2))
+
+geom_vs_d50 <- ggplot(all_geom, aes(x = geom_mean, y = d50))+
+  geom_point()+
+  geom_smooth()
+
+geom_vs_d50
+
+geom_vs_rusle <- ggplot(all_geom, aes(x = geom_mean, y = log_geom_mean))+
+  geom_point()+
+  geom_smooth()
+
+geom_vs_rusle
+
+d50_vs_rusle <- ggplot(all_geom, aes(x = d50, y = log_geom_mean))+
+  geom_point()+
+  geom_smooth()
+
+d50_vs_rusle
+
+#Dg = exp(0.01 * sum(%mass * ln(mean particle size)))
+#Coarse sand = 0.5 - 2 mm (1.25 mm), med sand = 0.25 - 0.499 (0.375) , fine sand = 0.05 - 0.25 (0.1), silt = , clay =
 
 
 # grn_long <- grn %>% 

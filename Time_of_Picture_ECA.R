@@ -14,7 +14,7 @@ import_data = function(input.path){
   
   map.file <-  list.files(input.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
   
-  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC", map.file)]
+  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC|QAQC", map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
   
@@ -69,8 +69,6 @@ img_all <- all.txt %>%
 
 #img_time <- slice(img_all, seq(1,nrow(img_all),8))
 
-
-    
  img_time <- img_all[!grepl("Custom|type|.tif|----", img_all$TIFF.image.set.saved.with.Look.RGB.v0.1),]
 
 img_time <- rename(img_time, Time = TIFF.image.set.saved.with.Look.RGB.v0.1)
