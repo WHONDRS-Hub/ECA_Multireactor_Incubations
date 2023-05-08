@@ -9,7 +9,7 @@ rm(list=ls());graphics.off()
 
 pnnl.user = 'laan208'
 
-input.path <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates")
+input.path <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/")
 
 setwd(input.path)
 
@@ -17,7 +17,7 @@ path <- ("Plots")
 
 #change date to most recent respiration rate csv
 
-date = '2023-04-26_fastbreusch'
+date = '2023-05-08'
 
 #read in all files, remove csv that are not rate data files, bind all results files together, 
 import_data = function(path){
@@ -45,7 +45,7 @@ all.data <- data %>%
   mutate(Treat = case_when(grepl("W",rep)~"Wet",
                            grepl("D", rep) ~"Dry")) %>% 
   relocate(Treat, .after = rep) %>% 
-  select(c(Sample_ID,ECA,kit,rep,slope_of_the_regression,rate_mg_per_L_per_min,rate_mg_per_L_per_h,Treat))
+  dplyr::select(c(Sample_ID,ECA,kit,rep,slope_of_the_regression,rate_mg_per_L_per_min,rate_mg_per_L_per_h,Treat))
     
           
 #choosing best 4 out of 5 samples to keep using dist matrix
@@ -161,6 +161,10 @@ slope.final <- rename(slope.final, "slope_of_the_regression" = "slope.temp")
 
 slope.final$rem <- abs(slope.final$slope_of_the_regression) - slope.final$rate_mg_per_L_per_min
 
+#for some reason, 66-D is being added twice
+slope.final <- slope.final %>% 
+  distinct()
+
 #Histogram of all slopes from 40 mL vials with facet by wet vs. dry treatment ####
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_all_slope_facet_histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
@@ -188,9 +192,14 @@ slope.final.clean = slope.final %>%
   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>%
   mutate(rate_mg = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_min)) %>% 
   mutate(Mean_Slope_Removed = if_else(Mean_Slope_Removed>0,0,Mean_Slope_Removed)) %>% 
-  select(c(Sample_ID,rate_mg)) %>% 
+  dplyr::select(c(Sample_ID,rate_mg)) %>% 
   rename(rate_mg_per_L_per_min = rate_mg) %>% 
-  mutate(rate_mg_per_L_per_h = rate_mg_per_L_per_min*60)
+  mutate(rate_mg_per_L_per_h = rate_mg_per_L_per_min*60) %>% 
+  separate(Sample_ID, into = c("EC", "kit", "INC"), remove = FALSE) %>% 
+  separate(Sample_ID, into = c("ID", "rep"), sep = "-", remove = FALSE) %>% 
+  mutate(Treat = case_when(grepl("W",rep)~"Wet",
+                           grepl("D", rep) ~"Dry")) %>% 
+  unite(kit_treat, c("kit", "Treat"),  sep = "_", remove = FALSE)
 
 
 write.csv(slope.final.clean,paste0(input.path,"/removed_respiration_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
@@ -348,7 +357,7 @@ slope.means <- slope.final.clean %>%
                            grepl("D", rep) ~"Dry")) %>% group_by(kit, Treat) %>% 
   mutate(Mean_Slope_Removed = mean(rate_mg_per_L_per_min)) %>% 
   distinct(kit, Treat, .keep_all = TRUE) %>% 
-  select(c(kit,Treat,Mean_Slope_Removed))
+  dplyr::select(c(kit,Treat,Mean_Slope_Removed))
 
 slope.means$Mean_Slope_Removed <- as.numeric(slope.means$Mean_Slope_Removed)
 
@@ -375,7 +384,6 @@ eca <- slope.means %>%
   mutate(effect = (Mean_Slope_Removed[Treat == "Wet"] - Mean_Slope_Removed[Treat == "Dry"])) %>% 
   mutate(log_effect = log10(abs(effect))) %>% 
   mutate(pos_effect = (abs(Mean_Slope_Removed[Treat == "Wet"])) - (abs(Mean_Slope_Removed[Treat == "Dry"])))
-
 
 
 ##Effect Size graph without 27 and 14
@@ -442,4 +450,6 @@ dev.off()
 
 #write effect size results to csv
 
-write.csv(eca, paste0(input.path,"/Effect_Size_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+effect <- "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Effect_Size_Data"
+
+write.csv(eca, paste0(effect,"/Effect_Size_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)

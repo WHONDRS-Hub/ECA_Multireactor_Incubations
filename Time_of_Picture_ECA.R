@@ -28,11 +28,11 @@ all.map = import_data(input.path)
 
 all.map$`Time on` <- as.POSIXct(all.map$`Time on`, format = "%Y/%m/%d %H:%M:%%S")
 
-all.map$`Time on` <- format(all.map$`Time on`, format = "%H:%M")
+all.map$`Time on` <- format(all.map$`Time on`, format = "%H:%M:%S")
 
 all.map$`Time off` <- as.POSIXct(all.map$`Time off`, format = "%Y/%m/%d %H:%M:%%S")
 
-all.map$`Time off` <- format(all.map$`Time off`, format = "%H:%M")
+all.map$`Time off` <- format(all.map$`Time off`, format = "%H:%M:%S")
 
 
 all.map = all.map %>% 
@@ -77,11 +77,13 @@ img_time$Time <- gsub('[AMP]','', img_time$Time)
 
 img_time$Time <- as.POSIXct(img_time$Time, format = "%m/%d/%Y %H:%M:%S")
  
-img_time$Time <- format(img_time$Time, format = "%H:%M") 
+img_time$Time_S <- format(img_time$Time, format = "%H:%M:%S")
+
+img_time$Time_H <- format(img_time$Time, format = "%H:%M") 
 
 all.samples <- merge(img_time, all.map)
 
 time.same <- all.samples %>% 
-  filter(~Time == `Time on`)
+  filter(all.samples$Time_ == all.samples$`Time on`)
 
 time.same <- all.samples[all.samples$Time==all.samples$`Time on`,]   

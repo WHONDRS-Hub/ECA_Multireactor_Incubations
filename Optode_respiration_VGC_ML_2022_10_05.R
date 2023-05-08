@@ -5,6 +5,7 @@ library(ggpubr);library(reshape2);library(ggpmisc)
 library(segmented);library(broom);library(lmtest)
 library(ggpmisc);library(segmented);library(lubridate); library(readxl);
 library(tidyverse);library(patchwork)
+library(readr)
 
 ##### Load data ######
 rm(list=ls());graphics.off()
@@ -21,10 +22,7 @@ setwd(input.path)
 path <- ("rates/")
 
 #path for reading in 100% saturation values for each kit based on pressure/temperature during disk calibration
-
 fast.sat <- paste0("C:/Users/", pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/fast_rate_calculations.xlsx")
-
-##what threshold for bad low point?
 
 fast.rates <- read_excel(fast.sat)  
   
@@ -32,9 +30,6 @@ fast.rates <- read_excel(fast.sat)
 
 fast.rates.kits <- fast.rates %>% 
   rename("DO_mg_L" = "DO_sat_mg_L") 
-
-# %>% 
-#   filter(grepl("EC_11_INC-W|EC_12_INC-W|EC_23_INC|EC_27_INC-W|EC_32_INC-W|EC_32_INC-D2|EC_32_INC-D4|EC_34_INC-W|EC_35_INC-W|EC_35_INC-D1|EC_35_INC-D2|EC_35_INC-D4|EC_35_INC-D5|EC_40_INC-W|EC_51_INC-W", Sample_ID))
 
 #read in respiration data and clean
 import_data = function(path){
@@ -71,6 +66,8 @@ import_data = function(path){
 data = import_data(path)
 
 
+##### Clean Data ####
+
 data_long = 
   data %>% 
   mutate(disc_number = str_remove_all(disc_number, "X")) %>%
@@ -99,7 +96,7 @@ import_data = function(input.path){
   
   map.file <-  list.files(input.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
   
-  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC", map.file)]
+  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC|QA", map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
   
@@ -126,8 +123,8 @@ all.samples <- merge(vials, all.map)
 bind <- merge(all.samples, fast.rates.kits, all = TRUE) %>% 
   dplyr::select(-`calibration date`) 
 
-
-
+#13 - overexposed samples
+#27 - overexposed
 #14 kit - W1 second low point not being removed in script currently
 #32-D3 kit - low first point, might be partially fixed with heteroscedasticity
 
@@ -141,9 +138,88 @@ bind <- bind %>%
  # filter(!(elapsed_min == 2 & Sample_ID == "EC_32_INC-D3")) 
 
 
+##### Read in times of pictures #####
+
+import_data = function(input.path){ 
+  
+  #pull a list of files in target folder with correct pattern
+  #read all files and combine
+  
+  time.map.file <-  list.files(input.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
+  
+  time.map.file <- time.map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC|QAQC", time.map.file)]
+  
+  time.mapping <- lapply(time.map.file, read_xlsx)
+  
+  for (i in 1:length(time.mapping)){time.mapping[[i]] <- cbind(time.mapping[[i]], time.map.file[i])}
+  
+  time.map <- 
+    do.call(rbind,time.mapping)
+}
+
+time.map = import_data(input.path)
+
+time.map$`Time on` <- as.POSIXct(time.map$`Time on`, format = "%Y/%m/%d %H:%M:%%S")
+
+time.map$`Time on` <- format(time.map$`Time on`, format = "%H:%M")
+
+time.map$`Time off` <- as.POSIXct(time.map$`Time off`, format = "%Y/%m/%d %H:%M:%%S")
+
+time.map$`Time off` <- format(time.map$`Time off`, format = "%H:%M")
+
+time.map = time.map %>% 
+  rename("source_file" = "time.map.file[i]") %>% 
+  rename("disc_number" = "Disk_ID") %>% 
+  mutate(source_file = str_remove_all(source_file, paste0(input.path, "/"))) %>% 
+  separate(source_file, sep = "/", c("source_file", "file")) %>% 
+  mutate(source_file = str_replace(source_file, "EC", "results")) %>% 
+  dplyr::select(-`Disk Calibration date`, -Location, -`Time off`, -SpC, -pH, -Temp, -Notes, -file)
+
+import_data = function(input.path){ 
+  
+  filePaths <- list.files(path = input.path, recursive = T, pattern = "\\.txt$", full.names = TRUE)
+  
+  filePaths <- filePaths[!grepl("cal", filePaths)]
+  filePaths <- filePaths[!grepl("images", filePaths)]
+  
+  mapping <- lapply(filePaths, read.delim)
+  
+  for (i in 1:length(mapping)){mapping[[i]] <- cbind(mapping[[i]], filePaths[i])}
+  
+  all.txt <- 
+    do.call(rbind,mapping)
+}
+
+all.txt = import_data(input.path)  
+
+img_all <- all.txt %>% 
+  mutate(`filePaths[i]` = str_remove_all(`filePaths[i]`, paste0(input.path, "/"))) %>% 
+  separate(col = `filePaths[i]`, into = c("source_file", "photo"), sep = "/") %>% 
+  mutate(source_file = str_replace(source_file,"EC", "results")) 
+
+img_time <- img_all[!grepl("Custom|type|.tif|----", img_all$TIFF.image.set.saved.with.Look.RGB.v0.1),]
+
+img_time <- rename(img_time, Time = TIFF.image.set.saved.with.Look.RGB.v0.1)
+
+img_time$Time <- gsub('[AMP]','', img_time$Time)
+
+img_time$Time <- as.POSIXct(img_time$Time, format = "%m/%d/%Y %H:%M:%S")
+
+img_time$Time <- format(img_time$Time, format = "%H:%M") 
+
+all.samples <- merge(img_time, time.map)
+
+time.same <- all.samples %>% 
+  filter(~Time == `Time on`)
+
+time.same <- all.samples[all.samples$Time==all.samples$`Time on`,]   
+
+
+
+# start loop to remove samples ####
+
 #generate another dataset (w/ time, DO) with everything that has been removed: high, low (median), at the end, then can plot everything on top of each other with different colors to see what has been removed
 
-#still need to have it populate into respiration how many points that it removed
 
 min.points = 2
 threshold = 0.99
@@ -324,8 +400,7 @@ for (i in 1:length(location)){
       
     }
    
-      
-
+# not being used ####
     
     #points being removed with increase in r2 after removal
      # if (((r < threshold & rtemp >= rog) | (residuals > res.threshold & restemp <= residuals)) & nrow(data_site_subset_fin) >= min.points){
@@ -367,6 +442,7 @@ for (i in 1:length(location)){
      #    p = summary(fit)$coefficients[4]
      #  }
      # }
+ #####
     
   my.format <- "Slope: %s\nR2: %s\np: %s"  
   my.formula <- y ~ x
@@ -445,7 +521,7 @@ for (i in 1:length(location)){
 
     multi <- (final + high_rem + beg_rem + all) +
      plot_layout(widths = c(2,2))
-    ggsave(file=paste0(path,"Plots/breusch_test_fits/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
+    ggsave(file=paste0(path,"Plots/breusch_test_fits/4-26-2023/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
 
     rate$Sample_ID[j] = as.character(data_site_subset_fin$Sample_ID[1])
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
@@ -495,7 +571,4 @@ respiration = respiration[-1,]
 #   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
 #   mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
 
-write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),"_fastbreusch.csv"), row.names = F)
-
-
-
+write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
