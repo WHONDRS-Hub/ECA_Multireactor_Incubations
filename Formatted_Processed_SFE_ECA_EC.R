@@ -278,70 +278,24 @@ data_flag_conc <- samples %>%
 
 ### pull in moisture data to correct to mg Fe/kg dry sediment
 
-moisture <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/EC_Moisture_Content_2022.csv"))
+moisture <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_merged_by_laan208_on_2023-05-15.csv"))
 
-moisture$wet_g_by_dry_g <- moisture$wet_weight_g/moisture$true_dry_weight_g
-
-mean.moisture <- moisture %>% 
-  separate(sample_name, sep = "-", c("sample_name", "replicate")) %>% 
-  group_by(sample_name) %>% 
-  summarise_at(vars(wet_g_by_dry_g), funs(mean)) %>% 
-  separate(sample_name, sep = "_", c("Study Code", "Site"))
 
 #merge moisture and Fe samples
-final_data_moi <- final_data %>% 
-  separate(Sample_ID, into = c("Study Code", "Site", "Analysis"), sep = "_", remove = FALSE) %>% 
-  dplyr::select(-c(`Study Code`, Analysis))
-
-merged <- merge(final_data_moi, mean.moisture, by = "Site")
-
-inc.masses <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/01_RawData/")
-
-import_data = function(inc.masses){ 
-  
-  #pull a list of files in target folder with correct pattern
-  #read all files and combine
-  
-  map.file <-  list.files(inc.masses, recursive = T, pattern = "\\.xlsx$",full.names = T)
-  
-  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast", map.file)]
-  
-  mapping <- lapply(map.file, read_xlsx)
-  
-  for (i in 1:length(mapping)){mapping[[i]] <- cbind(mapping[[i]], map.file[i])}
-  
-  all.map <- 
-    do.call(rbind,mapping)
-}
-
-all.map = import_data(inc.masses)
-
-all.map.clean = all.map %>% 
-  dplyr::select(-`...8`, -`...9`, -`...10`, -`map.file[i]`) %>% 
-  filter(Tare_weight_g != -9999) %>% 
-  filter(`Jars or 40 mL vials` != "Jars") %>% separate(Sample_Name, sep = "_", c("Study Code", "Site", "Inc"), remove = FALSE) %>% 
-  separate(Inc, sep = "-", c("Inc", "Treat"), remove = FALSE) %>% 
+final_data_moi <- moisture %>% 
   mutate(Sample_ID = str_replace(Sample_Name, "INC", "SFE")) %>% 
-  select(-c(Sample_Name,))
+  distinct(Sample_ID, .keep_all = TRUE) %>% 
+dplyr::select(-c(Sample_Name, Date))
   
-all.map$wet_sediment_wt_g <- all.map$Sample_weight_g - all.map$Tare_weight_g
+merged <- merge(final_data_moi, final_data, by = "Sample_ID")
 
 
-###merging Fe, moisture, and wet sediment mass in vial
+###assuming 40 mL water in 50 mL vial
 
-final.merge <- merge(merged_sep, all.map, by = c("Site", "Treat"))
+merged$mg_Fe_per_kg_sediment <- merged$mg_Fe_per_L*(0.04)*(1/merged$dry_wt_sed_g)*1000
 
-
-###assuming 50 mL water in 50 mL vial
-
-final.merge$mg_Fe_per_kg_sediment <- final.merge$mg_Fe_per_L*(0.05)*(1/final.merge$wet_sediment_wt_g)*(final.merge$wet_g_by_dry_g)*1000
-
-processed.data <- final.merge %>% 
-  dplyr::select(-`Study Code.y`, -`Study Code`, -Date, -Inc, -`Sample_weight_Fill_g`, -Notes,-`Jars or 40 mL vials`, -wet_g_by_dry_g, -Tare_weight_g, -Sample_weight_g, - wet_sediment_wt_g) %>% 
-  unite(Sample_Name, `Study Code.x`, Site,sep = "_") %>% 
-  unite(Sample_Name, Sample_Name, Iron, sep = "_") %>% 
-  unite(Sample_Name, Sample_Name, Treat, sep = "-") %>% 
-  unite(Sample_Name, Sample_Name, `Technical Replicate`, sep = "")
+processed.data <- merged %>% 
+  dplyr::select(sample_label,mg_Fe_per_L, mg_Fe_per_kg_sediment) 
 
 
 write.csv(processed.data, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/FE/03_ProcessedData/20230110_Data_Processed_SFE_ECA_EC_1-270/20230110_Data_Processed_SFE_ECA_EC_1-270.csv")
