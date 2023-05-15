@@ -4,6 +4,7 @@ rm(list=ls());graphics.off()
 
 pnnl.user = 'laan208'
 
+#### Read in Data ####
 input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/FE/")
 
 setwd(input.path)
@@ -26,15 +27,15 @@ processed.data = ("03_ProcessedData/20230110_Data_Formatted_SFE_ECA_EC_1-270/")
     df}))
   
 
-# clean the map
+## clean the map ####
 map_processed = 
   ferrozine_map %>% 
   mutate(tray_number = parse_number(tray_number)) %>% 
   filter(!is.na(sample_name) & !is.na(tray_number)) %>% 
   rename(sample_label = sample_name)
 
-#remove trays 4 and 6, bad dilutions in 12 and 13
 
+## remove samples that had to be diluted or plates that needed to be rerun ####
 data_formatted = 
   ferrozine_data %>% 
   mutate_all(na_if,"") %>% 
@@ -52,9 +53,7 @@ data_formatted =
          absorbance_562 = as.numeric(absorbance_562)) %>% 
   dplyr::select(tray_number, well_position, absorbance_562) %>% 
   right_join(map_processed, by = c("tray_number", "well_position")) %>% 
-  filter(!notes %in% "skip") %>%
-  filter(tray_number != "4") %>% 
-  filter(tray_number != "6") 
+  filter(!notes %in% "skip") 
  
 
 #### Formatted absorbance data ####
@@ -63,7 +62,7 @@ write.csv(data_formatted, paste0(formatted.data,"20230110_Data_Formatted_SFE_ECA
 
 ####Processed Data #####
 
-#choose which standard curve to use for Fe 
+## choose which standard curve to use for Fe ####
 
 calibrate_ferrozine_data = function(data_formatted){
   standards = 
@@ -94,7 +93,21 @@ calibrate_ferrozine_data = function(data_formatted){
     mutate(ppm_calculated = ((absorbance_562 - intercept) / slope))
   
 }
+## Check Standards CV ####
+  standards = calibrate_ferrozine_data(data_formatted) %>% 
+    filter(sample_label == "FAS-standard") %>% 
+    group_by(standard_ppm) %>% 
+    mutate(range = max(ppm_calculated) - min(ppm_calculated)) %>% 
+    mutate(CV = (sd(ppm_calculated)/mean(ppm_calculated))*100)
+  
+## Check Blanks ####
+  blanks = 
+    calibrate_ferrozine_data(data_formatted) %>% 
+    filter(grepl("blank", sample_label)) %>% 
+    mutate(CV = ((sd(ppm_calculated)/mean(ppm_calculated))*100)) %>% 
+    mutate(range = max(ppm_calculated) - min(ppm_calculated))
 
+## Check Samples ####
 samples = 
   calibrate_ferrozine_data(data_formatted) %>% 
   filter(grepl("EC", sample_label)) %>% 
@@ -105,11 +118,11 @@ samples =
   rename("mg_Fe_per_L" = "ppm_calculated") %>% 
   mutate(mg_Fe_per_L = if_else(mg_Fe_per_L<0,0,mg_Fe_per_L))
 
-
+## Flag samples with range > 0.04 and CV > 10% ####
 data_flag_conc <- samples %>%
-  separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_") %>% 
-  separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-") %>% 
-  separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)") %>% 
+  separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_", remove = FALSE) %>% 
+  separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-", remove = FALSE) %>% 
+  separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)", remove = FALSE) %>% 
   group_by(kit, Replicate) %>% 
   mutate(CV = ((sd(mg_Fe_per_L)/mean(mg_Fe_per_L))*100)) %>% 
   mutate(range = max(mg_Fe_per_L) - min(mg_Fe_per_L)) %>% 
@@ -118,16 +131,150 @@ data_flag_conc <- samples %>%
     CV <= 10 | range < 0.04 ~ "fine",
     CV >= 10 & range >= 0.04~ "flag"
   )) 
+  
+## After rerunning with 5 extra samples, remove samples to 3 if range > 0.04 and CV > 10 ####
+  
+  samples_dist <- data_flag_conc %>% 
+    rename(cv.before.removal = CV) %>% 
+    select(-c(flag, analysis)) %>% 
+    unite(kit_rep, c("kit", "Replicate"), sep = "_", remove = FALSE)
+  
+  samples_removed_final = as.data.frame(matrix(NA, ncol = 13, nrow = 1))
+  
+  colnames(samples_removed_final) = c("sample_label", "Project", "kit_rep", "kit", "Analysis", "mg_Fe_per_L", "Replicate", "Technical", "cv.before.removal", "range", "cv.after.removal", "range.after.removal", "flag")
+  
+  unique.samples = unique(samples_dist$kit_rep)
+  
+  for (i in 1:length(unique.samples)) {
+    
+    data_subset = subset(samples_dist, samples_dist$kit_rep == unique.samples[i])
+    
+    conc.temp = as.numeric(data_subset$mg_Fe_per_L)
+    
+    conc.temp.sd <- sd(conc.temp)
+    conc.temp.mean <- mean(conc.temp)
+    CV = (conc.temp.sd/conc.temp.mean)*100
+    range = max(conc.temp) - min(conc.temp)
+    
+    #looping to get 3 out of 8 best samples
+    for (sample.reduction in 1:5)  {
+      
+      if (conc.temp.mean == 0) {
+        
+        CV = 0
+        range = 0
+        
+      }
+      
+      else if (length(conc.temp) > 3 & CV >= 10 & range > 0.04) {
+        
+        dist.temp = as.matrix(abs(dist(conc.temp)))
+        dist.comp = numeric()
+        
+        for(conc.now in 1:ncol(dist.temp)) {
+          
+          dist.comp = rbind(dist.comp,c(conc.now,sum(dist.temp[,conc.now])))
+          
+        }
+        
+        dist.comp[,2] = as.numeric(dist.comp[,2])
+        conc.temp = conc.temp[-which.max(dist.comp[,2])]
+        
+        conc.temp.sd <- sd(conc.temp)
+        conc.temp.mean <- mean(conc.temp)
+        conc.temp.cv <- (conc.temp.sd/conc.temp.mean)*100
+        CV = conc.temp.cv
+        conc.temp.range <- max(conc.temp) - min(conc.temp)
+        range = conc.temp.range
+        
+      }
+      
+    }
+    
+    if(length(conc.temp) >= 3) {
+      
+      if(CV > 10 & range > 0.04){
+        
+        samples_removed_combined = as.data.frame(conc.temp)
+        
+        samples_remove = merge(samples_removed_combined, data_subset, by.x = "conc.temp", by.y = "mg_Fe_per_L", all.x = TRUE)
+        
+        samples_remove = samples_remove[!duplicated(samples_remove$sample_label), ]
+        
+        samples_remove_omit = merge(samples_remove, data_subset, by = "sample_label", all = TRUE)
+        
+        
+        samples_remove_omit$cv.after.removal = as.numeric(abs((sd(conc.temp)/mean(conc.temp))*100))
+        
+        samples_remove_omit$range.after.removal = as.numeric(max(conc.temp) - min(conc.temp))
+  
+        samples_remove_omit$flag[which(samples_remove_omit$cv.after.removal >= 10 & samples_remove_omit$range.after.removal >= 0.04)] = "Samples too Variable"
+        
+        samples_remove_omit <- samples_remove_omit %>% 
+          dplyr::select(-c(Project.x, kit_rep.x, kit.x, Analysis.x,Replicate.x, Technical.x, cv.before.removal.x, range.x, conc.temp)) %>% 
+          rename(Project = Project.y) %>% 
+          rename(kit_rep = kit_rep.y) %>% 
+          rename(kit = kit.y) %>% 
+          rename(Analysis = Analysis.y) %>% 
+          rename(Replicate = Replicate.y) %>% 
+          rename(Technical = Technical.y) %>% 
+          rename(cv.before.removal = cv.before.removal.y) %>% 
+          rename(range = range.y) %>% 
+          relocate(range.after.removal, .after = cv.after.removal)
+        
+      }
+      
+      else {
+        
+        samples_removed_combined = as.data.frame(conc.temp)
+        
+        samples_remove = merge(samples_removed_combined, data_subset, by.x = "conc.temp", by.y = "mg_Fe_per_L", all.x = TRUE)
+        
+        samples_remove = samples_remove[!duplicated(samples_remove$sample_label), ]
+        
+        samples_remove_omit = merge(samples_remove, data_subset, by = "sample_label", all = TRUE)
+        
+        
+        samples_remove_omit$cv.after.removal = as.numeric(abs((sd(conc.temp)/mean(conc.temp))*100))
+        
+        samples_remove_omit$range.after.removal = as.numeric(max(conc.temp) - min(conc.temp))
+        
+        samples_remove_omit$flag[is.na(samples_remove_omit$conc.temp)] = "OMIT"
+        
+        samples_remove_omit <- samples_remove_omit %>% 
+          dplyr::select(-c(Project.x, kit_rep.x, kit.x, Analysis.x,Replicate.x, Technical.x, cv.before.removal.x, range.x, conc.temp)) %>% 
+          rename(Project = Project.y) %>% 
+          rename(kit_rep = kit_rep.y) %>% 
+          rename(kit = kit.y) %>% 
+          rename(Analysis = Analysis.y) %>% 
+          rename(Replicate = Replicate.y) %>% 
+          rename(Technical = Technical.y) %>% 
+          rename(cv.before.removal = cv.before.removal.y) %>% 
+          rename(range = range.y) %>% 
+          relocate(range.after.removal, .after = cv.after.removal)
+        
+        
+      }
+      
+    }
+    
+    samples_removed_final = rbind(samples_remove_omit, samples_removed_final)
+    
+    rm('conc.temp')
+  }
 
 
-blanks = 
-  calibrate_ferrozine_data(data_formatted) %>% 
-  filter(grepl("blank", sample_label)) %>% 
-  mutate(CV = ((sd(ppm_calculated)/mean(ppm_calculated))*100)) %>% 
-  mutate(range = max(ppm_calculated) - min(ppm_calculated))
-
-###Processed data not corrected for mass
-
+  #final data corrected for high CV's - still needs to be processed for correcting for solid/solution ratio
+  
+  final_data <- samples_removed_final %>% 
+    select(c(sample_label, mg_Fe_per_L, flag)) %>% 
+    separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_", remove = FALSE) %>% 
+    separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-", remove = FALSE) %>%
+    separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)") %>% 
+    unite(col = Sample_ID, c("Project", "kit", "Analysis"), sep = "_") %>% 
+    unite(col = Sample_ID, c("Sample_ID", "Replicate"), sep = "-") %>% 
+    select(-c(analysis))
+  
 
 ### pull in moisture data to correct to mg Fe/kg dry sediment
 
@@ -142,19 +289,13 @@ mean.moisture <- moisture %>%
   separate(sample_name, sep = "_", c("Study Code", "Site"))
 
 #merge moisture and Fe samples
+final_data_moi <- final_data %>% 
+  separate(Sample_ID, into = c("Study Code", "Site", "Analysis"), sep = "_", remove = FALSE) %>% 
+  dplyr::select(-c(`Study Code`, Analysis))
 
-samples_2 <- samples %>% 
-  separate(sample_label, sep = "_", c("Study Code", "Site", "Replicate")) 
+merged <- merge(final_data_moi, mean.moisture, by = "Site")
 
-merged <- merge(samples_2,mean.moisture, by = "Site")
-
-merged_sep <- merged %>% 
-  separate(Replicate, sep = "-", c("Iron",  "Treat"))
-  
-  merged_sep$`Technical Replicate` <- str_sub(merged_sep$Treat, 3, - 1) 
-  
-  merged_sep$Treat <- str_sub(merged_sep$Treat, 0,2)
-###mapping files 
+inc.masses <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/01_RawData/")
 
 import_data = function(inc.masses){ 
   
@@ -175,11 +316,13 @@ import_data = function(inc.masses){
 
 all.map = import_data(inc.masses)
 
-all.map = all.map %>% 
+all.map.clean = all.map %>% 
   dplyr::select(-`...8`, -`...9`, -`...10`, -`map.file[i]`) %>% 
   filter(Tare_weight_g != -9999) %>% 
-  filter(`Jars or 40 mL vials` != "Jars") %>% separate(Sample_Name, sep = "_", c("Study Code", "Site", "Inc")) %>% 
-  separate(Inc, sep = "-", c("Inc", "Treat"))
+  filter(`Jars or 40 mL vials` != "Jars") %>% separate(Sample_Name, sep = "_", c("Study Code", "Site", "Inc"), remove = FALSE) %>% 
+  separate(Inc, sep = "-", c("Inc", "Treat"), remove = FALSE) %>% 
+  mutate(Sample_ID = str_replace(Sample_Name, "INC", "SFE")) %>% 
+  select(-c(Sample_Name,))
   
 all.map$wet_sediment_wt_g <- all.map$Sample_weight_g - all.map$Tare_weight_g
 
@@ -202,91 +345,3 @@ processed.data <- final.merge %>%
 
 
 write.csv(processed.data, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/FE/03_ProcessedData/20230110_Data_Processed_SFE_ECA_EC_1-270/20230110_Data_Processed_SFE_ECA_EC_1-270.csv")
- 
-
-
-####not finished
-means = 
-  samples %>% 
-  group_by(sample_label) %>% 
-  summarise_at(vars(ppm_calculated),
-               funs(mean,sd)) %>% 
-  rename(mean, mean_ppm_calculated = mean) %>% 
-  mutate(mean_ppm_calculated = if_else(mean_ppm_calculated<0,0,mean_ppm_calculated))
-
-png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/ECA/EC 2022 Experiment/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_all_iron_hist.png"), width = 8, height = 8, units = "in", res = 300)
-
-ggplot(means, aes(x = mean_ppm_calculated)) +
-geom_histogram(binwidth = 0.02, fill = "cornflowerblue", col = "black")+
-  theme_bw()+
-  theme(axis.title.x = element_text(size = 18), 
-        axis.title.y = element_text(size = 18), 
-        axis.text.x = element_text(size = 16),
-        axis.text.y = element_text(size = 16))+
-  xlab("\nFe (II) (mg/L)")+
-  ylab("Count\n")
- 
-dev.off()
-
-all_treat <- means %>% 
-  separate(sample_label, sep = "-", c("kit", "rep")) %>% 
-  mutate(Treat = case_when(
-    endsWith(rep, "W1") ~ "Wet",
-    endsWith(rep, "W2") ~ "Wet",
-    endsWith(rep, "W3") ~ "Wet",
-    endsWith(rep, "W4") ~ "Wet", 
-    endsWith(rep, "W5") ~ "Wet",
-    endsWith(rep, "D1") ~ "Dry",
-    endsWith(rep, "D2") ~ "Dry",
-    endsWith(rep, "D3") ~ "Dry",
-    endsWith(rep, "D4") ~ "Dry",
-    endsWith(rep, "D5") ~ "Dry"
-  ))
-  
-mean_treat = 
-  all_treat %>% 
-  group_by(kit) %>% 
-  mutate(mean_kit = mean(mean_ppm_calculated)) %>%
-  mutate(sd_kit = sd(mean_ppm_calculated)) %>% 
-  ungroup() %>% 
-  group_by(kit, Treat) %>% 
-  mutate(mean_kit_treat = mean(mean_ppm_calculated)) %>% 
-  mutate(sd_kit_treat = sd(mean_ppm_calculated)) %>% 
-  ungroup() %>% 
-  mutate(cv_kit = sd_kit/mean_kit) %>% 
-  mutate(cv_kit_treat = sd_kit_treat/mean_kit_treat)
-  
-
-slope.new <- slope.new %>% 
-  group_by(kit_treat) %>% 
-  mutate(Slope.All = mean(slope_of_the_regression)) %>% 
-  ungroup()
-
-#figure out how to use this - right now can't because of triplicates
-%>%
-  pivot_wider(names_from = "analysis", values_from = "ppm_calculated") %>%
-  mutate(across(where(is.numeric), round, 2))
-
-samples2 = 
-  samples %>% 
-  dplyr::select(sample_label, starts_with("Fe")) %>% 
-  pivot_longer(cols = starts_with("Fe"), names_to = "species", values_to = "ppm") %>% 
-  left_join(moisture_processed) %>% 
-  left_join(subsampling %>% dplyr::select(sample_label, iron_g)) %>% 
-  rename(fm_g = iron_g) %>% 
-  mutate(ppm = as.numeric(ppm),
-         od_g = fm_g/((gwc_perc/100)+1),
-         soilwater_g = fm_g - od_g,
-         ug_g = ppm * ((25 + soilwater_g)/od_g),
-         ug_g = round(ug_g, 2)) %>% 
-  dplyr::select(sample_label, species, ppm, ug_g) %>% 
-  arrange(sample_label) %>% 
-  pivot_longer(-c(sample_label, species)) %>% 
-  mutate(name = paste0(species, "_", name)) %>% 
-  dplyr::select(-species) %>% 
-  filter(!grepl("blank", sample_label)) %>% 
-  pivot_wider()%>% 
-  mutate(analysis = "Ferrozine")
-
-samples2
-

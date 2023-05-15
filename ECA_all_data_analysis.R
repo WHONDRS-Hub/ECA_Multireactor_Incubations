@@ -570,7 +570,7 @@ mean_wet <- mean_wet_dry_clean %>%
   filter(!grepl("Dry", Treat)) %>% 
   remove_rownames %>% 
   column_to_rownames(var = "kit") %>% 
-  select(-c(Treat))
+  dplyr::select(-c(Treat))
  
 mean_wet_corr <- cor(mean_wet, method = "spearman")
 
@@ -585,7 +585,7 @@ mean_dry <-  mean_wet_dry_clean %>%
   filter(!grepl("Wet", Treat)) %>% 
   remove_rownames %>% 
   column_to_rownames(var = "kit") %>% 
-  select(-c(Treat))
+  dplyr::select(-c(Treat))
 
 mean_dry_corr <- cor(mean_dry, method = "spearman")
 
@@ -663,6 +663,7 @@ dev.off()
 
 
 #### PCA/RDA ####
+## PCA ####
 mean_wet_pca <- mean_wet %>% 
   dplyr::select(-c("Initial Gravimetric Water", "Lost Gravimetric Water", "log_effect", "Log_Mean_Treat_Fe_mg_kg", "% Coarse Sand", "% Med. Sand", "% Fine Sand", "% Mud", "geom", "geom_rusle", "Mean_Treat_Fe_mg_L"))
 
@@ -702,14 +703,25 @@ fviz_pca_var(mean_dry_pca, col.var = "black")
 
 dev.off()
 
+## RDA ####
 
+mean_wet_rate <- mean_wet %>% 
+  dplyr::select(c(`Average Rate (mg/L)`))
 
-mean_wet_rda <- rda(mean_wet_norm$`Mean Rate (mg/L)` ~., data = mean_wet_norm)
+mean_wet_rate_hel <- decostand(mean_wet_rate, method = "hellinger")
 
+mean_wet_pred <- mean_wet %>% 
+  dplyr::select(-c(`Average Rate (mg/L)`))
+
+mean_wet_pred_std <- decostand(mean_wet_pred, method = "standardize")
+
+mean_wet_rda <- rda(mean_wet_rate ~., data = mean_wet_pred_std)
 
 summary(mean_wet_rda)
 
-fwd_wet <- ordiR2step(rda(mean_wet$`Mean Rate (mg/L)` ~ 1, data = mean_wet), 
+ordiplot(mean_wet_rda, scaling = 1, type = "text")
+
+fwd_wet <- ordiR2step(rda(mean_wet_rate$`Average Rate (mg/L)` ~ 1, data = mean_wet_pred_std), 
           scope = formula(mean_wet_rda), 
           direction = "forward", 
           R2scope = TRUE,
@@ -718,10 +730,15 @@ fwd_wet <- ordiR2step(rda(mean_wet$`Mean Rate (mg/L)` ~ 1, data = mean_wet),
 
 fwd_wet$call
 
-mean_wet_signif <- rda(formula = mean_wet$`Mean Rate (mg/L)` ~ `% Coarse Sand` + `Initial Gravimetric Water`, data = mean_wet)
+mean_wet_signif <- rda(formula = mean_wet_rate$`Average Rate (mg/L)` ~ D50 + `Mean Initial Gravimetric Water`, data = mean_wet_pred_std)
 
 RsquareAdj(mean_wet_signif)
+
+anova.cca(mean_wet_signif, step = 1000)
+anova.cca(mean_wet_signif, step = 1000, by = "term")
+
 
 ordiplot(mean_wet_signif, scaling = 1, type = "text")
 
 ordiplot(mean_wet_rda, scaling = 1, type = "text")
+
