@@ -3,15 +3,20 @@ library(tidyverse)
 library(dplyr)
 library(readxl)
 
+pnnl.user = 'laan208'
+
 # Set working directory to data file
   #For Macbook Users
 data.in.path <- file.path("/Users/delg580/Library/CloudStorage/OneDrive-SharedLibraries-PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/01_RawData")
+
 data.out.path <- file.path("/Users/delg580/Library/CloudStorage/OneDrive-SharedLibraries-PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData")
 
   #For Windows Users
 
+data.out.path <- file.path("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData")
+
 # Load Data
-moisture <- read_excel("/Users/delg580/Library/CloudStorage/OneDrive-SharedLibraries-PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/01_RawData/2022_Data_Raw_MOI_ECA_EC.xlsx") %>% janitor::clean_names()
+moisture <- read_excel(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/01_RawData/2022_Data_Raw_MOI_ECA_EC.xlsx")) %>% janitor::clean_names()
 
 #Remove data from Jars experiment
 moisture_clean <- moisture %>% filter(!grepl("Jars", moisture$from_jars_or_40_m_l_vials))
@@ -34,7 +39,7 @@ dim(dry_weight); length(unique(dry_weight$sample_name)) #number of unique entrie
 length(which(wet_weight$sample_name %in% dry_weight$sample_name)) #which ID's in wet weight file are found in the dry weight file
 
 # Merged wet and dry weights by sample name
-merged_weights <- merge(x = wet_weight, y = dry_weight, by = "sample_name") %>% janitor::clean_names()
+merged_weights <- merge(x = wet_weight, y = dry_weight, by = "sample_name", all = TRUE) %>% janitor::clean_names()
 dim(merged_weights)
 head(merged_weights)
 names(merged_weights)
@@ -57,8 +62,11 @@ merged_weights <- merged_weights[ , !(names(merged_weights) %in% cols_to_drop)]
 range(merged_weights$percent_water_content_wet) 
 range(merged_weights$percent_water_content_dry)
 
+merged_weights$flag[is.na(merged_weights$wet_weight_g)] = "Missing Wet Weight"
+  
+
 # Export data
-write.csv(merged_weights, file.path(data.out.path,"EC_Moisture_Content_2022.xlsx"), quote = F, row.names = F) #removes "" from data and no need for row names here, puts csv into the data file
+write.csv(merged_weights, file.path(data.out.path,"EC_Moisture_Content_2022.csv"), quote = F, row.names = F) #removes "" from data and no need for row names here, puts csv into the data file
 
 #Ploting wet vs dry percent water content
 pdf(file.path(data.out.path,"wet_vs_dry_percent_water_content.pdf"))  
