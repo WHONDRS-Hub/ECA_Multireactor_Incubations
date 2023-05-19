@@ -1,4 +1,4 @@
-library(dplyr); library(tidyverse); library(lubridate);library(readxl);library(readr)
+library(dplyr); library(tidyverse); library(lubridate);library(readxl);library(readr);library(hms)
 
 pnnl.user = 'laan208'
 
@@ -76,12 +76,29 @@ img_time <- rename(img_time, Time = TIFF.image.set.saved.with.Look.RGB.v0.1)
 img_time$Time <- gsub('[AMP]','', img_time$Time)
 
 img_time$Time <- as.POSIXct(img_time$Time, format = "%m/%d/%Y %H:%M:%S")
+
+img_time$Date <- format(as.POSIXct(img_time$Time), format = "%m/%d/%Y")
  
 img_time$Time_S <- format(img_time$Time, format = "%H:%M:%S")
 
-img_time$Time_H <- format(img_time$Time, format = "%H:%M") 
+img_time$Time_S <- hms::as_hms(img_time$Time_S)
+
+img_time$Time_H <- format(as.POSIXct(img_time$Time), format = "%H:%M")
+
+img_time$Time_H <-format(img_time$Time_H, format = "%H:%M:%S") 
 
 all.samples <- merge(img_time, all.map)
+
+all.samples$`Time on` <- hms::as_hms(all.samples$`Time on`)
+
+all.samples
+
+
+time.remove <- all.samples %>% 
+  mutate(same = `Time on` >= (Time_S - 20) & 
+           `Time on` <= (Time_S) | `Time on` == Time_H)
+
+all.samples$time.add = all.samples$Time_S + 20
 
 time.same <- all.samples %>% 
   filter(all.samples$Time_ == all.samples$`Time on`)

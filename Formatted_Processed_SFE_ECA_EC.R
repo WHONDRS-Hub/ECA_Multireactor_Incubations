@@ -9,7 +9,7 @@ input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Fi
 
 setwd(input.path)
 
-raw.data = ("01_Rawdata/")
+raw.data = ("01_Rawdata//20230519_Data_Raw_SFE_ECA_EC/")
 
 formatted.data = ("02_FormattedData/20230110_Data_Formatted_SFE_ECA_EC_1-270/")
 
@@ -18,9 +18,9 @@ processed.data = ("03_ProcessedData/20230110_Data_Formatted_SFE_ECA_EC_1-270/")
 
   
   # import map
-  ferrozine_map = read_excel("01_Rawdata/20230110_Data_Raw_SFE_ECA_EC_1-270/20230110_Mapping_SFE_ECA_EC_1-270.xlsx", sheet = "map") %>% mutate_all(as.character) 
+  ferrozine_map = read_excel("01_Rawdata/20230519_Data_Raw_SFE_ECA_EC/20230519_Mapping_SFE_ECA_EC.xlsx", sheet = "map") %>% mutate_all(as.character) 
   # import data files (plate reader)
-  filePaths_ferrozine <- list.files(path = raw.data, pattern = "xlsx", full.names = TRUE, recursive = TRUE)
+  filePaths_ferrozine <- list.files(path = raw.data, pattern = "Tray", full.names = TRUE, recursive = TRUE)
   ferrozine_data <- do.call(bind_rows, lapply(filePaths_ferrozine, function(raw.data) {
     df <- read_xlsx(raw.data, skip = 24) %>% mutate_all(as.character) %>% janitor::clean_names()
     df = df %>% mutate(source = basename(raw.data))
@@ -39,8 +39,8 @@ map_processed =
 data_formatted = 
   ferrozine_data %>% 
   mutate_all(na_if,"") %>% 
-  rename("x" = "x1") %>% 
-  rename("x1" = "x1_2") %>% 
+  #rename("x" = "x1") %>% 
+  #rename("x1" = "x1_2") %>% 
   dplyr::select(-x14) %>% 
   #fill(x_1) %>% 
   #filter(x_2 == "562") %>% 
@@ -53,7 +53,7 @@ data_formatted =
          absorbance_562 = as.numeric(absorbance_562)) %>% 
   dplyr::select(tray_number, well_position, absorbance_562) %>% 
   right_join(map_processed, by = c("tray_number", "well_position")) %>% 
-  filter(!notes %in% "skip") 
+    filter(!Method_Deviations %in% "OMIT"
  
 
 #### Formatted absorbance data ####
