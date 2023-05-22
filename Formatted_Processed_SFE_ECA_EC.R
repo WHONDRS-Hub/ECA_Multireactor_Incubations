@@ -3,22 +3,25 @@ library(tidyverse);library(dplyr);library(readxl)
 rm(list=ls());graphics.off()
 
 pnnl.user = 'laan208'
+project = 'EC'
+date = '20230519'
+sample.range = '1-138'
 
 #### Read in Data ####
 input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/FE/")
 
 setwd(input.path)
 
-raw.data = ("01_Rawdata//20230519_Data_Raw_SFE_ECA_EC/")
+raw.data = paste0("01_Rawdata/",date,"_Data_Raw_SFE_ECA_EC_",sample.range,"/")
 
-formatted.data = ("02_FormattedData/20230110_Data_Formatted_SFE_ECA_EC_1-270/")
+formatted.data = paste0("02_FormattedData/",date,"_Data_Formatted_SFE_ECA_EC_",sample.range,"/")
 
-processed.data = ("03_ProcessedData/20230110_Data_Formatted_SFE_ECA_EC_1-270/")
+processed.data = paste0("03_ProcessedData/",date,"_Data_Formatted_SFE_ECA_EC_",sample.range,"/")
 
 
   
   # import map
-  ferrozine_map = read_excel("01_Rawdata/20230519_Data_Raw_SFE_ECA_EC/20230519_Mapping_SFE_ECA_EC.xlsx", sheet = "map") %>% mutate_all(as.character) 
+  ferrozine_map = read_excel(paste0("01_Rawdata/",date,"_Data_Raw_SFE_ECA_EC_",sample.range,"/",date,"_Mapping_SFE_ECA_EC_",sample.range,".xlsx"), sheet = "map") %>% mutate_all(as.character) 
   # import data files (plate reader)
   filePaths_ferrozine <- list.files(path = raw.data, pattern = "Tray", full.names = TRUE, recursive = TRUE)
   ferrozine_data <- do.call(bind_rows, lapply(filePaths_ferrozine, function(raw.data) {
@@ -53,11 +56,11 @@ data_formatted =
          absorbance_562 = as.numeric(absorbance_562)) %>% 
   dplyr::select(tray_number, well_position, absorbance_562) %>% 
   right_join(map_processed, by = c("tray_number", "well_position")) %>% 
-    filter(!Method_Deviations %in% "OMIT"
+    filter(!Method_Deviations %in% "OMIT")
  
 
 #### Formatted absorbance data ####
-write.csv(data_formatted, paste0(formatted.data,"20230110_Data_Formatted_SFE_ECA_EC_1-270.csv"), row.names = F)
+write.csv(data_formatted, paste0(formatted.data,"20230519_Data_Formatted_SFE_ECA_EC_",sample.range,".csv"), row.names = F)
   
 
 ####Processed Data #####
@@ -68,7 +71,8 @@ calibrate_ferrozine_data = function(data_formatted){
   standards = 
     data_formatted %>% 
     filter(grepl("standard", sample_label)) %>% 
-    dplyr::select(tray_number, absorbance_562, standard_ppm) %>% 
+    filter(!grepl("drop", notes)) %>% 
+    dplyr::select(tray_number, absorbance_562, standard_ppm, notes) %>% 
     mutate(standard_ppm = as.numeric(standard_ppm))
   
   standards %>% 
@@ -111,9 +115,9 @@ calibrate_ferrozine_data = function(data_formatted){
 samples = 
   calibrate_ferrozine_data(data_formatted) %>% 
   filter(grepl("EC", sample_label)) %>% 
-  dplyr::select(sample_label, analysis, ppm_calculated) %>% 
+  dplyr::select(sample_label, analysis, ppm_calculated, Method_Deviations) %>% 
   mutate(ppm_calculated = case_when(
-  analysis  == "dilute" ~ ppm_calculated * 2, 
+  Method_Deviations  == "SFE_RERUN_001" ~ ppm_calculated * 2, 
   analysis == "Fe2" ~ ppm_calculated)) %>% 
   rename("mg_Fe_per_L" = "ppm_calculated") %>% 
   mutate(mg_Fe_per_L = if_else(mg_Fe_per_L<0,0,mg_Fe_per_L))
@@ -136,7 +140,7 @@ data_flag_conc <- samples %>%
   
   samples_dist <- data_flag_conc %>% 
     rename(cv.before.removal = CV) %>% 
-    select(-c(flag, analysis)) %>% 
+    select(-c(flag, analysis, Method_Deviations)) %>% 
     unite(kit_rep, c("kit", "Replicate"), sep = "_", remove = FALSE)
   
   samples_removed_final = as.data.frame(matrix(NA, ncol = 13, nrow = 1))
@@ -240,6 +244,7 @@ data_flag_conc <- samples %>%
         samples_remove_omit$range.after.removal = as.numeric(max(conc.temp) - min(conc.temp))
         
         samples_remove_omit$flag[is.na(samples_remove_omit$conc.temp)] = "OMIT"
+      
         
         samples_remove_omit <- samples_remove_omit %>% 
           dplyr::select(-c(Project.x, kit_rep.x, kit.x, Analysis.x,Replicate.x, Technical.x, cv.before.removal.x, range.x, conc.temp)) %>% 
@@ -268,6 +273,8 @@ data_flag_conc <- samples %>%
   
   final_data <- samples_removed_final %>% 
     select(c(sample_label, mg_Fe_per_L, flag)) %>% 
+    mutate(mg_Fe_per_L = case_when(
+      flag == "OMIT" ~ -9999)) %>% 
     separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_", remove = FALSE) %>% 
     separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-", remove = FALSE) %>%
     separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)") %>% 
