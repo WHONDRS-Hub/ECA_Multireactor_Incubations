@@ -39,7 +39,7 @@ import_data = function(path){
   
   filePaths <- list.files(path = path, recursive = T, pattern = "\\.csv$", full.names = TRUE)
   
-  filePaths <- filePaths[!grepl("results_linear_fit|elapsed.time.ratios|ECA_Sediment", filePaths)]
+  filePaths <- filePaths[!grepl("results_linear_fit|elapsed.time.ratios|archive|ECA_Sediment|removed", filePaths)]
   
   #filePaths <- files[!grepl("elapsed.time.ratios", files)]
   
@@ -205,16 +205,62 @@ img_time$Time <- gsub('[AMP]','', img_time$Time)
 
 img_time$Time <- as.POSIXct(img_time$Time, format = "%m/%d/%Y %H:%M:%S")
 
-img_time$Time <- format(img_time$Time, format = "%H:%M") 
+img_time$Day <- format(img_time$Time, format = "%m/%d/%Y")
+
+img_time$Day <- as.Date(img_time$Day, format = "%m/%d/%Y")
+
+img_time$Time_Corr <- ifelse(img_time$Day < "2022-11-06" | img_time$Day > "2023-03-12", img_time$Time + 3600, img_time$Time)
+
+class(img_time$Time_Corr) <- c("POSIXct", "POSIXt")
+
+img_time$Time_HMS <- format(as.POSIXct(img_time$Time_Corr), format = "%H:%M:%S")
+
+img_time$Time_HM <- format(as.POSIXct(img_time$Time_Corr), format = "%H:%M")
+
+img_time$Time_S <- format(as.POSIXct(img_time$Time_Corr), format = "%S")
 
 all.samples <- merge(img_time, time.map)
 
-time.same <- all.samples %>% 
-  filter(~Time == `Time on`)
+all.samples$min_bef <- format(strptime(all.samples$Time_HM, format = "%H:%M") - 60, "%H:%M")
 
-time.same <- all.samples[all.samples$Time==all.samples$`Time on`,]   
+all.samples$time_same <- NA
 
+for (i in 1:nrow(all.samples)) {
+  
+  if (all.samples$Time_HM[i] == all.samples$`Time on`[i]) {
+    
+    all.samples$time_same[i] <- "yes"
+    
+  }
+  
+  else if (all.samples$Time_S[i] <= 20 & all.samples$`Time on`[i] == all.samples$min_bef[i]) {
+  
+    all.samples$time_same[i] <- "maybe"
+    
+  }
+  
+  else { 
+    
+    all.samples$time_same[i] <- "no"
+    
+    }
+  
+}
 
+corr.time <- all.samples %>% 
+  dplyr::select(c(source_file, Sample_ID, disc_number, Time_HMS, Time_HM, `Time on`, time_same)) %>% 
+  filter(!grepl("Blank", Sample_ID)) %>% 
+  group_by(Sample_ID) %>% 
+  filter(Time_HM >= `Time on`) %>% 
+  arrange(Time_HM) %>% 
+  filter(row_number() == 1)
+
+time_samples <- merge(corr.time, bind, by = "Sample_ID")
+
+time_samples <- time_samples %>% 
+  rename(source_file = source_file.x) %>% 
+  rename(disc_number = disc_number.x) %>% 
+  dplyr::select(-c(source_file.y, disc_number.y, Time_HMS, Time_HM, `Time on`))
 
 # start loop to remove samples ####
 
@@ -249,7 +295,7 @@ colnames(rate) = c("Sample_ID","slope_beginning", "slope_of_the_regression", "ra
 
 for (i in 1:length(location)){
   
-  data_location_subset = bind[grep(location[i],bind$Sample_ID),]
+  data_location_subset = time_samples[grep(location[i],time_samples$Sample_ID),]
   
   unique.incubations = unique(data_location_subset$Sample_ID)
   
@@ -263,7 +309,6 @@ for (i in 1:length(location)){
     data_site_subset = subset(data_location_subset, data_location_subset$Sample_ID == unique.incubations[j])
     data_site_subset = data_site_subset[order(data_site_subset$elapsed_min, decreasing = FALSE),]
     data_site_subset$elapsed_min = as.numeric(data_site_subset$elapsed_min)
-    
     
     fit_all = lm(data_site_subset$DO_mg_L~data_site_subset$elapsed_min)
    
@@ -293,44 +338,44 @@ for (i in 1:length(location)){
     
     fit_low = lm(data_site_subset_low$DO_mg_L~data_site_subset_low$elapsed_min)
     
-    data_site_subset_beg = data_site_subset_low
-    
-    #remove points < median at beginning
-    
-    # for (k in 1:3) {
-    #   
-    #   if(data_site_subset_beg$DO_mg_L[k] < median(data_site_subset_beg$DO_mg_L)) {
-    #     
-    #     data_site_subset_beg = data_site_subset_beg[-k,]
-    #     
-    #   }
-    #   else if (data_site_subset_beg$DO_mg_L[k] >= median(data_site_subset_beg$DO_mg_L)){
-    #     #break()
-    #     data_site_subset_beg = data_site_subset_beg
-    #   
-    #   }
-    #   
-    # }
-    # 
-    fitog = lm(data_site_subset_beg$DO_mg_L~data_site_subset_beg$elapsed_min)
-    
      ##remove samples if at >4 minutes, they are below the DO threshold. This is trying to remove low values from the back end of curves
     
-    data_site_subset_thresh = data_site_subset_beg %>% 
+    data_site_subset_thresh = data_site_subset_low %>% 
       filter(!(elapsed_min > time.thresh & DO_mg_L < do.thresh)) 
     
-    data_site_subset_fin = data_site_subset_thresh
+    data_site_subset_rem = data_site_subset_thresh
     
     for(n in 1:2){
-      if(data_site_subset_fin$elapsed_min[2] == 2 & data_site_subset_fin$DO_mg_L[2] <= 5){
+      if(data_site_subset_rem$elapsed_min[2] == 2 & data_site_subset_rem$DO_mg_L[2] <= 5){
         
-        data_site_subset_fin = data_site_subset_fin %>% 
+        data_site_subset_rem = data_site_subset_rem %>% 
           filter(!elapsed_min > 2 )
         
       }
     }
     
-    fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
+    data_site_subset_beg = data_site_subset_rem
+    
+    for (k in 1:2) {
+      
+      if (nrow(data_site_subset_beg) <= 2) {
+        
+        data_site_subset_beg = data_site_subset_beg
+      }
+      
+      else if ((data_site_subset_beg$time_same[k] == "yes" | data_site_subset_beg$time_same[k] == "maybe") & ((data_site_subset_beg$DO_mg_L[k] > fast & data_site_subset_beg$elapsed_min[k] == 2))) {
+        
+        data_site_subset_beg = data_site_subset_beg[-k,]
+        
+      }
+      
+  }
+ 
+    fitog = lm(data_site_subset_beg$DO_mg_L~data_site_subset_beg$elapsed_min)
+    
+    data_site_subset_fin = data_site_subset_beg
+    
+     fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
     u = fit$coefficients
     b = u[[1]]
     c = u[[2]]
@@ -400,50 +445,6 @@ for (i in 1:length(location)){
       
     }
    
-# not being used ####
-    
-    #points being removed with increase in r2 after removal
-     # if (((r < threshold & rtemp >= rog) | (residuals > res.threshold & restemp <= residuals)) & nrow(data_site_subset_fin) >= min.points){
-     # 
-     #  data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-     #  fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
-     #  u = fit$coefficients
-     #  b = u[[1]] #Intercept
-     #  c = u[[2]] #rate mg/L min
-     #  r = summary(fit)$r.squared
-     #  residuals = deviance(fit)
-     #  r.adj = summary(fit)$adj.r.squared
-     #  p = summary(fit)$coefficients[4]
-     #  r2 = r
-     #  res2 = residuals
-     # 
-     # 
-     #  if (((r < threshold & r >= rog) | (residuals > res.threshold & residuals <= resog)) & nrow(data_site_subset_fin)>=min.points){
-     #    data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-     #    fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
-     #    u = fit$coefficients
-     #    b = u[[1]] #Intercept
-     #    c = u[[2]] #rate mg/L min
-     #    r = summary(fit)$r.squared
-     #    residuals = deviance(fit)
-     #    r.adj = summary(fit)$adj.r.squared
-     #    p = summary(fit)$coefficients[4]
-     #    r3 = r
-     #    res3 = residuals
-     #  }
-     #  if (((r < threshold&r >= r2) | (residuals > res.threshold & residuals >=res2)) & nrow(data_site_subset_fin)>=min.points){
-     #    data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
-     #    fit = lm(data_site_subset_fin$DO_mg_L~data_site_subset_fin$elapsed_min)
-     #    u = fit$coefficients
-     #    b = u[[1]] #Intercept
-     #    c = u[[2]] #rate mg/L min
-     #    r = summary(fit)$r.squared
-     #    r.adj = summary(fit)$adj.r.squared
-     #    p = summary(fit)$coefficients[4]
-     #  }
-     # }
- #####
-    
   my.format <- "Slope: %s\nR2: %s\np: %s"  
   my.formula <- y ~ x
      final <- ggplot(data_site_subset_fin, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
@@ -492,7 +493,7 @@ for (i in 1:length(location)){
       # stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_beg, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
       theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
       labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
-      ggtitle("Beginning Points Removed ", data_site_subset_beg$Sample_ID[1]) +
+      ggtitle("First Point Removed ", data_site_subset_beg$Sample_ID[1]) +
       theme(plot.title = element_text(lineheight=.8, face="bold"))+
       theme(axis.text.x=element_text(colour = c("black","black")))+
       theme(aspect.ratio=1)+
@@ -519,9 +520,9 @@ for (i in 1:length(location)){
       theme(axis.title =element_text(size = 12,face="bold"))+
       theme(axis.title.y =element_text(size = 12,face="bold"))
 
-    multi <- (final + high_rem + beg_rem + all) +
+    multi <- (final + beg_rem + high_rem + all) +
      plot_layout(widths = c(2,2))
-    ggsave(file=paste0(path,"Plots/breusch_test_fits/4-26-2023/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
+    ggsave(file=paste0(path,"Plots/breusch_test_fits/4-26-2023/Same Time Removed/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
 
     rate$Sample_ID[j] = as.character(data_site_subset_fin$Sample_ID[1])
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
@@ -571,4 +572,4 @@ respiration = respiration[-1,]
 #   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
 #   mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
 
-write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+write.csv(respiration,paste0(path,"Plots/All_Respiration_Rates/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
