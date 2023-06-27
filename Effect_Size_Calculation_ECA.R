@@ -17,7 +17,7 @@ path <- ("Plots/")
 
 #change date to most recent respiration rate csv
 
-date = '2023-06-13'
+date = '2023-06-27'
 
 #read in all files, remove csv that are not rate data files, bind all results files together, 
 import_data = function(input.path){
@@ -69,8 +69,6 @@ slope.final <- as.data.frame(matrix(NA, ncol = 14, nrow =1))
 colnames(slope.final) = c("slope.temp","Sample_ID", "ECA", "kit_treat", "kit", "rep", "rate_mg_per_L_per_min","rate_mg_per_L_per_h", "Treat", "Mean_Slope_All","cv_before_removal", "cv_after_removal", "Mean_Slope_Removed","flag")
 
 
-
-
 ##if more than 4 samples and CV > 10%, then remove 1 sample
 
 unique.samples = unique(slope.new$kit_treat)
@@ -118,7 +116,7 @@ for (i in 1:length(unique.samples)) {
       }
   }
   
-  if (length(slope.temp) >= 4) {
+  if (length(slope.temp) >= 3) {
     
     # if(CV > 10 ) {
     #   
@@ -160,10 +158,6 @@ slope.final$flag <- ifelse(slope.final$cv_before_removal < slope.final$cv_after_
 slope.final <- rename(slope.final, "slope_of_the_regression" = "slope.temp")
 
 slope.final$rem <- abs(slope.final$slope_of_the_regression) - slope.final$rate_mg_per_L_per_min
-
-#for some reason, 66-D is being added twice
-slope.final <- slope.final %>% 
-  distinct()
 
 #Histogram of all slopes from 40 mL vials with facet by wet vs. dry treatment ####
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_all_slope_facet_histogram.png"), width = 8, height = 8, units = "in", res = 300)
@@ -325,14 +319,11 @@ slope.means <- slope.final.clean %>%
 
 slope.means$Mean_Slope_Removed <- as.numeric(slope.means$Mean_Slope_Removed)
 
-
-
-#27 and 39 from same site, 56 and 57 from same site
+#56 and 57 from same site
 
 
 #effect size wet - dry
 eca <- slope.means %>% 
-  filter(kit != "EC_27_INC") %>% 
   group_by(kit) %>% 
   
   mutate(effect = (Mean_Slope_Removed[Treat == "Wet"] - Mean_Slope_Removed[Treat == "Dry"])) %>% 

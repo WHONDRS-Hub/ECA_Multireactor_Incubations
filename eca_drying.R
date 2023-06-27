@@ -40,7 +40,7 @@ all_moisture <- all_moisture %>%
 merged <- merge(all_moisture, mean_dry_wt, by = "Site")
 
 merged_clean <- merged %>% 
-  select(-c(Site, EC, INC, Notes, `Jars or 40 mL vials`, ...8, ...9, ...10, `Study Code`))
+  dplyr::select(-c(Site, EC, INC, Notes, `Jars or 40 mL vials`, ...8, ...9, ...10, `Study Code`))
 
 ##All Samples - wet and dry (all dates) ####
 
@@ -143,7 +143,7 @@ for (i in 1:length(location)){
 wet_dry = wet_dry[-1,] 
 
 wet_dry <- wet_dry %>% 
-  select(-c(Tare_weight_g))
+  dplyr::select(-c(Tare_weight_g))
 
 write.csv(wet_dry,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
 

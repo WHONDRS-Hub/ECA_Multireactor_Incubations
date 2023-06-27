@@ -22,13 +22,13 @@ moisture <- read_excel(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Seq
 moisture_clean <- moisture %>% filter(!grepl("Jars", moisture$from_jars_or_40_m_l_vials))
 
 # Subseting data by wet weight
-wet_weight <- moisture_clean %>% select(sample_name, date, tare_weight_g, sample_weight_g) %>% 
+wet_weight <- moisture_clean %>% dplyr::select(sample_name, date, tare_weight_g, sample_weight_g) %>% 
   filter(!grepl("-9999" , moisture_clean$tare_weight_g))
 
 colnames(wet_weight) [4] <- "wet_weight_g"
 
 # Subseting data by dry weight
-dry_weight <- moisture_clean %>% select(sample_name, date, tare_weight_g, sample_weight_g) %>% 
+dry_weight <- moisture_clean %>% dplyr::select(sample_name, date, tare_weight_g, sample_weight_g) %>% 
   filter(grepl("-9999", moisture_clean$tare_weight_g))
 
 colnames(dry_weight) [4] <- "dry_weight_g"

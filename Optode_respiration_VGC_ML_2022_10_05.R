@@ -16,6 +16,8 @@ pnnl.user = 'laan208'
 
 input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates")
 
+map.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/")
+
 #setwd(input.path)
 
 #path for raw data
@@ -40,10 +42,10 @@ import_data = function(input.path){
   filePaths <- filePaths[!grepl("results_linear_fit|elapsed.time.ratios|archive|ECA_Sediment|removed", filePaths)]
   
   # dat <- 
-  do.call(rbind, lapply(filePaths, function(path){
+  do.call(rbind, lapply(filePaths, function(input.path){
     # then add a new column `source` to denote the file name
-    df <- read.csv(path, skip = 4)
-    df[["source_file"]] <- rep(path, nrow(df)) # add a column for the source file
+    df <- read.csv(input.path, skip = 4)
+    df[["source_file"]] <- rep(input.path, nrow(df)) # add a column for the source file
 
     df %>%
       na.omit () %>% 
@@ -55,11 +57,11 @@ import_data = function(input.path){
       # make longer, so all the data are in a single column
       pivot_longer(-c(elapsed_min,source_file), names_to = "disc_number", values_to = "DO_mg_L", values_transform = as.numeric) %>% 
       # remove unnecessary strings from the source_file name
-      mutate(source_file = str_remove_all(source_file, paste0(path, "/")))
+      mutate(source_file = str_remove_all(source_file, paste0(input.path, "/")))
   }
   ))
 }
-data = import_data(path)
+data = import_data(input.path)
 
 
 ##### Clean Data ####
@@ -67,11 +69,8 @@ data = import_data(path)
 data_long = 
   data %>% 
   mutate(disc_number = str_remove_all(disc_number, "X")) %>%
-  mutate(source_file = str_remove_all(source_file, "optode data/"),source_file = str_remove_all(source_file, ".csv")) %>%  
-  filter(elapsed_min > 0) %>% 
-  separate(col = source_file, into = c("fol1", "fol2", "fol3","fol4", "source_file"), sep = "/") %>% 
-  dplyr::select(-fol1, -fol2, -fol3,-fol4)
-
+  mutate(source_file = str_remove_all(source_file, ".*optode_data/"),source_file = str_remove_all(source_file, ".csv")) %>%  
+  filter(elapsed_min > 0)
 
 ##take out samples incubated in jars
 vials <- data_long %>% 
@@ -85,12 +84,12 @@ vials <- data_long %>%
   na.omit(vials)
 
 #import mapping files
-import_data = function(input.path){ 
+import_data = function(map.path){ 
   
   #pull a list of files in target folder with correct pattern
   #read all files and combine
   
-  map.file <-  list.files(input.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
+  map.file <-  list.files(map.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
   
   map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC|QA", map.file)]
   
@@ -102,46 +101,43 @@ import_data = function(input.path){
     do.call(rbind,mapping)
 }
 
-all.map = import_data(input.path)
+all.map = import_data(map.path)
 
 all.map = all.map %>% 
   rename("source_file" = "map.file[i]") %>% 
   rename("disc_number" = "Disk_ID") %>% 
-  mutate(source_file = str_remove_all(source_file, paste0(input.path, "/"))) %>% 
+  mutate(source_file = str_remove_all(source_file, ".*//")) %>% 
   separate(source_file, sep = "/", c("source_file", "file")) %>% 
   mutate(source_file = str_replace(source_file, "EC", "results")) %>% 
   dplyr::select(-`Disk Calibration date`, -Location, -`Time on`, -`Time off`, -SpC, -pH, -Temp, -Notes, -file)
 
 all.samples <- merge(vials, all.map)
 
-#fill in samples, remove last two columns for cleaner data frame
+# Fill in samples, remove last two columns for cleaner data frame
 
 bind <- merge(all.samples, fast.rates.kits, all = TRUE) %>% 
-  dplyr::select(-`calibration date`) 
-
-#13 - overexposed samples
-#27 - overexposed
-#14 kit - W1 second low point not being removed in script currently
-#32-D3 kit - low first point, might be partially fixed with heteroscedasticity
-
-bind <- bind %>% 
+  dplyr::select(-`calibration date`)  %>% 
   filter(Sample_ID != "EC_13_INC-W5") %>% 
   filter(Sample_ID != "EC_13_INC-D4") %>% 
   filter(!(elapsed_min < 8 & Sample_ID == "EC_14_INC-W1")) %>%
   filter(Sample_ID != "EC_14_INC-W5") %>% 
   filter(Sample_ID != "EC_27_INC-D1") %>%
   filter(Sample_ID != "EC_27_INC-D2") #%>% 
- # filter(!(elapsed_min == 2 & Sample_ID == "EC_32_INC-D3")) 
+# filter(!(elapsed_min == 2 & Sample_ID == "EC_32_INC-D3")) 
 
+#13 - overexposed samples
+#27 - overexposed
+#14 kit - W1 second low point not being removed in script currently
+#32-D3 kit - low first point, might be partially fixed with heteroscedasticity
 
 ##### Read in times of pictures #####
 
-import_data = function(input.path){ 
+import_data = function(map.path){ 
   
   #pull a list of files in target folder with correct pattern
   #read all files and combine
   
-  time.map.file <-  list.files(input.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
+  time.map.file <-  list.files(map.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
   
   time.map.file <- time.map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC|QAQC", time.map.file)]
   
@@ -153,7 +149,7 @@ import_data = function(input.path){
     do.call(rbind,time.mapping)
 }
 
-time.map = import_data(input.path)
+time.map = import_data(map.path)
 
 time.map$`Time on` <- as.POSIXct(time.map$`Time on`, format = "%Y/%m/%d %H:%M:%%S")
 
@@ -166,14 +162,14 @@ time.map$`Time off` <- format(time.map$`Time off`, format = "%H:%M")
 time.map = time.map %>% 
   rename("source_file" = "time.map.file[i]") %>% 
   rename("disc_number" = "Disk_ID") %>% 
-  mutate(source_file = str_remove_all(source_file, paste0(input.path, "/"))) %>% 
+  mutate(source_file = str_remove_all(source_file, ".*//")) %>% 
   separate(source_file, sep = "/", c("source_file", "file")) %>% 
   mutate(source_file = str_replace(source_file, "EC", "results")) %>% 
   dplyr::select(-`Disk Calibration date`, -Location, -`Time off`, -SpC, -pH, -Temp, -Notes, -file)
 
-import_data = function(input.path){ 
+import_data = function(map.path){ 
   
-  filePaths <- list.files(path = input.path, recursive = T, pattern = "\\.txt$", full.names = TRUE)
+  filePaths <- list.files(path = map.path, recursive = T, pattern = "\\.txt$", full.names = TRUE)
   
   filePaths <- filePaths[!grepl("cal", filePaths)]
   filePaths <- filePaths[!grepl("images", filePaths)]
@@ -186,10 +182,10 @@ import_data = function(input.path){
     do.call(rbind,mapping)
 }
 
-all.txt = import_data(input.path)  
+all.txt = import_data(map.path)  
 
 img_all <- all.txt %>% 
-  mutate(`filePaths[i]` = str_remove_all(`filePaths[i]`, paste0(input.path, "/"))) %>% 
+  mutate(`filePaths[i]` = str_remove_all(`filePaths[i]`, paste0(map.path, "/"))) %>% 
   separate(col = `filePaths[i]`, into = c("source_file", "photo"), sep = "/") %>% 
   mutate(source_file = str_replace(source_file,"EC", "results")) 
 
@@ -283,7 +279,6 @@ time_samples <- time_samples %>%
 # start loop to remove samples ####
 
 #generate another dataset (w/ time, DO) with everything that has been removed: high, low (median), at the end, then can plot everything on top of each other with different colors to see what has been removed
-
 
 min.points = 2
 threshold = 0.99
