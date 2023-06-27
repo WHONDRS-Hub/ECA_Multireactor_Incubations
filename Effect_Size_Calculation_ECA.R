@@ -13,11 +13,11 @@ input.path <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-F
 
 setwd(input.path)
 
-path <- ("Plots")
+path <- ("Plots/")
 
 #change date to most recent respiration rate csv
 
-date = '2023-05-25'
+date = '2023-06-13'
 
 #read in all files, remove csv that are not rate data files, bind all results files together, 
 import_data = function(input.path){
@@ -25,7 +25,7 @@ import_data = function(input.path){
   # pull a list of file names in the target folder with the target pattern
   # then read all files and combine
   
-  files <- list.files(input.path, pattern = ".csv", recursive = T, full.names = T)
+  files <- list.files(input.path, pattern = "ECA_Sediment_Incubations_Respiration", recursive = T, full.names = T)
   
   all <- files[grep(paste0(date), files)]
   
@@ -202,7 +202,7 @@ slope.final.clean = slope.final %>%
   unite(kit_treat, c("kit", "Treat"),  sep = "_", remove = FALSE)
 
 
-write.csv(slope.final.clean,paste0(input.path,"/removed_respiration_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+write.csv(slope.final.clean,paste0(input.path,"/Plots/All_Respiration_Rates/removed_respiration_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
 
 # Log Transformations and Slope Histograms####
 #log10 transformation of positive rate data +1 - can't log transform negative data or 0
@@ -285,7 +285,7 @@ ggplot(dry, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
         legend.text = element_text(size = 18))+
   ylab("Count\n") +
   xlab(expression(paste("Log of Rate (mg O"[2]* " L"^-1* " min"^-1*")")))+
-  scale_y_continuous(limits = c(0,150), breaks = c(0, 25, 50, 75, 100, 125, 150))
+  scale_y_continuous(limits = c(0,175), breaks = c(0, 25, 50, 75, 100, 125, 150, 175))
 
 dev.off()
 
@@ -293,7 +293,7 @@ dev.off()
 
 #log10 Histogram of all slopes from 40 mL vials with facet 
 
-png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/ECA/EC 2022 Experiment/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_log_all_slope_hist_facet.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/ECA/EC 2022 Experiment/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_log_all_slope_hist_facet.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(slope.final.clean, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
   geom_histogram(binwidth = 0.08)+
@@ -343,7 +343,7 @@ eca <- slope.means %>%
 
 png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_effect_size.png"), width = 10, height = 10, units = "in", res = 300)
 
-ggplot(eca, aes(x = reorder(Site, pos_effect), y = pos_effect))+
+ggplot(eca, aes(x = reorder(Site, effect), y = effect))+
   geom_bar(fill = "cornflowerblue",col = "black", stat = "summary") +
   theme_bw()+
   theme(axis.title.x = element_text(size = 24),

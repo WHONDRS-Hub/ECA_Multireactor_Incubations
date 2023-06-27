@@ -14,9 +14,9 @@ rm(list=ls());graphics.off()
 #Example:
 pnnl.user = 'laan208'
 
-input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/")
+input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates")
 
-setwd(input.path)
+#setwd(input.path)
 
 #path for raw data
 path <- ("rates/")
@@ -25,23 +25,19 @@ path <- ("rates/")
 fast.sat <- paste0("C:/Users/", pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/fast_rate_calculations.xlsx")
 
 fast.rates <- read_excel(fast.sat)  
-  
-#kits that go to 0 quickly - 23W, 23D, 27W, 40W, 32D2, 32D4, 12W, 11W,  34W, 35W, 35D1245, 69W
 
 fast.rates.kits <- fast.rates %>% 
   rename("DO_mg_L" = "DO_sat_mg_L") 
 
 #read in respiration data and clean
-import_data = function(path){
+import_data = function(input.path){
   
   # pull a list of file names in the target folder with the target pattern
   # then read all files and combine
   
-  filePaths <- list.files(path = path, recursive = T, pattern = "\\.csv$", full.names = TRUE)
+  filePaths <- list.files(path = input.path, recursive = T, pattern = "\\.csv$", full.names = TRUE)
   
   filePaths <- filePaths[!grepl("results_linear_fit|elapsed.time.ratios|archive|ECA_Sediment|removed", filePaths)]
-  
-  #filePaths <- files[!grepl("elapsed.time.ratios", files)]
   
   # dat <- 
   do.call(rbind, lapply(filePaths, function(path){
@@ -255,12 +251,34 @@ corr.time <- all.samples %>%
   arrange(Time_HM) %>% 
   filter(row_number() == 1)
 
-time_samples <- merge(corr.time, bind, by = "Sample_ID")
+samples <- merge(corr.time, bind, by = "Sample_ID")
 
-time_samples <- time_samples %>% 
+time_samples <- samples %>% 
   rename(source_file = source_file.x) %>% 
   rename(disc_number = disc_number.x) %>% 
-  dplyr::select(-c(source_file.y, disc_number.y, Time_HMS, Time_HM, `Time on`))
+  dplyr::select(-c(source_file.y, disc_number.y, Time_HMS, Time_HM, `Time on`)) %>% 
+  separate(Sample_ID, into = c("Study Code", "Kit", "Rep"), sep = "_", remove = FALSE)
+
+#add "0" to start of sample kit names that don't have it
+
+for (i in 1:nrow(time_samples)){
+  
+  if (str_count(time_samples$Kit[i], "[0-9]") <= 2){
+    
+    time_samples$Kit[i] = paste0("0", time_samples$Kit[i])
+    
+  }
+  
+  else {
+    
+    time_samples$Kit[i] = time_samples$Kit[i]
+  }
+  
+}
+
+time_samples <- time_samples %>% 
+  unite("Sample_ID",  c("Study Code", "Kit", "Rep"), sep = "_") %>% 
+  relocate(Sample_ID, .before = source_file)
 
 # start loop to remove samples ####
 
@@ -282,16 +300,18 @@ p.value = 0.05
 mean.conc = 7.5
 
 
-respiration <- as.data.frame(matrix(NA, ncol = 20, nrow =1))
+respiration <- as.data.frame(matrix(NA, ncol = 22, nrow =1))
 
-colnames(respiration) = c("Sample_ID","slope_beginning", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h","Initial_R_squared", "Final_R_squared", "R_squared_adj","residuals","initial_p_value", "final_p_value", "total_incubation_time_min", "number_of_points", "removed_points_high", "removed_points_beg", "removed_points_end", "breusch_p_value","flag_r2", "flag_pos_slope", "flag_heteroscedastic")
+colnames(respiration) = c("Sample_ID","slope_beginning", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h","Initial_R_squared", "Final_R_squared", "R_squared_adj","residuals","initial_p_value", "final_p_value", "total_incubation_time_min", "number_of_points", "removed_points_high", "removed_points_beg", "removed_points_end", "breusch_p_value","flag_r2", "flag_pos_slope", "flag_heteroscedastic", "first_concentration", "last_concentration")
 
-location = c("-W1", "-W2", "-W3", "-W4", "-W5", "-D1", "-D2", "-D3", "-D4", "-D5")
+location = c("-W1", "-W2", "-W3", "-W4", "-W5","-D1", "-D2", "-D3", "-D4", "-D5")
 
-rate = as.data.frame(matrix(NA, ncol = 16, nrow = length(unique(bind$Sample_ID))))
+rate = as.data.frame(matrix(NA, ncol = 18, nrow = length(unique(time_samples$Sample_ID))))
 
-colnames(rate) = c("Sample_ID","slope_beginning", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h","Initial_R_squared", "Final_R_squared", "R_squared_adj","residuals", "initial_p_value", "final_p_value", "total_incubation_time_min", "breusch_p_value","flag_r2", "flag_pos_slope", "flag_heteroscedastic")
+colnames(rate) = c("Sample_ID","slope_beginning", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h","Initial_R_squared", "Final_R_squared", "R_squared_adj","residuals", "initial_p_value", "final_p_value", "total_incubation_time_min", "breusch_p_value","flag_r2", "flag_pos_slope", "flag_heteroscedastic","first_concentration", "last_concentration")
 
+# test <- time_samples %>% 
+#   filter(Sample_ID == "EC_13_INC-D3")
 
 for (i in 1:length(location)){
   
@@ -299,9 +319,9 @@ for (i in 1:length(location)){
   
   unique.incubations = unique(data_location_subset$Sample_ID)
   
-  rate = as.data.frame(matrix(NA, ncol = 16, nrow = length(unique(bind$Sample_ID))))
+  rate = as.data.frame(matrix(NA, ncol = 18, nrow = length(unique(bind$Sample_ID))))
   
-  colnames(rate) = c("Sample_ID","slope_beginning", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h","Initial_R_squared", "Final_R_squared", "R_squared_adj","residuals", "initial_p_value", "final_p_value", "total_incubation_time_min", "breusch_p_value","flag_r2", "flag_pos_slope", "flag_heteroscedastic")
+  colnames(rate) = c("Sample_ID","slope_beginning", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h","Initial_R_squared", "Final_R_squared", "R_squared_adj","residuals", "initial_p_value", "final_p_value", "total_incubation_time_min", "breusch_p_value","flag_r2", "flag_pos_slope", "flag_heteroscedastic", "first_concentration", "last_concentration")
   
   
   for (j in 1:length(unique.incubations)){
@@ -521,7 +541,7 @@ for (i in 1:length(location)){
       theme(axis.title.y =element_text(size = 12,face="bold"))
 
     multi <- (final + beg_rem + high_rem + all) +
-     plot_layout(widths = c(2,2))
+    plot_layout(widths = c(2,2))
     ggsave(file=paste0(path,"Plots/breusch_test_fits/4-26-2023/Same Time Removed/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"))
 
     rate$Sample_ID[j] = as.character(data_site_subset_fin$Sample_ID[1])
@@ -551,6 +571,10 @@ for (i in 1:length(location)){
     
     rate$flag_heteroscedastic[j] = case_when( rate$breusch_p_value[j] <= 0.1 ~ "Heteroscedastic but not removing data")
     
+    rate$first_concentration[j] = first(data_site_subset_fin$DO_mg_L)
+    
+    rate$last_concentration[j] = last(data_site_subset_fin$DO_mg_L)
+    
     }
   
   # Removing rows where the Sample_ID was an NA  
@@ -565,6 +589,11 @@ for (i in 1:length(location)){
 
 respiration = respiration[-1,]
 
+# conc <- respiration %>% 
+#   dplyr::select(c(Sample_ID, first_concentration, last_concentration))
+# 
+# write.csv(conc,paste0(path,"Plots/ECA_Sediment_Incubations_DO_concentrations_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+
 
 #moved this to effect size code
 
@@ -572,4 +601,4 @@ respiration = respiration[-1,]
 #   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
 #   mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
 
-write.csv(respiration,paste0(path,"Plots/All_Respiration_Rates/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+write.csv(respiration,paste0(path,"Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
