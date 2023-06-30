@@ -8,7 +8,7 @@ date = '20230519'
 sample.range = '1-138'
 
 #### Read in Data ####
-input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/FE/")
+input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Fe/")
 
 setwd(input.path)
 
@@ -19,8 +19,7 @@ formatted.data = paste0("02_FormattedData/",date,"_Data_Formatted_SFE_ECA_EC_",s
 processed.data = paste0("03_ProcessedData/",date,"_Data_Formatted_SFE_ECA_EC_",sample.range,"/")
 
 
-  
-  # import map
+    # import map
   ferrozine_map = read_excel(paste0("01_Rawdata/",date,"_Data_Raw_SFE_ECA_EC_",sample.range,"/",date,"_Mapping_SFE_ECA_EC_",sample.range,".xlsx"), sheet = "map") %>% mutate_all(as.character) 
   # import data files (plate reader)
   filePaths_ferrozine <- list.files(path = raw.data, pattern = "Tray", full.names = TRUE, recursive = TRUE)
@@ -109,7 +108,9 @@ calibrate_ferrozine_data = function(data_formatted){
     calibrate_ferrozine_data(data_formatted) %>% 
     filter(grepl("blank", sample_label)) %>% 
     mutate(CV = ((sd(ppm_calculated)/mean(ppm_calculated))*100)) %>% 
-    mutate(range = max(ppm_calculated) - min(ppm_calculated))
+    mutate(range = max(ppm_calculated) - min(ppm_calculated)) %>% 
+    group_by(tray_number) %>% 
+    mutate(tray_lod = mean(ppm_calculated))
 
 ## Check Samples ####
 samples = 
@@ -274,7 +275,8 @@ data_flag_conc <- samples %>%
   final_data <- samples_removed_final %>% 
     select(c(sample_label, mg_Fe_per_L, flag)) %>% 
     mutate(mg_Fe_per_L = case_when(
-      flag == "OMIT" ~ -9999)) %>% 
+      flag == "OMIT" ~ -9999,
+      TRUE ~ mg_Fe_per_L)) %>% 
     separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_", remove = FALSE) %>% 
     separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-", remove = FALSE) %>%
     separate(Replicate, into = c("Replicate", "Technical"), sep = "(?<=\\d)(?=[a-z]?)") %>% 
@@ -285,7 +287,7 @@ data_flag_conc <- samples %>%
 
 ### pull in moisture data to correct to mg Fe/kg dry sediment
 
-moisture <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_merged_by_laan208_on_2023-05-15.csv"))
+moisture <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_merged_by_laan208_on_2023-06-27.csv"))
 
 
 #merge moisture and Fe samples
@@ -305,4 +307,25 @@ processed.data <- merged %>%
   dplyr::select(sample_label,mg_Fe_per_L, mg_Fe_per_kg_sediment) 
 
 
-write.csv(processed.data, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/FE/03_ProcessedData/20230110_Data_Processed_SFE_ECA_EC_1-270/20230110_Data_Processed_SFE_ECA_EC_1-270.csv")
+write.csv(final_data, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/FE/03_ProcessedData/20230519_Data_Processed_SFE_ECA_EC_1-138/20230519_Data_Processed_SFE_ECA_EC_1-138.csv")
+
+
+# Ready for Boye ####
+
+setwd("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/FE/03_ProcessedData/")
+
+filenames <- list.files("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/FE/03_ProcessedData/", pattern="*.csv", recursive = TRUE)
+
+
+boye <- readr::read_csv(filenames)
+
+boye2 <- boye[,-c(1,3,4,6)]
+
+boye2$Methods_Deviation <- "N/A"
+
+boye2 <- boye2 %>% 
+  rename(Fe_mg_per_L = mg_Fe_per_L)
+
+write.csv(boye2, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/FE/03_ProcessedData/EC_SFE_ReadyForBoye_06-29-2023.csv")
+
+
