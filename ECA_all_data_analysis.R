@@ -764,26 +764,6 @@ dev.off()
 
 # James Correlation Matrix ####
 
-mean_samples_corr_js <- mean_wet_dry_clean_corr %>%
-
-  rename("Iron (mg/kg)" = "Mean_Fe_Treat") %>% 
-  rename("Rate (mg/L)"  = "Average_Rate") %>% 
-  rename("Effect Size" = "Effect_Size") %>% 
-  rename("Sp. Conductivity" = "SpC_mean_chem") %>% 
-  rename("pH" = "pH_mean_chem") %>% 
-  rename("Initial Grav. Water" = "mean_grav_initial") %>% 
-  rename("Final Grav. Water" = "mean_grav_final") %>% 
-  rename("Lost Grav. Water" = "mean_grav_lost") %>% rename("Fine Sand (%)" = "Percent_Fine_Sand") %>% 
-  rename("Medium Sand (%)" = "Percent_Med_Sand") %>% 
-  rename("Coarse Sand (%)" = "Percent_Coarse_Sand") %>% 
-  rename("Silt + Clay (%)" = 
-           "percent_mud")
-
-fe_do_chem_grn_wet <- fe_do_chem_grn_wet %>%
-  rename("Initial Grav. Water" = "Initial Grav. Water Content") %>% 
-  rename("Final Grav. Water" = "Final Grav. Water Content") %>% 
-  rename("Lost Grav. Water" = "Lost Grav. Water Content")
-
 panel.cor <- function(x, y, digits=2, prefix="", cex.cor)
 {
   usr <- par("usr"); on.exit(par(usr))
@@ -804,21 +784,11 @@ panel.cor <- function(x, y, digits=2, prefix="", cex.cor)
   
 }
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_James_Average_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_James_Effect_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
 
-pairs(mean_wet_dry_clean_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 1, cex = 1)
-
-dev.off()
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Dry_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
-
-pairs(fe_do_chem_grn_dry, lower.panel = panel.smooth, upper.panel = panel.cor, gap = 0, cex.labels = 1, cex = 1)
+pairs(effect, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 1, cex = 1)
 
 dev.off()
-
-
-
-
 
 #### PCA/RDA ####
 ## PCA ####
