@@ -13,7 +13,7 @@ setwd(input.path)
 
 #change date to most recent respiration rate csv
 
-date = '2023-05-25'
+date = '2023-06-28'
 
 resp <- read.csv(paste0(input.path,"/removed_respiration_merged_by_",pnnl.user,"_on_",date,".csv"))
 

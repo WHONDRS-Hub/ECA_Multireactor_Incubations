@@ -11,6 +11,7 @@ library(corrr)
 library(vegan)
 library(FactoMineR)
 library(factoextra)
+library(readxl)
 
 rm(list=ls());graphics.off()
 
@@ -714,15 +715,17 @@ effect <- effect_list %>%
   rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
   rename(`% Mud` = Percent_Mud) %>% 
   rename(D50 = d50) %>% 
+  rename(`Fe Difference (mg/L)` = Fe_Difference_mg_L) %>% 
   na.omit()  %>% 
   remove_rownames %>% 
   column_to_rownames(var = "kit") %>% 
-  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay", "log_effect"))# %>% 
- # dplyr::select(-c("% Fine Sand", "% Med. Sand", "% Coarse Sand", "% Mud", "geom_rusle", "geom"))
+  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay", "log_effect"))%>% 
+  dplyr::select(-c(#"% Fine Sand", "% Med. Sand", "% Coarse Sand", "% Mud",
+    "geom_rusle", "geom", "D50"))
   
 effect_corr <- cor(effect, method = "spearman")
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_Difference_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_Difference_Correlation_Matrix_Coulson.png"), width = 8, height = 8, units = "in", res = 300)
 
 corrplot(effect_corr, type = 'upper', tl.col = "black", tl.cex = 1.6, cl.cex = 1.25)
 
@@ -740,7 +743,7 @@ dev.off()
 
 ## Mud vs. Effect Size ####
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Effect_vs_Mud.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_vs_Mud.png"), width = 8, height = 8, units = "in", res = 300)
 
 par(mar = c(5 ,6 , 4, 1))
 

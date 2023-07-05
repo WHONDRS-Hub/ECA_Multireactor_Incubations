@@ -5,12 +5,10 @@ pnnl.user = 'laan208'
 
 
 ##update this to have most recent date
-effect_rate_data <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Effect_Size_Data/Effect_Size_merged_by_laan208_on_2023-06-15.csv"))
+effect_rate_data <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Effect_Size_Data/Effect_Size_merged_by_laan208_on_2023-06-28.csv"))
 
 effect = effect_rate_data[,c("Site", "effect")]
-effect = effect[!duplicated(effect$effect), ]
-
-effect$Sample_ID = substr(effect$Sample_ID,1,nchar(effect$Sample_ID)-7)
+effect = effect[!duplicated(effect$Site), ]
 
 effect$Site[effect$Site == "5"] <- "05"
 effect$Site[effect$Site == "9"] <- "09"
