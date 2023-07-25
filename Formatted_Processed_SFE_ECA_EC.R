@@ -4,8 +4,8 @@ rm(list=ls());graphics.off()
 
 pnnl.user = 'laan208'
 project = 'EC'
-date = '20230519'
-sample.range = '1-138'
+date = '20230711'
+sample.range = '1-153'
 
 #### Read in Data ####
 input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Fe/")
@@ -22,7 +22,7 @@ processed.data = paste0("03_ProcessedData/",date,"_Data_Formatted_SFE_ECA_EC_",s
     # import map
   ferrozine_map = read_excel(paste0("01_Rawdata/",date,"_Data_Raw_SFE_ECA_EC_",sample.range,"/",date,"_Mapping_SFE_ECA_EC_",sample.range,".xlsx"), sheet = "map") %>% mutate_all(as.character) 
   # import data files (plate reader)
-  filePaths_ferrozine <- list.files(path = raw.data, pattern = "Tray", full.names = TRUE, recursive = TRUE)
+  filePaths_ferrozine <- list.files(path = raw.data, pattern = "20230711_SBR", full.names = TRUE, recursive = TRUE)
   ferrozine_data <- do.call(bind_rows, lapply(filePaths_ferrozine, function(raw.data) {
     df <- read_xlsx(raw.data, skip = 24) %>% mutate_all(as.character) %>% janitor::clean_names()
     df = df %>% mutate(source = basename(raw.data))
@@ -59,7 +59,7 @@ data_formatted =
  
 
 #### Formatted absorbance data ####
-write.csv(data_formatted, paste0(formatted.data,"20230519_Data_Formatted_SFE_ECA_EC_",sample.range,".csv"), row.names = F)
+write.csv(data_formatted, paste0(formatted.data,"20230706_Data_Formatted_SFE_ECA_EC_",sample.range,".csv"), row.names = F)
   
 
 ####Processed Data #####
@@ -99,6 +99,7 @@ calibrate_ferrozine_data = function(data_formatted){
 ## Check Standards CV ####
   standards = calibrate_ferrozine_data(data_formatted) %>% 
     filter(sample_label == "FAS-standard") %>% 
+    filter(!grepl("drop", notes)) %>%
     group_by(standard_ppm) %>% 
     mutate(range = max(ppm_calculated) - min(ppm_calculated)) %>% 
     mutate(CV = (sd(ppm_calculated)/mean(ppm_calculated))*100)
@@ -107,6 +108,7 @@ calibrate_ferrozine_data = function(data_formatted){
   blanks = 
     calibrate_ferrozine_data(data_formatted) %>% 
     filter(grepl("blank", sample_label)) %>% 
+    filter(!grepl("drop", notes)) %>% 
     mutate(CV = ((sd(ppm_calculated)/mean(ppm_calculated))*100)) %>% 
     mutate(range = max(ppm_calculated) - min(ppm_calculated)) %>% 
     group_by(tray_number) %>% 
@@ -122,6 +124,7 @@ samples =
   analysis == "Fe2" ~ ppm_calculated)) %>% 
   rename("mg_Fe_per_L" = "ppm_calculated") %>% 
   mutate(mg_Fe_per_L = if_else(mg_Fe_per_L<0,0,mg_Fe_per_L))
+    
 
 ## Flag samples with range > 0.04 and CV > 10% ####
 data_flag_conc <- samples %>%

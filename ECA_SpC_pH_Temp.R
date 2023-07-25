@@ -41,7 +41,7 @@ import_data = function(chemistry){
 map = import_data(chemistry)
 
 all_chem <- map %>% 
-  select(c(Sample_ID, SpC, Temp, pH)) %>% 
+  select(c(Sample_ID, SpC, Temp, pH, Notes)) %>% 
   filter(!grepl("Blank", Sample_ID)) %>% 
   tidyr::separate(Sample_ID, into = c("EC", "kit", "rep"), sep = "_", remove = FALSE)
 

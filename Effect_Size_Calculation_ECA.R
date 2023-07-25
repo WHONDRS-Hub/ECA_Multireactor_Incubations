@@ -230,6 +230,29 @@ ggplot(slope.final.clean, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
 
 dev.off()
 
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Log_All_Slopes_Density.png"), width = 8, height = 8, units = "in", res = 300)
+
+ggplot(slope.final.clean, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
+  geom_histogram(aes(y = ..density..))+
+  geom_density(alpha = 0.4)+
+  scale_fill_manual(values=cbPalette, labels = c("Dry", "Wet"))+
+  theme_bw()+
+  #ggtitle("Histogram of All Slopes")+
+  theme(axis.title.x = element_text(size = 24, margin = margin(b = 5)),
+        axis.title.y = element_text(size = 24),
+        axis.text.x = element_text(size = 16, angle = 90, hjust = 1, vjust = 1),
+        axis.text.y = element_text(size =18),
+        title = element_text(size = 24),
+        legend.text = element_text(size = 18))+
+  ylab("Count\n") +
+  xlab(expression(paste("Log of Rate (mg O"[2]* " L"^-1* "min"^-1*")")))
+
+dev.off()
+
+
+
+
+
 #
 
 wet <- slope.final.clean %>% 
