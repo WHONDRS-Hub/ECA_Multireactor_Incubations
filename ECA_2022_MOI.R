@@ -81,9 +81,3 @@ dev.off()
 pdf(file.path(data.out.path,"percent_water_content_wet.pdf")) 
 hist(merged_weights$percent_water_content_wet)
 dev.off()
-
-
-
-
-
-

@@ -21,9 +21,9 @@ pnnl.user = 'laan208'
 
 # choose file dates to read in 
 
-effect.date = '2023-06-28'
-respiration.date = '2023-06-28'
-grav.date = '2023-06-27'
+effect.date = '2023-08-29'
+respiration.date = '2023-08-29'
+grav.date = '2023-08-18'
 
 #Read in all data
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
@@ -36,7 +36,7 @@ effect_size <- read_csv(paste0("Optode multi reactor/Optode_multi_reactor_incuba
 respiration <- read.csv(paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Plots/All_Respiration_Rates/removed_respiration_merged_by_laan208_on_",respiration.date,".csv"))
 
 #ECA Iron
-iron <- read_csv(paste0("FE/03_ProcessedData/EC_SFE_ReadyForBoye_06-29-2023.csv"))
+iron <- read_csv(paste0("Fe/03_ProcessedData/EC_SFE_ReadyForBoye_06-29-2023.csv"))
 
 
 #ICON Grain Size
@@ -107,7 +107,8 @@ ggplot(effect_diff, aes(x = log_effect))+
 #calculate mean Fe for kit/treatment from analytical replicates
 
 fe_all <- iron %>% 
-  separate(Sample_Name, into = c("Sample_ID", "rep"), sep = -1, convert = TRUE) %>% 
+  separate(sample_label, into = c("Sample_ID", "rep"), sep = -1, convert = TRUE) %>% 
+  dplyr::select(-...1) %>% 
   group_by(Sample_ID) %>% 
   mutate(Mean_Rep_Fe_mg_per_L = mean(Fe_mg_per_L)) %>% 
   #mutate(Mean_Rep_Fe_mg_kg= mean(Fe_mg_per_kg_sediment)) %>% 
@@ -723,7 +724,7 @@ effect <- effect_list %>%
   na.omit()  %>% 
   remove_rownames %>% 
   column_to_rownames(var = "kit") %>% 
-  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay", "log_effect"))%>% 
+  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay", "log_effect", D50))%>% 
   dplyr::select(-c(#"% Fine Sand", "% Med. Sand", "% Coarse Sand", "% Mud",
     "geom_rusle", "geom"
     #, "D50"
@@ -736,6 +737,40 @@ png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Fiel
 corrplot(effect_corr, type = 'upper', tl.col = "black", tl.cex = 1.6, cl.cex = 1.25)
 
 dev.off()
+
+rcorr(cbind(effect_corr))
+
+## Fine Sand, Mud, Coarse Sand, Fe Difference vs. Effect Size ####
+
+fe <- ggplot(log_effect, aes(x = `Fe Difference (mg/L)`, y = `Effect Size`)) +
+  geom_point()+
+  geom_smooth()+
+  xlab("Log Fe Difference (mg/L)")+
+  ylab("Log Effect Size")
+
+fine <- ggplot(log_effect, aes(x = `% Fine Sand`, y = `Effect Size`)) +
+  geom_point()+
+  geom_smooth()+
+  xlab("Log % Fine Sand")+
+  ylab("Log Effect Size")+
+  ylim(0, 0.8)
+
+coarse <- ggplot(log_effect, aes(x = `% Coarse Sand`, y = `Effect Size`)) +
+  geom_point()+
+  geom_smooth()+
+  xlab("Log % Coarse Sand")+
+  ylab("Log Effect Size")
+
+mud <- ggplot(log_effect, aes(x = `% Mud`, y = `Effect Size`)) +
+  geom_point()+
+  geom_smooth()+
+  xlab("Log % Mud")+
+  ylab("Log Effect Size")+
+  ylim(0, 0.75)
+
+all <- plot_grid(fe, fine, coarse, mud)
+
+ggsave("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/all_regression.png", all, width = 8, height = 8)
 
 ## Fine Sand vs. Effect Size ####
 
@@ -828,13 +863,14 @@ plot(effect$`% Mud`, effect$`Effect Size`, cex= 1.8, cex.lab = 1.8, cex.axis = 1
 
 dev.off()
 
+
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Log_Effect_vs_Log_Mud.png"), width = 8, height = 8, units = "in", res = 300)
 
 par(mar = c(5 ,6 , 4, 1))
 
 plot(log_effect$`% Mud`, log_effect$`Effect Size`, cex= 1.8, cex.lab = 1.8, cex.axis = 1.8 ,xlab = "Log % Mud" , ylab = expression(paste("Log Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")), lwd = 2)
 
-lines(lowess(log_effect$`% Mud`, log_effect$`Effect Size`), col = "blue", lwd = 3)
+#lines(lowess(log_effect$`% Mud`, log_effect$`Effect Size`), col = "blue", lwd = 3)
 
 dev.off()
 
@@ -854,33 +890,6 @@ log_mud <- plot(log_effect$`% Mud`, log_effect$`Effect Size`, cex= 1.8, cex.lab 
 log_mud <- log_mud + lines(lowess(log_effect$`% Mud`, log_effect$`Effect Size`), col = "blue", lwd = 3)
 
 dev.off()
-
-## D50 vs. Effect Size ####
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_vs_D50.png"), width = 8, height = 8, units = "in", res = 300)
-
-par(mar = c(5 ,6 , 4, 1))
-
-plot(effect$D50, effect$`Effect Size`,  cex= 1.8, cex.lab = 1.8, cex.axis = 1.8 , xlab = "D50" , ylab = expression(paste("Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")), lwd = 2)
-
-lines(lowess(effect$D50, effect$`Effect Size`), col = "blue", lwd = 3)
-
-dev.off()
-
-## D50 vs. Respiration ####
-
-colors <- c("#D55E00", "#0072B2")
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Respiration_vs_D50.png"), width = 8, height = 8, units = "in", res = 300)
-
-par(mar = c(5 ,6 , 4, 1))
-
-plot(mean_wet_dry_clean$D50, mean_wet_dry_clean$`Average Rate (mg/L)`,  cex= 1.8, cex.lab = 1.8, cex.axis = 1.8 , xlab = "D50" , ylab = expression(paste("Respiration (mg O"[2]*" L"^-1*" min"^-1*")")), lwd = 2, col = colors[factor(mean_wet_dry_clean$Treat)])
-
-#lines(lowess(effect$D50, effect$`Effect Size`), col = "blue", lwd = 3)
-
-dev.off()
-
 
 # James Correlation Matrix ####
 
@@ -910,86 +919,31 @@ pairs(log_effect, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, c
 
 dev.off()
 
-#### PCA/RDA ####
-## PCA ####
-mean_wet_pca <- mean_wet %>% 
-  dplyr::select(-c("Mean Initial Gravimetric Water", "Mean Lost Gravimetric Water"#, "log_effect",
-                   #"Log_Mean_Treat_Fe_mg_kg",
-                   #"% Coarse Sand", "% Med. Sand", "% Fine Sand", "% Mud", "geom", "geom_rusle", "Mean_Treat_Fe_mg_L"
-                   ))
+## Effect Size PCA ####
 
-mean_wet_norm <- scale(mean_wet_pca)
+effect_pca <- prcomp(effect, scale = TRUE,
+                 center = TRUE, retx = T)
 
-mean_wet_norm_corr <- cor(mean_wet_norm)
+# Summary
+summary(effect_pca)
 
-corrplot(mean_wet_norm_corr, type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25)
+# See the principal components
+dim(effect_pca$x)
+effect_pca$x
 
-mean_wet_pca <- princomp(mean_wet_norm_corr)
-summary(mean_wet_pca)
+limits = c(-4,
+           4)
 
-mean_wet_pca$loadings[, 1:2]
+ind <- get_pca_ind(effect_pca)
+ind
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Wet_Mean_PCA.png"), width = 11.5, height = 11.5, units = "in", res = 500)
+png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_PCA.png"), width = 10, height = 10, units = "in", res = 500)
 
-fviz_pca_var(mean_wet_pca, col.var = "black")
-
-dev.off()
-
-mean_dry_pca <- mean_dry %>% 
-  dplyr::select(-c("log_effect", "Log_Mean_Treat_Fe_mg_kg", "% Coarse Sand", "% Med. Sand", "% Fine Sand", "% Mud", "geom", "geom_rusle", "Mean_Treat_Fe_mg_L"))
-
-mean_dry_norm <- scale(mean_dry_pca)
-
-mean_dry_norm_corr <- cor(mean_dry_norm)
-corrplot(mean_dry_norm_corr, type = "upper", tl.col = "black", tl.cex = 1, cl.cex = 1)
-
-mean_dry_pca <- princomp(mean_dry_norm_corr)
-summary(mean_dry_pca)
-
-mean_dry_pca$loadings[, 1:2]
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Dry_Mean_PCA.png"), width = 13, height = 13, units = "in", res = 500)
-
-fviz_pca_var(mean_dry_pca, col.var = "black")
+fviz_pca_biplot(effect_pca, col.var = "black",geom = "point"
+)+
+  geom_point(aes(color = effect$`Effect Size`), size = 3.5)+
+  scale_color_gradient2(limits = limits, low = "firebrick2", mid = "goldenrod2",
+                        high = "dodgerblue2", midpoint = (max(limits)+min(limits))/2) +
+  labs(color = paste0("Wet - Dry Rate"))
 
 dev.off()
-
-## RDA ####
-
-mean_wet_rate <- mean_wet %>% 
-  dplyr::select(c(`Average Rate (mg/L)`))
-
-mean_wet_rate_hel <- decostand(mean_wet_rate, method = "hellinger")
-
-mean_wet_pred <- mean_wet %>% 
-  dplyr::select(-c(`Average Rate (mg/L)`))
-
-mean_wet_pred_std <- decostand(mean_wet_pred, method = "standardize")
-
-mean_wet_rda <- rda(mean_wet_rate ~., data = mean_wet_pred_std)
-
-summary(mean_wet_rda)
-
-ordiplot(mean_wet_rda, scaling = 1, type = "text")
-
-fwd_wet <- ordiR2step(rda(mean_wet_rate$`Average Rate (mg/L)` ~ 1, data = mean_wet_pred_std), 
-          scope = formula(mean_wet_rda), 
-          direction = "forward", 
-          R2scope = TRUE,
-          pstep = 1000,
-          trace = FALSE)
-
-fwd_wet$call
-
-mean_wet_signif <- rda(formula = mean_wet_rate$`Average Rate (mg/L)` ~ D50 + `Mean Initial Gravimetric Water`, data = mean_wet_pred_std)
-
-RsquareAdj(mean_wet_signif)
-
-anova.cca(mean_wet_signif, step = 1000)
-anova.cca(mean_wet_signif, step = 1000, by = "term")
-
-
-ordiplot(mean_wet_signif, scaling = 1, type = "text")
-
-ordiplot(mean_wet_rda, scaling = 1, type = "text")
-

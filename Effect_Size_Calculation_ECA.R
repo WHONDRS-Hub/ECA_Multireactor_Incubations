@@ -17,7 +17,7 @@ path <- ("Plots/")
 
 #change date to most recent respiration rate csv
 
-date = '2023-06-27'
+date = '2023-08-29'
 
 #read in all files, remove csv that are not rate data files, bind all results files together, 
 import_data = function(input.path){
@@ -60,7 +60,8 @@ slope.new <- all.data %>%
 slope.new <- slope.new %>% 
    group_by(kit_treat) %>% 
   mutate(cv_before_removal = cv(slope_of_the_regression)) %>% 
-ungroup()
+ungroup() %>% 
+  filter(Sample_ID != "EC_069_INC-W5")
 
 slope.new$flag <- NA
 
@@ -205,18 +206,18 @@ slope.final.clean$log_rate_mg_per_L_per_min = log10(slope.final.clean$rate_mg_pe
 
 slope.final.clean <- na.omit(slope.final.clean)
 
-
+slope.final.clean$Treat <- factor(slope.final.clean$Treat, levels=c('Wet', 'Dry'))
 
 #log10 transformation of positive rate data faceted by treatment
 
-cbPalette <- c("#D55E00","#0072B2","#999999","#E69F00", "#56B4E9","#009E73","#F0E442","#CC79A7")
+cbPalette <- c("#0072B2","#D55E00","#009E73","#999999","#E69F00", "#56B4E9","#F0E442","#CC79A7")
 
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Log_All_Slopes_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(slope.final.clean, aes(x = log_rate_mg_per_L_per_min, fill = Treat))+
-  geom_histogram(binwidth = 0.04)+
-  facet_grid(~Treat)+
-  scale_fill_manual(values=cbPalette, labels = c("Dry", "Wet"))+
+  geom_histogram(alpha = 0.7, binwidth = 0.04, position = "identity")+
+  #facet_grid(~Treat)+
+  scale_fill_manual(values=cbPalette, labels = c( "Wet", "Dry"))+
   theme_bw()+
   #ggtitle("Histogram of All Slopes")+
   theme(axis.title.x = element_text(size = 24, margin = margin(b = 5)),
@@ -342,8 +343,6 @@ slope.means <- slope.final.clean %>%
 
 slope.means$Mean_Slope_Removed <- as.numeric(slope.means$Mean_Slope_Removed)
 
-#56 and 57 from same site
-
 
 #effect size wet - dry
 eca <- slope.means %>% 
@@ -358,7 +357,7 @@ eca <- slope.means %>%
 png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_effect_size.png"), width = 10, height = 10, units = "in", res = 300)
 
 ggplot(eca, aes(x = reorder(Site, effect), y = effect))+
-  geom_bar(fill = "cornflowerblue",col = "black", stat = "summary") +
+  geom_bar(fill = "#D55E00",col = "black", stat = "summary") +
   theme_bw()+
   theme(axis.title.x = element_text(size = 24),
         axis.title.y = element_text(size = 24),
@@ -370,17 +369,17 @@ ggplot(eca, aes(x = reorder(Site, effect), y = effect))+
 dev.off()
 
 #histogram of effect size
-png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/", as.character(Sys.Date()),"_wd hist.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_wd hist.png"), width = 6, height = 6, units = "in", res = 300)
 
-ggplot(slope.means, aes(x = effect))+
-  geom_histogram(binwidth = 0.2, col = "black", fill = "cornflowerblue")+
+ggplot(eca, aes(x = effect))+
+  geom_histogram(binwidth = 0.15, fill = "#009E73")+
   theme_bw()+
   theme(axis.title.x = element_text(size = 24),
         axis.title.y = element_text(size = 24),
         axis.text.x = element_text(size = 18),
         axis.text.y = element_text(size =18))+
   ylab("Count\n")+
-  xlab("\nWet - Dry Rate")
+  xlab("\n Effect Size (Wet - Dry Rate)")
 
 dev.off()
 

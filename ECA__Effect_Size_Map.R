@@ -5,7 +5,7 @@ pnnl.user = 'laan208'
 
 
 ##update this to have most recent date
-effect_rate_data <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Effect_Size_Data/Effect_Size_merged_by_laan208_on_2023-06-28.csv"))
+effect_rate_data <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Effect_Size_Data/Effect_Size_merged_by_laan208_on_2023-08-29.csv"))
 
 effect = effect_rate_data[,c("Site", "effect")]
 effect = effect[!duplicated(effect$Site), ]
@@ -35,7 +35,8 @@ effect.plot = ggplot(data = join)+
   geom_point(aes(x = Longitude, y = Latitude, color = effect), size = 3.5)+
    scale_color_gradient2(limits = limits, low = "firebrick2", mid = "goldenrod2",
                         high = "dodgerblue2", midpoint = (max(limits)+min(limits))/2)+
-  ggtitle(paste("Effect Size")) + labs(color = var)+
+  #ggtitle(paste("Effect Size")) + 
+  labs(color = var)+
   labs(color = paste0("Wet - Dry Rate"))+
   coord_fixed() + theme_bw() + theme(axis.line=element_blank(),
                                      axis.text.x=element_blank(),
