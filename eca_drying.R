@@ -15,16 +15,18 @@ all_moisture$Date <- as.Date(all_moisture$Date)
 all_moisture$Sample_weight_Fill_g <- as.numeric(all_moisture$Sample_weight_Fill_g)
 
 
-#37 was incubated on 11/23 so needs to be removed from sheet, 72-5 were not incubated (not enough sediment), 12-D5 didn't have 20 g of sediment, 21 and 33 incubated on 9/28
+#37,38 was incubated on 11/23 so needs to be removed from sheet, 72-5 were not incubated (not enough sediment), 12-D5 didn't have 20 g of sediment, 21 and 33 incubated on 9/28
 
 all_moisture <- all_moisture %>% 
   filter(`Jars or 40 mL vials` != "Jars") %>% 
-  filter(Sample_Name != "EC_37" & Date != "2022-11-23") %>% 
+  filter(!(Date == "2022-11-23" & grepl("EC_37", Sample_Name))) %>% 
+  filter(!(Date == "2022-11-23" & grepl("EC_38", Sample_Name))) %>% 
+  filter(!(Date == "2022-09-28" & grepl("EC_21", Sample_Name))) %>% 
+  filter(!(Date == "2022-09-28" & grepl("EC_33", Sample_Name))) %>% 
   filter(Sample_Name != "EC_72_INC-D5") %>% 
-  filter(Sample_Name != "EC_72_INC-W5") %>% 
- # filter(Sample_Name != "EC_12_INC-D5") %>% 
-  filter(Sample_Name != "EC_21" & Date != "2022-09-28") %>% 
-  filter(Sample_Name != "EC_33" & Date != "2022-09-28")
+  filter(Sample_Name != "EC_72_INC-W5") 
+ # filter(Sample_Name != "EC_12_INC-D5") 
+
 
 dry_wt$wet_g_by_dry_g <- dry_wt$wet_weight_g/dry_wt$true_dry_weight_g
 

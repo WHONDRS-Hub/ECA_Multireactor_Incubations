@@ -284,7 +284,7 @@ slope.thresh = -0.006
 do.thresh = 2
 #do.thresh = 1.07
 time.thresh = 4
-fast = 6.5
+fast = 4.5
 #ymax = max(na.omit(time_samples$DO_mg_L))
 #ymin = min(na.omit(time_samples$DO_mg_L))
 bpfit = 0.1
@@ -641,11 +641,19 @@ for (i in 1:length(location)){
       theme(axis.title =element_text(size = 12,face="bold"))+
       theme(axis.title.y =element_text(size = 12,face="bold"))
 
-   #multi <- (final + break_rem + clean + all) +
-   #plot_layout(widths = c(2,2))
+   multi <- (final + break_rem + clean + all) +
+   plot_layout(widths = c(2,2))
 
-   #ggsave(file=paste0(input.path,"/Plots/breusch_test_fits/9-04-2023/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"), width = 7, height = 7, units = "in")
+   ggsave(file=paste0(input.path,"/Plots/Sensitivity_Analysis/Sat_4.5_removal/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"), width = 7, height = 7, units = "in")
    
+   # pdf(file = paste0(input.path,"/Plots/Sensitivity Analysis/Sat_6.5_removal/All_Fits.pdf"))
+   # for(m in 1:1){
+   #   
+   #   print(multi)
+   #   
+   # }
+   # 
+   # dev.off()
    
     rate$Sample_ID[j] = as.character(data_site_subset_fin$Sample_ID[1])
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
@@ -716,13 +724,13 @@ respiration = respiration[-1,]
 #   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
 #   mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
 
-write.csv(respiration,paste0(input.path,"/Plots/ECA_Sediment_Incubations_Respiration_Rates_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+write.csv(respiration,paste0(input.path,"/Plots/ECA_Sediment_Incubations_Respiration_Rates_sat_removal_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
 
 
 ## Pull all exported pdfs into one file
 library(pdftools)
 
-setwd(paste0(input.path,"/Plots/breusch_test_fits/9-04-2023/"))
+setwd(paste0(input.path,"/Plots/Sensitivity_Analysis/Sat_4.5_removal/"))
 
 ex_pdf <- list.files(pattern = "pdf")
 

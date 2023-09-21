@@ -63,7 +63,15 @@ range(merged_weights$percent_water_content_wet)
 range(merged_weights$percent_water_content_dry)
 
 merged_weights$flag[is.na(merged_weights$wet_weight_g)] = "Missing Wet Weight"
-  
+
+merged_weights_average = merged_weights %>%
+  filter(sample_name != "EC_57_MOI-3") %>% 
+  filter(sample_name != "EC_84_MOI-2") %>% 
+  separate(sample_name, c("EC", "Site", "Rep"), sep = "_") %>% 
+  group_by(Site) %>% 
+  mutate(average = mean(percent_water_content_dry)) %>% 
+  mutate(cv = sd(percent_water_content_dry)/mean(percent_water_content_dry))
+
 
 # Export data
 write.csv(merged_weights, file.path(data.out.path,"EC_Moisture_Content_2022.csv"), quote = F, row.names = F) #removes "" from data and no need for row names here, puts csv into the data file

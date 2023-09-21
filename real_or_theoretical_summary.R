@@ -1,17 +1,20 @@
-library(readxl); library(tidyverse); library(stringr)
+library(readxl); library(tidyverse); library(stringr); library(openxlsx)
 
 pnnl.user = 'laan208'
 
 setwd("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Plots/")
 
-df <- read.csv("ECA_Sediment_Incubations_Respiration_Rates_merged_by_laan208_on_2023-09-05.csv")
+df <- read.csv("ECA_Sediment_Incubations_Respiration_Rates_merged_by_laan208_on_2023-09-12.csv")
 
 real <- df %>% 
   separate(Sample_ID, sep = "_", c("EC", "Site", "Treat"), remove = F) %>% 
   separate(Treat, sep = "-", c("INC", "Treat"), remove = F) %>% 
   mutate(Treat = str_sub(Treat, end = -2)) %>% 
-  select(c(Site, Treat, Sample_ID, rate_mg_per_L_per_min, first_concentration, theoretical)) %>% 
-  rename(th_or_real = theoretical)
+  dplyr::select(c(Site, Treat, Sample_ID, rate_mg_per_L_per_min, `X0_min_concentration`, `X2_min_concentration`, theoretical)) %>% 
+  rename(th_or_real = theoretical) %>% 
+  rename(`0_min_concentration` = `X0_min_concentration`) %>% 
+  rename(`2_min_concentration` = `X2_min_concentration`) 
+  
 
 unique.incubations = unique(real$Site)
 
@@ -22,7 +25,6 @@ colnames(all_summary) = c("Site", "Treat", "theoretical", "real")
 summary <- as.data.frame(matrix(NA, ncol = 4, nrow = length(unique(real$Site))))
 
 colnames(summary) = c("Site", "Treat", "theoretical", "real")
-
 
 
 for (i in 1:length(unique.incubations)) {
@@ -64,4 +66,8 @@ all_summary = all_summary %>%
   drop_na(Site) %>% 
   mutate(Difference = (real - theoretical))
 
-write.csv(all_summary,paste0("real_or_theoretical_summary.csv"), row.names = F)
+list_of_datasets <- list("All Samples" = real, "Summary Samples" = all_summary)
+write.xlsx(list_of_datasets, file = "real_or_theoretical_summary.xlsx")
+
+ggplot(real, aes(x = `2_min_concentration`)) +
+  geom_histogram(binwidth = 1)

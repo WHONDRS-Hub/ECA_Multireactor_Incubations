@@ -47,12 +47,13 @@ inc <- inc %>%
   mutate(mass_sed_water = (`INC_tube_50mL_wet_Sediment_with_Water_g (After Subsampling for SFE + SpC)` - INC_tube_50ml_empty_g) + 6) %>% 
   mutate(Sample_Name = SampleID) %>% 
   dplyr::select(-c(SampleID)) %>% 
-  na.omit(mass_sed_water) %>% 
+  filter(!grepl("EV", Sample_Name)) %>% 
+  #na.omit(mass_sed_water) %>% 
   relocate(Sample_Name, .before = INC_tube_50ml_empty_g)
 
 ## ORIGINAL INCUBATION WEIGHTS ####
 
-og_inc <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_merged_by_laan208_on_2023-08-18.csv"))
+og_inc <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_merged_by_laan208_on_2023-09-11.csv"))
 
 og_inc <- og_inc %>% 
   distinct(Sample_Name, .keep_all = TRUE)
@@ -92,7 +93,7 @@ inc_data <- left_join(og_inc, inc, by = c("Sample_Name"))
 
 
 inc_data <- inc_data %>% 
-  mutate(mass_water = mass_sed_water - dry_wt_sed_g) %>% separate(Sample_Name, into = c("EC", "Kit", "REP"), sep = "_", remove = FALSE) %>% 
+  mutate(mass_water = mass_sed_water - Dry_weight_sed_g) %>% separate(Sample_Name, into = c("EC", "Kit", "REP"), sep = "_", remove = FALSE) %>% 
   unite("Sample_ID", EC:Kit, sep = "_") %>% 
   drop_na(mass_water) 
 
