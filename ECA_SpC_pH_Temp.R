@@ -28,7 +28,7 @@ import_data = function(chemistry){
   
   map.file <-  list.files(chemistry, recursive = T, pattern = "\\.xlsx$",full.names = T)
   
-  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC|QA", map.file)]
+  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC|QA|real|EV|Theoretical", map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
   
@@ -73,4 +73,11 @@ all_chem_corr <- all_chem %>%
   group_by(kit, Treat) %>% 
   mutate(CV_SpC = (sd(SpC)/mean(SpC))*100) %>% 
   mutate(CV_pH = (sd(pH)/mean(pH))*100) %>% 
-  mutate(CV_Temp = (sd(Temp)/mean(Temp))*100)
+  mutate(CV_Temp = (sd(Temp)/mean(Temp))*100) %>% 
+  mutate(Material = "Sediment") %>% 
+  ungroup()
+
+chem_final <- all_chem_corr %>% 
+  select(c(Sample_Name, Material, SpC, Temp, pH, Methods_Deviation))
+
+
