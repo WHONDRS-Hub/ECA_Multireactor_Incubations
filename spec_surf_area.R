@@ -8,37 +8,22 @@
   # 1 J/kg = 1 kPa at p = 1000 kg/m^2
 # = water content (g/g)
 
-## Enter values here
+library(readxl)
+library(dplyr)
 
-#Mass of Tray
+pnnl.user = 'laan208'
 
-tray_g = 24.71
+input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/SSA/01_RawData/2023_Data_Raw_SSA_ECA_EC.xlsx")
 
-#Tray + Wet Sample
-
-tray_wet_sed_g = 26.02
-
-#Tray + Dry Sample
-
-tray_dry_sed_g = 25.92
+ssa <- read_excel(input.path)  
 
 
-## water content
 
-w = (tray_wet_sed_g - tray_dry_sed_g)/(tray_dry_sed_g - tray_g)
+ssa_calc <- ssa %>% 
+  mutate(gwc = (tray_soil_wt_g - tray_soil_od_wt_g)/(tray_soil_od_wt_g - tare_wt_g)) %>% 
+  mutate(Water_Potential_kPa = `Water_Potential_MPa `*1000) %>% 
+  mutate(k = as.numeric(-6*(10^-20))) %>% 
+  mutate(p = 1000) %>% 
+  mutate(S = (gwc/((k/(6 * pi* (p * Water_Potential_kPa)))^(1/3))*p))
 
-## water potential - enter 
-
-y_MPa = -201.06
-
-y_kPa = y_MPa * 1000
-
-## Do not change these constants
-k = as.numeric(-6*(10^-20))
-p = 1000
-
-
-##update to a function at some point
-
-S = (w/((k/(6 * pi* (p * y_kPa)))^(1/3))*p)
 
