@@ -8,22 +8,44 @@
   # 1 J/kg = 1 kPa at p = 1000 kg/m^2
 # = water content (g/g)
 
+library(tidyverse)
 library(readxl)
 library(dplyr)
 
-pnnl.user = 'laan208'
+pnnl.user = 'guil098'
 
-input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/SSA/01_RawData/2023_Data_Raw_SSA_ECA_EC.xlsx")
+input.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Data Generation and Files/ECA/SSA/01_RawData/2023_Data_Raw_SSA_ECA_EC.xlsx")
 
-ssa <- read_excel(input.path)  
+ssa <- read_excel(input.path) %>% 
+  mutate(Parent_ID = str_extract(Sample_ID, ".{5}(?=_)"))
 
 
 
 ssa_calc <- ssa %>% 
   mutate(gwc = (tray_soil_wt_g - tray_soil_od_wt_g)/(tray_soil_od_wt_g - tare_wt_g)) %>% 
-  mutate(Water_Potential_kPa = `Water_Potential_MPa `*1000) %>% 
+  mutate(Water_Potential_kPa = `Water_Potential_MPa`*1000) %>% 
   mutate(k = as.numeric(-6*(10^-20))) %>% 
   mutate(p = 1000) %>% 
   mutate(S = (gwc/((k/(6 * pi* (p * Water_Potential_kPa)))^(1/3))*p))
 
+pF_by_site = #water potential log
+  ssa_calc %>% 
+  group_by(Parent_ID) %>% 
+  summarise(mean = mean(Water_Potential_log),
+            sd = round(sd(Water_Potential_log),3),
+            cv = round(sd/mean,3))
+
+MPa_by_site =
+  ssa_calc %>% 
+  group_by(Parent_ID) %>% 
+  summarise(mean = mean(Water_Potential_MPa),
+            sd = round(sd(Water_Potential_MPa),3),
+            cv = round(sd/mean,3))
+
+S_by_site =
+  ssa_calc %>% 
+  group_by(Parent_ID) %>% 
+  summarise(mean = mean(S),
+            sd = round(sd(S),3),
+            cv = round(sd/mean,3))
 
