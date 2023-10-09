@@ -131,13 +131,7 @@ samples =
   mutate(mg_Fe_per_L = if_else(mg_Fe_per_L<0,0,mg_Fe_per_L)) %>% 
    mutate(mg_Fe_per_L = round(mg_Fe_per_L, 3))
   
-## Flag samples below LOD for it's tray
-    
-samples <- left_join(samples,lod, by = "tray_number")
-  
-  samples$mg_Fe_per_L <- ifelse(samples$mg_Fe_per_L < samples$tray_lod, paste0 ("Fe_", samples$mg_Fe_per_L, "_ppm_Below_LOD_",samples$tray_lod, "_ppm"), samples$mg_Fe_per_L)
-  
-  
+
 ## Flag samples with range > 0.04 and CV > 10% ####
 data_flag_conc <- samples %>%
   separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_", remove = FALSE) %>% 
@@ -159,9 +153,9 @@ data_flag_conc <- samples %>%
     select(-c(flag, analysis, Method_Deviations)) %>% 
     unite(kit_rep, c("kit", "Replicate"), sep = "_", remove = FALSE)
   
-  samples_removed_final = as.data.frame(matrix(NA, ncol = 13, nrow = 1))
+  samples_removed_final = as.data.frame(matrix(NA, ncol = 14, nrow = 1))
   
-  colnames(samples_removed_final) = c("sample_label", "Project", "kit_rep", "kit", "Analysis", "mg_Fe_per_L", "Replicate", "Technical", "cv.before.removal", "range", "cv.after.removal", "range.after.removal", "flag")
+  colnames(samples_removed_final) = c("sample_label", "Project", "kit_rep", "kit", "Analysis", "mg_Fe_per_L", "Replicate", "Technical", "cv.before.removal", "range", "cv.after.removal", "range.after.removal", "flag", "tray_number")
   
   unique.samples = unique(samples_dist$kit_rep)
   
@@ -263,7 +257,7 @@ data_flag_conc <- samples %>%
       
         
         samples_remove_omit <- samples_remove_omit %>% 
-          dplyr::select(-c(Project.x, kit_rep.x, kit.x, Analysis.x,Replicate.x, Technical.x, cv.before.removal.x, range.x, conc.temp)) %>% 
+          dplyr::select(-c(Project.x, kit_rep.x, kit.x, Analysis.x,Replicate.x, Technical.x, cv.before.removal.x, range.x, conc.temp, tray_number.x)) %>% 
           rename(Project = Project.y) %>% 
           rename(kit_rep = kit_rep.y) %>% 
           rename(kit = kit.y) %>% 
@@ -272,6 +266,7 @@ data_flag_conc <- samples %>%
           rename(Technical = Technical.y) %>% 
           rename(cv.before.removal = cv.before.removal.y) %>% 
           rename(range = range.y) %>% 
+          rename(tray_number = tray_number.y) %>% 
           relocate(range.after.removal, .after = cv.after.removal)
         
         
@@ -284,14 +279,20 @@ data_flag_conc <- samples %>%
     rm('conc.temp')
   }
 
-
+  ## Flag samples below LOD for it's tray
+  
+  samples_removed_final <- left_join(samples_removed_final,lod, by = "tray_number")
+  
+  samples_removed_final$mg_Fe_per_L <- ifelse(samples_removed_final$mg_Fe_per_L < samples_removed_final$tray_lod, paste0 ("Fe_", samples_removed_final$mg_Fe_per_L, "_ppm_Below_LOD_",samples_removed_final$tray_lod, "_ppm"), samples_removed_final$mg_Fe_per_L)
+  
+  
 
   #final data corrected for high CV's - still needs to be processed for correcting for solid/solution ratio
   
   final_data <- samples_removed_final %>% 
     select(c(sample_label, mg_Fe_per_L, flag)) %>% 
     mutate(mg_Fe_per_L = case_when(
-      flag == "OMIT" ~ -9999,
+      flag == "OMIT" ~ as.character("-9999"),
       TRUE ~ mg_Fe_per_L)) %>% 
     separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_", remove = FALSE) %>% 
     separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-", remove = FALSE) %>%
