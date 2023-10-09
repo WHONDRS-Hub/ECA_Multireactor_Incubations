@@ -4,7 +4,10 @@ pnnl.user = 'laan208'
 
 setwd("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Plots/")
 
-df <- read.csv("ECA_Sediment_Incubations_Respiration_Rates_merged_by_laan208_on_2023-09-12.csv")
+df <- read.csv("ECA_Sediment_Incubations_Respiration_Rates_No_Breusch_on_2023-09-26.csv")
+
+# df <- df %>% 
+#   drop_na(Sample_ID)
 
 real <- df %>% 
   separate(Sample_ID, sep = "_", c("EC", "Site", "Treat"), remove = F) %>% 
@@ -67,7 +70,8 @@ all_summary = all_summary %>%
   mutate(Difference = (real - theoretical))
 
 list_of_datasets <- list("All Samples" = real, "Summary Samples" = all_summary)
-write.xlsx(list_of_datasets, file = "real_or_theoretical_summary.xlsx")
+
+write.xlsx(list_of_datasets, file = "real_or_theoretical_summary_no_breusch.xlsx")
 
 ggplot(real, aes(x = `2_min_concentration`)) +
   geom_histogram(binwidth = 1)

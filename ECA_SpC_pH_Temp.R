@@ -80,4 +80,6 @@ all_chem_corr <- all_chem %>%
 chem_final <- all_chem_corr %>% 
   select(c(Sample_Name, Material, SpC, Temp, pH, Methods_Deviation))
 
+write.csv(chem_final, file.path(chemistry, "SpC_pH_Temp_Processed_Data/EC_SpC_pH_Temp_ReadyForBoye_10-03-2023.csv"), row.names = F)
+
 

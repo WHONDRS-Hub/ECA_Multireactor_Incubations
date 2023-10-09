@@ -17,7 +17,7 @@ path <- ("Plots/")
 
 #change date to most recent respiration rate csv
 
-date = '2023-08-29'
+date = '2023-09-25'
 
 #read in all files, remove csv that are not rate data files, bind all results files together, 
 import_data = function(input.path){
@@ -25,7 +25,7 @@ import_data = function(input.path){
   # pull a list of file names in the target folder with the target pattern
   # then read all files and combine
   
-  files <- list.files(input.path, pattern = "ECA_Sediment_Incubations_Respiration", recursive = T, full.names = T)
+  files <- list.files(input.path, pattern = "ECA_Sediment_Incubations_Respiration_Rates_0.1_", recursive = T, full.names = T)
   
   all <- files[grep(paste0(date), files)]
   
@@ -353,15 +353,22 @@ eca <- slope.means %>%
   separate(kit, into = c("EC",  "Site", "INC"), sep = "_") %>% 
   dplyr::select(-c(EC, INC))
 
+limits = c(-5,
+           5)
+
+
 
 png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_effect_size.png"), width = 10, height = 10, units = "in", res = 300)
 
 ggplot(eca, aes(x = reorder(Site, effect), y = effect))+
-  geom_bar(fill = "#D55E00",col = "black", stat = "summary") +
+  #geom_bar(fill = "#D55E00",col = "black", stat = "summary") +
+  geom_bar(stat = "summary", aes(fill = effect)) +
+  scale_fill_gradient2(limits = limits, low = "firebrick2", mid = "goldenrod2",
+                        high = "dodgerblue2", midpoint = (max(limits)+min(limits))/2) +
   theme_bw()+
   theme(axis.title.x = element_text(size = 24),
         axis.title.y = element_text(size = 24),
-        axis.text.x = element_text(size = 18, angle = 90, vjust = 0.5, hjust = 1),
+        axis.text.x = element_text(size = 14, angle = 90, vjust = 0.5, hjust = 1),
         axis.text.y = element_text(size =18))+
   ylab(expression(paste("Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")))+
   xlab("\nSite Number")
@@ -372,12 +379,16 @@ dev.off()
 png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_wd hist.png"), width = 6, height = 6, units = "in", res = 300)
 
 ggplot(eca, aes(x = effect))+
-  geom_histogram(binwidth = 0.15, fill = "#009E73")+
+ # geom_histogram(binwidth = 0.15, fill = "#009E73")+
+  geom_histogram(binwidth = 0.15, aes(fill = after_stat(x))) +
+  scale_fill_gradient2(limits = limits, low = "firebrick2", mid = "goldenrod2",
+                        high = "dodgerblue2", midpoint = (max(limits)+min(limits))/2) +
   theme_bw()+
   theme(axis.title.x = element_text(size = 24),
         axis.title.y = element_text(size = 24),
         axis.text.x = element_text(size = 18),
         axis.text.y = element_text(size =18))+
+  xlim(c(-5,5))+
   ylab("Count\n")+
   xlab("\n Effect Size (Wet - Dry Rate)")
 
