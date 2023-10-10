@@ -55,7 +55,7 @@ S_by_site =
             cv = round(sd/mean,3))
 
 ssa_m2_g_by_site =
-  ssa_data %>% 
+  ssa_calc %>% 
   group_by(Parent_ID) %>% 
   summarise(mean = mean(ssa_m2_g),
             sd = round(sd(ssa_m2_g),3),
