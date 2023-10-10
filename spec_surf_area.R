@@ -20,31 +20,16 @@ ssa <- read_excel(input.path) %>%
   mutate(Parent_ID = str_extract(Sample_ID, ".{5}(?=_)"))
 
 
+#setting constants
+#p = density of water (1000 kg/m^2)
+p = 1000 
+k = as.numeric(-6*(10^-20)) 
+
 ssa_calc <- ssa %>% 
-  mutate(gwc = (tray_soil_wt_g - tray_soil_od_wt_g)/(tray_soil_od_wt_g - tare_wt_g)) %>% 
-  mutate(Water_Potential_kPa = `Water_Potential_MPa`*1000) %>% 
-  mutate(k = as.numeric(-6*(10^-20))) %>% 
-  mutate(p = 1000) %>% 
-  mutate(S = (gwc/((k/(6 * pi* (p * Water_Potential_kPa)))^(1/3))*p))
-
-#set constants
-density_w = 1000 # kg/m3
-k = -6e-20 #J
-
-ssa_data = ssa %>% 
-  # calculate moisture content
-  mutate(moist_g = tray_soil_wt_g - tare_wt_g,
-         od_g = tray_soil_od_wt_g - tare_wt_g,
-         water_g = moist_g-od_g,
-         water_g_g = round((moist_g-od_g)/od_g,3)) %>% 
-  # convert Water Potential units
-  # 1 kPa = 1 J/kg, so 10-3 MPa = 1 J/kg,
-  # so 1 MPa = 10^3 J/kg
-  mutate(J_kg = Water_Potential_MPa*1000) %>% 
-  # calculate SSA
-  # water_g_g = (k/(6 * 3.1416 * density_w * J_kg))^(1/3) * density_w * ssa
-  mutate(ssa_m2_kg = (water_g_g/density_w) * (k/(6 * 3.1416 * density_w * J_kg))^(-1/3),
-         ssa_m2_g = round(ssa_m2_kg/1000,2))
+  mutate(gwc = (tray_soil_wt_g - tray_soil_od_wt_g)/(tray_soil_od_wt_g - tare_wt_g),
+         Water_Potential_kPa = (Water_Potential_MPa*1000),
+         S = (gwc/p) / ((k/(6 * pi* p * Water_Potential_kPa))^(1/3)),
+         ssa_m2_g = S/1000) 
 
 
 #calculating Cv 
