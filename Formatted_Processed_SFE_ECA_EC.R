@@ -4,8 +4,8 @@ rm(list=ls());graphics.off()
 
 pnnl.user = 'laan208'
 project = 'EC'
-date = '20230711'
-sample.range = '1-153'
+date = '20230519'
+sample.range = '1-138'
 
 #### Read in Data ####
 input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Fe/")
@@ -22,7 +22,7 @@ processed.data = paste0("03_ProcessedData/",date,"_Data_Formatted_SFE_ECA_EC_",s
     # import map
   ferrozine_map = read_excel(paste0("01_Rawdata/",date,"_Data_Raw_SFE_ECA_EC_",sample.range,"/",date,"_Mapping_SFE_ECA_EC_",sample.range,".xlsx"), sheet = "map") %>% mutate_all(as.character) 
   # import data files (plate reader)
-  filePaths_ferrozine <- list.files(path = raw.data, pattern = "20230711_SBR", full.names = TRUE, recursive = TRUE)
+  filePaths_ferrozine <- list.files(path = raw.data, pattern = "Tray", full.names = TRUE, recursive = TRUE)
   ferrozine_data <- do.call(bind_rows, lapply(filePaths_ferrozine, function(raw.data) {
     df <- read_xlsx(raw.data, skip = 24) %>% mutate_all(as.character) %>% janitor::clean_names()
     df = df %>% mutate(source = basename(raw.data))
@@ -113,18 +113,24 @@ calibrate_ferrozine_data = function(data_formatted){
     mutate(range = max(ppm_calculated) - min(ppm_calculated)) %>% 
     group_by(tray_number) %>% 
     mutate(tray_lod = mean(ppm_calculated))
+  
+ lod <- blanks %>% 
+    select(c(tray_number,tray_lod)) %>% 
+    distinct(tray_number, .keep_all = TRUE) %>% 
+   mutate(tray_lod = round(tray_lod, 3))
 
 ## Check Samples ####
 samples = 
   calibrate_ferrozine_data(data_formatted) %>% 
   filter(grepl("EC", sample_label)) %>% 
-  dplyr::select(sample_label, analysis, ppm_calculated, Method_Deviations) %>% 
+  dplyr::select(sample_label, analysis, ppm_calculated, Method_Deviations, tray_number) %>% 
   mutate(ppm_calculated = case_when(
   Method_Deviations  == "SFE_RERUN_001" ~ ppm_calculated * 2, 
   analysis == "Fe2" ~ ppm_calculated)) %>% 
   rename("mg_Fe_per_L" = "ppm_calculated") %>% 
-  mutate(mg_Fe_per_L = if_else(mg_Fe_per_L<0,0,mg_Fe_per_L))
-    
+  mutate(mg_Fe_per_L = if_else(mg_Fe_per_L<0,0,mg_Fe_per_L)) %>% 
+   mutate(mg_Fe_per_L = round(mg_Fe_per_L, 3))
+  
 
 ## Flag samples with range > 0.04 and CV > 10% ####
 data_flag_conc <- samples %>%
@@ -147,9 +153,9 @@ data_flag_conc <- samples %>%
     select(-c(flag, analysis, Method_Deviations)) %>% 
     unite(kit_rep, c("kit", "Replicate"), sep = "_", remove = FALSE)
   
-  samples_removed_final = as.data.frame(matrix(NA, ncol = 13, nrow = 1))
+  samples_removed_final = as.data.frame(matrix(NA, ncol = 14, nrow = 1))
   
-  colnames(samples_removed_final) = c("sample_label", "Project", "kit_rep", "kit", "Analysis", "mg_Fe_per_L", "Replicate", "Technical", "cv.before.removal", "range", "cv.after.removal", "range.after.removal", "flag")
+  colnames(samples_removed_final) = c("sample_label", "Project", "kit_rep", "kit", "Analysis", "mg_Fe_per_L", "Replicate", "Technical", "cv.before.removal", "range", "cv.after.removal", "range.after.removal", "flag", "tray_number")
   
   unique.samples = unique(samples_dist$kit_rep)
   
@@ -251,7 +257,7 @@ data_flag_conc <- samples %>%
       
         
         samples_remove_omit <- samples_remove_omit %>% 
-          dplyr::select(-c(Project.x, kit_rep.x, kit.x, Analysis.x,Replicate.x, Technical.x, cv.before.removal.x, range.x, conc.temp)) %>% 
+          dplyr::select(-c(Project.x, kit_rep.x, kit.x, Analysis.x,Replicate.x, Technical.x, cv.before.removal.x, range.x, conc.temp, tray_number.x)) %>% 
           rename(Project = Project.y) %>% 
           rename(kit_rep = kit_rep.y) %>% 
           rename(kit = kit.y) %>% 
@@ -260,6 +266,7 @@ data_flag_conc <- samples %>%
           rename(Technical = Technical.y) %>% 
           rename(cv.before.removal = cv.before.removal.y) %>% 
           rename(range = range.y) %>% 
+          rename(tray_number = tray_number.y) %>% 
           relocate(range.after.removal, .after = cv.after.removal)
         
         
@@ -272,13 +279,20 @@ data_flag_conc <- samples %>%
     rm('conc.temp')
   }
 
+  ## Flag samples below LOD for it's tray
+  
+  samples_removed_final <- left_join(samples_removed_final,lod, by = "tray_number")
+  
+  samples_removed_final$mg_Fe_per_L <- ifelse(samples_removed_final$mg_Fe_per_L < samples_removed_final$tray_lod, paste0 ("Fe_", samples_removed_final$mg_Fe_per_L, "_ppm_Below_LOD_",samples_removed_final$tray_lod, "_ppm"), samples_removed_final$mg_Fe_per_L)
+  
+  
 
   #final data corrected for high CV's - still needs to be processed for correcting for solid/solution ratio
   
   final_data <- samples_removed_final %>% 
     select(c(sample_label, mg_Fe_per_L, flag)) %>% 
     mutate(mg_Fe_per_L = case_when(
-      flag == "OMIT" ~ -9999,
+      flag == "OMIT" ~ as.character("-9999"),
       TRUE ~ mg_Fe_per_L)) %>% 
     separate(col = sample_label, into = c("Project", "kit", "analysis"), sep = "_", remove = FALSE) %>% 
     separate(col = analysis, into = c("Analysis", "Replicate"), sep = "-", remove = FALSE) %>%

@@ -284,10 +284,10 @@ slope.thresh = -0.006
 do.thresh = 2
 #do.thresh = 1.07
 time.thresh = 4
-fast = 4.5
+fast = 5.5 #5.5 has least number of differences between theoretical and real when choosing threshold
 #ymax = max(na.omit(time_samples$DO_mg_L))
 #ymin = min(na.omit(time_samples$DO_mg_L))
-bpfit = 0.1
+bpfit = 1.0
 #daviesfit = 0.005
 high.do = 14
 p.value = 0.05
@@ -644,7 +644,7 @@ for (i in 1:length(location)){
    multi <- (final + break_rem + clean + all) +
    plot_layout(widths = c(2,2))
 
-   ggsave(file=paste0(input.path,"/Plots/Sensitivity_Analysis/Sat_4.5_removal/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"), width = 7, height = 7, units = "in")
+   ggsave(file=paste0(input.path,"/Plots/Sensitivity_Analysis/No_Breusch/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"), width = 7, height = 7, units = "in")
    
    # pdf(file = paste0(input.path,"/Plots/Sensitivity Analysis/Sat_6.5_removal/All_Fits.pdf"))
    # for(m in 1:1){
@@ -724,13 +724,13 @@ respiration = respiration[-1,]
 #   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>% 
 #   mutate(rate_mg = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) 
 
-write.csv(respiration,paste0(input.path,"/Plots/ECA_Sediment_Incubations_Respiration_Rates_sat_removal_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+write.csv(respiration,paste0(input.path,"/Plots/ECA_Sediment_Incubations_Respiration_Rates_No_Breusch_on_",Sys.Date(),".csv"), row.names = F)
 
 
 ## Pull all exported pdfs into one file
 library(pdftools)
 
-setwd(paste0(input.path,"/Plots/Sensitivity_Analysis/Sat_4.5_removal/"))
+setwd(paste0(input.path,"/Plots/Sensitivity_Analysis/No_Breusch/"))
 
 ex_pdf <- list.files(pattern = "pdf")
 
