@@ -89,8 +89,8 @@ merged_weights <- merged_weights %>%
   unite("Sample_Name", c("EC", "Site", "Rep"), sep = "_")
 
 merged_weights_average = merged_weights %>%
-  filter(Sample_Name != "EC_57_MOI-3") %>% 
-  filter(Sample_Name != "EC_84_MOI-2") %>% 
+  filter(Sample_Name != "EC_057_MOI-3") %>% 
+  filter(Sample_Name != "EC_084_MOI-2") %>% 
   separate(Sample_Name, c("EC", "Site", "Rep"), sep = "_") %>% 
   group_by(Site) %>% 
   mutate(average = mean(percent_water_content_dry)) %>% 
@@ -136,8 +136,26 @@ icon_eca <- icon_eca %>%
   relocate(average_icon, .after = grav_moi) %>% 
   relocate(cv_icon, .after = average_icon) %>% 
   mutate(grav_moi_diff = (average - average_icon)) %>% 
-  relocate(grav_moi_diff, .after = Site) %>% 
-  filter(Site != "028")
+  relocate(grav_moi_diff, .after = Site)
+
+#%>% 
+  #filter(Site != "028")
+
+ggplot(icon_eca)+
+  geom_point(aes(x = Site, y = percent_water_content_dry, color = "ECA"))+
+  geom_point(aes(x = Site, y = grav_moi, color = "ICON"))+
+  scale_fill_discrete(labels = c("ECA", "ICON"))
+
+#Site 078 - icon has large outlier
+
+icon_eca_diff <- icon_eca %>% 
+  filter(grav_moi_diff > 10 | grav_moi_diff < -10) %>% 
+  filter(Site != "078")
+
+ggplot(icon_eca_diff)+
+  geom_point(aes(x = Site, y = percent_water_content_dry, color = "ECA"))+
+  geom_point(aes(x = Site, y = grav_moi, color = "ICON"))+
+  scale_fill_discrete(labels = c("ECA", "ICON"))
 
 high_cv <- icon_eca %>% 
   filter(cv >= 0.27) %>% 

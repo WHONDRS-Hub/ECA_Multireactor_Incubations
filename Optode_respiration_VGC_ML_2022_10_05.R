@@ -290,7 +290,7 @@ fast = 5.5 #5.5 has least number of differences between theoretical and real whe
 bpfit = 1.0
 #daviesfit = 0.005
 high.do = 14
-p.value = 0.05
+#p.value = 0.05
 #mean.conc = 7.5
 high.slope.thresh = -0.04 #keep saturation point if exponential
 time.same = 7
@@ -309,7 +309,7 @@ colnames(rate) = c("Sample_ID", "slope_of_the_regression", "rate_mg_per_L_per_mi
 
 for (i in 1:length(location)){
   
- data_location_subset = time_samples[grep(location[i],time_samples$Sample_ID),]
+ data_location_subset = time_samples[grep(location[j],time_samples$Sample_ID),]
   
  #data_location_subset = test
   
