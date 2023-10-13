@@ -61,7 +61,7 @@ for (i in 1:nrow(all_moisture)){
 merged <- merge(all_moisture, mean_dry_wt, by = "Site")
 
 merged_clean <- merged %>% 
-  dplyr::select(-c(Notes, `Jars or 40 mL vials`, ...8, ...9, ...10, `Study Code`))
+  dplyr::select(-c(Notes, `Jars or 40 mL vials`, ...8, ...9, ...10, `Study Code`, percent_water_content_wet, percent_water_content_dry, true_dry_weight_g, wet_weight_g))
 
 
 merged_clean <- merged_clean %>% 
@@ -183,6 +183,55 @@ final_wet_dry <- wet_dry %>%
   rename(Dry_Sediment_Mass_g = Dry_weight_sed_g) %>% 
   rename(Total_Water_Mass_g = Water_total_g) %>% 
   rename(Added_Water_Mass_g = Water_added_g)
+
+ggplot(final_wet_dry, aes(x = Av_dry_weight_sed_g))+
+  geom_histogram()
+
+Rep <- c("W1", "W2", "W3", "W4", "W5", "D1", "D2", "D3", "D4", "D5")
+
+site_do_012 <- c(3.757, 3.973, 4.051, 4.2, 3.552, 1.923, 2.343, 2.033, 2.602, 0.01)
+
+site_012_do <- data.frame(Rep, site_do_012)
+
+site_012 <- final_wet_dry %>% 
+  filter(grepl("EC_012", Sample_Name))%>% 
+  distinct(Sample_Name, Dry_Sediment_Mass_g, .keep_all = TRUE) %>% 
+  separate(Sample_Name, c("EC", "Rep"), sep = "-")
+
+site_012 <- merge(site_012, site_012_do, by = c("Rep"))
+
+site_012 <- site_012 %>% 
+  mutate(DO_mg_kg = site_do_012 * (((60.4 - Dry_Sediment_Mass_g)/1000)/(Dry_Sediment_Mass_g/1000))) %>% 
+  mutate(Avg_DO_mg_kg = site_do_012 * (((60.4 - Av_dry_weight_sed_g)/1000)/(Av_dry_weight_sed_g/1000))) %>% 
+  group_by(Rep) %>% 
+  mutate(cv = sd(DO_mg_kg)/mean(DO_mg_kg))
+
+ggplot(site_012, aes(x = Rep)) +
+  geom_point(aes(y = DO_mg_kg)) +
+  geom_point(shape = "square", size = 2, aes(y = Avg_DO_mg_kg))+
+  ggtitle("Site 012")
+
+site_do_035 <- c(4.474, 4.581, 4.415, 4.608, 4.502, 4.42, 4.478, 1.957, 4.498, 4.383)
+
+site_035_do <- data.frame(Rep, site_do_035)
+
+site_035 <- final_wet_dry %>% 
+  filter(grepl("EC_035", Sample_Name))%>% 
+  distinct(Sample_Name, Dry_Sediment_Mass_g, .keep_all = TRUE) %>% 
+  separate(Sample_Name, c("EC", "Rep"), sep = "-")
+
+site_035 <- merge(site_035, site_035_do, by = c("Rep"))
+
+site_035 <- site_035 %>% 
+  mutate(DO_mg_kg = site_do_035 * (((60.4 - Dry_Sediment_Mass_g)/1000)/(Dry_Sediment_Mass_g/1000))) %>% 
+  mutate(Avg_DO_mg_kg = site_do_035 * (((60.4 - Av_dry_weight_sed_g)/1000)/(Av_dry_weight_sed_g/1000))) %>% 
+  group_by(Rep) %>% 
+  mutate(cv = sd(DO_mg_kg)/mean(DO_mg_kg))
+
+ggplot(site_035, aes(x = Rep)) +
+  geom_point(aes(y = DO_mg_kg)) +
+  geom_point(shape = "square", size = 2, aes(y = Avg_DO_mg_kg))+
+  ggtitle("Site 035")
 
 kits <- c("106", "060", "035", "012") #082
 
