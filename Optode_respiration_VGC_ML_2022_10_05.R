@@ -287,7 +287,7 @@ time.thresh = 4
 fast = 5.5 #5.5 has least number of differences between theoretical and real when choosing threshold
 #ymax = max(na.omit(time_samples$DO_mg_L))
 #ymin = min(na.omit(time_samples$DO_mg_L))
-bpfit = 1.0
+bpfit = 0.1
 #daviesfit = 0.005
 high.do = 14
 #p.value = 0.05
@@ -309,7 +309,7 @@ colnames(rate) = c("Sample_ID", "slope_of_the_regression", "rate_mg_per_L_per_mi
 
 for (i in 1:length(location)){
   
- data_location_subset = time_samples[grep(location[j],time_samples$Sample_ID),]
+ data_location_subset = time_samples[grep(location[i],time_samples$Sample_ID),]
   
  #data_location_subset = test
   
@@ -563,89 +563,89 @@ for (i in 1:length(location)){
         
   my.format <- "Slope: %s\nR2: %s\np: %s"  
   my.formula <- y ~ x
-     final <- ggplot(data_site_subset_fin, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
-      geom_smooth(method = "lm", se=F, formula = my.formula) +
-      geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
-      label = paste("R2 = ", signif(summary(fit)$r.squared, 3),
-                 "\nP = ", signif(summary(fit)$coefficients[[4]], 3),
-                 "\nSlope = ", signif(fit$coefficients[[2]], 3)))+
-       
-      #geom_text(size = 10)+
-      #stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_fin, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("          p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
-       
-      theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
-      labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
-      ggtitle("Final " ,data_site_subset_fin$Sample_ID[1]) +
-      theme(plot.title = element_text(lineheight=.8, face="bold"))+
-      theme(axis.text.x=element_text(colour = c("black","black")))+
-      theme(aspect.ratio=1)+
-      theme(axis.text.y=element_text(size = 12,face="bold"))+
-      theme(axis.title.x =element_text(size = 12,face="bold"))+
-      theme(axis.title =element_text(size = 12,face="bold"))+
-      theme(axis.title.y =element_text(size = 12,face="bold"))
-
-    clean <- ggplot(data_site_subset_beg, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
-      geom_smooth(method = "lm", se=F, formula = my.formula) +
-      geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
-                 label = paste("R2 = ", signif(summary(fitog)$r.squared, 3),
-                               "\nP = ", signif(summary(fitog)$coefficients[[4]], 3),
-                               "\nSlope = ", signif(fitog$coefficients[[2]], 3)))+
-    #   # stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_low, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
-
-      theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
-      labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
-      ggtitle("Cleaned" ,data_site_subset_fast$Sample_ID[1]) +
-      theme(plot.title = element_text(lineheight=.8, face="bold"))+
-      theme(axis.text.x=element_text(colour = c("black","black")))+
-      theme(aspect.ratio=1)+
-      theme(axis.text.y=element_text(size = 12,face="bold"))+
-      theme(axis.title.x =element_text(size = 12,face="bold"))+
-      theme(axis.title =element_text(size = 12,face="bold"))+
-      theme(axis.title.y =element_text(size = 12,face="bold"))
-
-    break_rem <- ggplot(data_site_subset_break, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
-      geom_smooth(method = "lm", se=F, formula = my.formula) +
-      geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
-                 label = paste("R2 = ", signif(summary(fit_break)$r.squared, 3),
-                               "\nP = ", signif(summary(fit_break)$coefficients[[4]], 3),
-                               "\nSlope = ", signif(fit_break$coefficients[[2]], 3)))+
-    #   # stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_beg, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
-      theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
-      labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
-      ggtitle("Break Point Removed ", data_site_subset_break$Sample_ID[1]) +
-      theme(plot.title = element_text(lineheight=.8, face="bold"))+
-      theme(axis.text.x=element_text(colour = c("black","black")))+
-      theme(aspect.ratio=1)+
-      theme(axis.text.y=element_text(size = 12,face="bold"))+
-      theme(axis.title.x =element_text(size = 12,face="bold"))+
-      theme(axis.title =element_text(size = 12,face="bold"))+
-      theme(axis.title.y =element_text(size = 12,face="bold"))
-
-    all <- ggplot(data_site_subset, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
-      geom_smooth(method = "lm", se=F, formula = my.formula) +
-      geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
-                 label = paste("R2 = ", signif(summary(fit_all)$r.squared, 3),
-    "\nP = ", signif(summary(fit_all)$coefficients[[4]], 3),
-    "\nSlope = ", signif(fit_all$coefficients[[2]], 3)))+
-
-      # stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
-
-      theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
-      labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
-      ggtitle("No Points Removed " ,data_site_subset$Sample_ID[1]) +
-      theme(plot.title = element_text(lineheight=.8, face="bold"))+
-      theme(axis.text.x=element_text(colour = c("black","black")))+
-      theme(aspect.ratio=1)+
-      theme(axis.text.y=element_text(size = 12,face="bold"))+
-      theme(axis.title.x =element_text(size = 12,face="bold"))+
-      theme(axis.title =element_text(size = 12,face="bold"))+
-      theme(axis.title.y =element_text(size = 12,face="bold"))
-
-   multi <- (final + break_rem + clean + all) +
-   plot_layout(widths = c(2,2))
-
-   ggsave(file=paste0(input.path,"/Plots/Sensitivity_Analysis/No_Breusch/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"), width = 7, height = 7, units = "in")
-   
+   #   final <- ggplot(data_site_subset_fin, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
+   #    geom_smooth(method = "lm", se=F, formula = my.formula) +
+   #    geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
+   #    label = paste("R2 = ", signif(summary(fit)$r.squared, 3),
+   #               "\nP = ", signif(summary(fit)$coefficients[[4]], 3),
+   #               "\nSlope = ", signif(fit$coefficients[[2]], 3)))+
+   #     
+   #    #geom_text(size = 10)+
+   #    #stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_fin, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("          p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+   #     
+   #    theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
+   #    labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
+   #    ggtitle("Final " ,data_site_subset_fin$Sample_ID[1]) +
+   #    theme(plot.title = element_text(lineheight=.8, face="bold"))+
+   #    theme(axis.text.x=element_text(colour = c("black","black")))+
+   #    theme(aspect.ratio=1)+
+   #    theme(axis.text.y=element_text(size = 12,face="bold"))+
+   #    theme(axis.title.x =element_text(size = 12,face="bold"))+
+   #    theme(axis.title =element_text(size = 12,face="bold"))+
+   #    theme(axis.title.y =element_text(size = 12,face="bold"))
+   # 
+   #  clean <- ggplot(data_site_subset_beg, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
+   #    geom_smooth(method = "lm", se=F, formula = my.formula) +
+   #    geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
+   #               label = paste("R2 = ", signif(summary(fitog)$r.squared, 3),
+   #                             "\nP = ", signif(summary(fitog)$coefficients[[4]], 3),
+   #                             "\nSlope = ", signif(fitog$coefficients[[2]], 3)))+
+   #  #   # stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_low, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+   # 
+   #    theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
+   #    labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
+   #    ggtitle("Cleaned" ,data_site_subset_fast$Sample_ID[1]) +
+   #    theme(plot.title = element_text(lineheight=.8, face="bold"))+
+   #    theme(axis.text.x=element_text(colour = c("black","black")))+
+   #    theme(aspect.ratio=1)+
+   #    theme(axis.text.y=element_text(size = 12,face="bold"))+
+   #    theme(axis.title.x =element_text(size = 12,face="bold"))+
+   #    theme(axis.title =element_text(size = 12,face="bold"))+
+   #    theme(axis.title.y =element_text(size = 12,face="bold"))
+   # 
+   #  break_rem <- ggplot(data_site_subset_break, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
+   #    geom_smooth(method = "lm", se=F, formula = my.formula) +
+   #    geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
+   #               label = paste("R2 = ", signif(summary(fit_break)$r.squared, 3),
+   #                             "\nP = ", signif(summary(fit_break)$coefficients[[4]], 3),
+   #                             "\nSlope = ", signif(fit_break$coefficients[[2]], 3)))+
+   #  #   # stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset_beg, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+   #    theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
+   #    labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
+   #    ggtitle("Break Point Removed ", data_site_subset_break$Sample_ID[1]) +
+   #    theme(plot.title = element_text(lineheight=.8, face="bold"))+
+   #    theme(axis.text.x=element_text(colour = c("black","black")))+
+   #    theme(aspect.ratio=1)+
+   #    theme(axis.text.y=element_text(size = 12,face="bold"))+
+   #    theme(axis.title.x =element_text(size = 12,face="bold"))+
+   #    theme(axis.title =element_text(size = 12,face="bold"))+
+   #    theme(axis.title.y =element_text(size = 12,face="bold"))
+   # 
+   #  all <- ggplot(data_site_subset, aes(x = elapsed_min, y = DO_mg_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
+   #    geom_smooth(method = "lm", se=F, formula = my.formula) +
+   #    geom_label(aes(x = 0, y = 13), size = 2.5, hjust = 0,
+   #               label = paste("R2 = ", signif(summary(fit_all)$r.squared, 3),
+   #  "\nP = ", signif(summary(fit_all)$coefficients[[4]], 3),
+   #  "\nSlope = ", signif(fit_all$coefficients[[2]], 3)))+
+   # 
+   #    # stat_poly_eq(formula = my.formula,label.y = "top",label.x = "right", aes(label = paste( ..rr.label.., sep = "~~~"),size=1), parse = TRUE)+stat_fit_glance(data=data_site_subset, method = 'lm', method.args = list(formula = my.formula),geom = 'text',aes(label =paste("         p = ",signif(..p.value.., digits = 1), sep = ""),size=1),label.y = c(14.25),label.x = "left") +
+   # 
+   #    theme_bw()+theme(legend.title = element_blank(),legend.background = element_rect(fill = 'NA'), legend.text = element_text(size = 12,face="bold"))+
+   #    labs(y = expression(Dissolved_Oxygen_mg_per_L), x = expression(Time_Elapsed_min))+ theme(axis.text.x=element_text(size = 12,face="bold"))+
+   #    ggtitle("No Points Removed " ,data_site_subset$Sample_ID[1]) +
+   #    theme(plot.title = element_text(lineheight=.8, face="bold"))+
+   #    theme(axis.text.x=element_text(colour = c("black","black")))+
+   #    theme(aspect.ratio=1)+
+   #    theme(axis.text.y=element_text(size = 12,face="bold"))+
+   #    theme(axis.title.x =element_text(size = 12,face="bold"))+
+   #    theme(axis.title =element_text(size = 12,face="bold"))+
+   #    theme(axis.title.y =element_text(size = 12,face="bold"))
+   # 
+   # multi <- (final + break_rem + clean + all) +
+   # plot_layout(widths = c(2,2))
+   # 
+   # ggsave(file=paste0(input.path,"/Plots/Sensitivity_Analysis/No_Breusch/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"), width = 7, height = 7, units = "in")
+   # 
    # pdf(file = paste0(input.path,"/Plots/Sensitivity Analysis/Sat_6.5_removal/All_Fits.pdf"))
    # for(m in 1:1){
    #   

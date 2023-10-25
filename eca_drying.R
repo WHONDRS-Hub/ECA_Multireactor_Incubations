@@ -4,9 +4,13 @@ rm(list=ls());graphics.off()
 
 pnnl.user = 'laan208'
 
+## ECA Dry Weights ####
 dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/EC_Moisture_Content_2022.csv"))
+#EV_Moisture_Content_2023.csv
 
 moisture <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/01_RawData/2022_Data_Raw_INC_ECA_EC.xlsx")
+#2022_Data_Raw_INC_ECA_EC.xlsx
+#2023_Data_Raw_INC_EV
 
 all_moisture <- read_xlsx(moisture)
 
@@ -14,8 +18,7 @@ all_moisture$Date <- as.Date(all_moisture$Date)
 
 all_moisture$Sample_weight_Fill_g <- as.numeric(all_moisture$Sample_weight_Fill_g)
 
-
-#37,38 was incubated on 11/23 so needs to be removed from sheet, 72-5 were not incubated (not enough sediment), 12-D5 didn't have 20 g of sediment, 21 and 33 incubated on 9/28
+# For ECA: 37,38 was incubated on 11/23 so needs to be removed from sheet, 72-5 were not incubated (not enough sediment), 12-D5 didn't have 20 g of sediment, 21 and 33 incubated on 9/28
 
 all_moisture <- all_moisture %>% 
   filter(`Jars or 40 mL vials` != "Jars") %>% 
@@ -30,7 +33,9 @@ all_moisture <- all_moisture %>%
 
 dry_wt$wet_g_by_dry_g <- dry_wt$wet_weight_g/dry_wt$true_dry_weight_g
 
+#EC_082_MOI-3 is an outlier confirmed with ICON
 mean_dry_wt <- dry_wt %>% 
+  filter(Sample_Name != "EC_082_MOI-3") %>% 
   separate(Sample_Name, sep = "-", c("Sample_Name", "replicate")) %>% 
   group_by(Sample_Name) %>% 
   mutate(average = mean(wet_g_by_dry_g)) %>% 
@@ -61,7 +66,9 @@ for (i in 1:nrow(all_moisture)){
 merged <- merge(all_moisture, mean_dry_wt, by = "Site")
 
 merged_clean <- merged %>% 
-  dplyr::select(-c(Notes, `Jars or 40 mL vials`, ...8, ...9, ...10, `Study Code`, percent_water_content_wet, percent_water_content_dry, true_dry_weight_g, wet_weight_g))
+  dplyr::select(-c(Notes, ...8, ...9, ...10, `Study Code`, percent_water_content_wet, percent_water_content_dry, true_dry_weight_g, wet_weight_g)) %>% 
+  distinct(Sample_Name, Date, .keep_all = TRUE)
+  # dplyr::select(-c(Notes, `Jars or 40 mL vials`, ...8, ...9, ...10, `Study Code`, percent_water_content_wet, percent_water_content_dry, true_dry_weight_g, wet_weight_g))
 
 
 merged_clean <- merged_clean %>% 
@@ -71,19 +78,19 @@ merged_clean <- merged_clean %>%
 
 location = c("-W1", "-W2", "-W3", "-W4", "-W5", "-D1", "-D2", "-D3", "-D4", "-D5")
 
-wet_dry <- as.data.frame(matrix(NA, ncol = 10, nrow =1))
+wet_dry <- as.data.frame(matrix(NA, ncol = 8, nrow =1))
 
-colnames(wet_dry) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g", "Av_dry_weight_sed_g","Water_added_g", "Water_total_g", "Av_water_total_g")
+colnames(wet_dry) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g", "Water_added_g", "Water_total_g")
 
-all_dates = as.data.frame(matrix(NA, ncol = 10, nrow = length(unique(all_moisture$Sample_Name))))
+all_dates = as.data.frame(matrix(NA, ncol = 8, nrow = length(unique(all_moisture$Sample_Name))))
 
-colnames(all_dates) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g","Av_dry_weight_sed_g","Water_added_g", "Water_total_g", "Av_water_total_g")
+colnames(all_dates) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g","Water_added_g", "Water_total_g")
 
 for (i in 1:length(location)){
   
-  all_dates= as.data.frame(matrix(NA, ncol =10, nrow = length(unique(merged_clean$Sample_Name))))
+  all_dates= as.data.frame(matrix(NA, ncol =8, nrow = length(unique(merged_clean$Sample_Name))))
   
-  colnames(all_dates) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g","Av_dry_weight_sed_g","Water_added_g", "Water_total_g", "Av_water_total_g")
+  colnames(all_dates) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g","Water_added_g", "Water_total_g")
   
 
   data_location_subset = merged_clean[grep(location[i],merged_clean$Sample_Name),]
@@ -101,13 +108,12 @@ for (i in 1:length(location)){
       mutate(Tare_weight_g = first(Tare_weight_g))
     
     data_site_subset = data_site_subset %>% 
-      mutate(Dry_weight_sed_g = (first(Sample_weight_g) - Tare_weight_g)*(1/wet_g_by_dry_g)) %>% 
-      mutate(Av_dry_weight_sed_g = (first(Sample_weight_g) - Tare_weight_g)*(1/average))
+      mutate(Dry_weight_sed_g = (first(Sample_weight_g) - Tare_weight_g)*(1/average)) 
   
   
-    merge_dates= as.data.frame(matrix(NA, ncol = 10, nrow = length(unique(all_moisture$Sample_Name))))
+    merge_dates= as.data.frame(matrix(NA, ncol = 8, nrow = length(unique(all_moisture$Sample_Name))))
     
-    colnames(merge_dates) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g", "Av_dry_weight_sed_g","Av_water_total_g","Water_added_g", "Water_total_g")
+    colnames(merge_dates) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g", "Water_added_g", "Water_total_g")
     
   for (k in 1:nrow(data_site_subset)){
     
@@ -125,14 +131,12 @@ for (i in 1:length(location)){
     
     merge_dates$Dry_weight_sed_g[k] = as.numeric(data_site_subset$Dry_weight_sed_g[k])
     
-    merge_dates$Av_dry_weight_sed_g[k] = as.numeric(data_site_subset$Av_dry_weight_sed_g[k])
-    
+
     merge_dates$Water_added_g[k] = as.numeric(data_site_subset$Sample_weight_Fill_g[k] - data_site_subset$Sample_weight_g[k])
     
   merge_dates$Water_total_g[k] = merge_dates$Sample_weight_Fill_g[k] - merge_dates$Dry_weight_sed_g[k]
   
-  merge_dates$Av_water_total_g[k] = merge_dates$Sample_weight_Fill_g[k] - merge_dates$Av_dry_weight_sed_g[k]
-    
+
     }
     
     else {
@@ -182,75 +186,13 @@ final_wet_dry <- wet_dry %>%
   rename(Wet_Sediment_Mass_Added_Water_g = Sample_weight_Fill_g) %>% 
   rename(Dry_Sediment_Mass_g = Dry_weight_sed_g) %>% 
   rename(Total_Water_Mass_g = Water_total_g) %>% 
-  rename(Added_Water_Mass_g = Water_added_g)
+  rename(Added_Water_Mass_g = Water_added_g) %>% 
+  distinct(Sample_Name, Date, .keep_all = TRUE)
+
+#write.csv(final_wet_dry,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)  
 
 ggplot(final_wet_dry, aes(x = Av_dry_weight_sed_g))+
   geom_histogram()
-
-Rep <- c("W1", "W2", "W3", "W4", "W5", "D1", "D2", "D3", "D4", "D5")
-
-site_do_012 <- c(3.757, 3.973, 4.051, 4.2, 3.552, 1.923, 2.343, 2.033, 2.602, 0.01)
-
-site_012_do <- data.frame(Rep, site_do_012)
-
-site_012 <- final_wet_dry %>% 
-  filter(grepl("EC_012", Sample_Name))%>% 
-  distinct(Sample_Name, Dry_Sediment_Mass_g, .keep_all = TRUE) %>% 
-  separate(Sample_Name, c("EC", "Rep"), sep = "-")
-
-site_012 <- merge(site_012, site_012_do, by = c("Rep"))
-
-site_012 <- site_012 %>% 
-  mutate(DO_mg_kg = site_do_012 * (((60.4 - Dry_Sediment_Mass_g)/1000)/(Dry_Sediment_Mass_g/1000))) %>% 
-  mutate(Avg_DO_mg_kg = site_do_012 * (((60.4 - Av_dry_weight_sed_g)/1000)/(Av_dry_weight_sed_g/1000))) %>% 
-  group_by(Rep) %>% 
-  mutate(cv = sd(DO_mg_kg)/mean(DO_mg_kg))
-
-ggplot(site_012, aes(x = Rep)) +
-  geom_point(aes(y = DO_mg_kg)) +
-  geom_point(shape = "square", size = 2, aes(y = Avg_DO_mg_kg))+
-  ggtitle("Site 012")
-
-site_do_035 <- c(4.474, 4.581, 4.415, 4.608, 4.502, 4.42, 4.478, 1.957, 4.498, 4.383)
-
-site_035_do <- data.frame(Rep, site_do_035)
-
-site_035 <- final_wet_dry %>% 
-  filter(grepl("EC_035", Sample_Name))%>% 
-  distinct(Sample_Name, Dry_Sediment_Mass_g, .keep_all = TRUE) %>% 
-  separate(Sample_Name, c("EC", "Rep"), sep = "-")
-
-site_035 <- merge(site_035, site_035_do, by = c("Rep"))
-
-site_035 <- site_035 %>% 
-  mutate(DO_mg_kg = site_do_035 * (((60.4 - Dry_Sediment_Mass_g)/1000)/(Dry_Sediment_Mass_g/1000))) %>% 
-  mutate(Avg_DO_mg_kg = site_do_035 * (((60.4 - Av_dry_weight_sed_g)/1000)/(Av_dry_weight_sed_g/1000))) %>% 
-  group_by(Rep) %>% 
-  mutate(cv = sd(DO_mg_kg)/mean(DO_mg_kg))
-
-ggplot(site_035, aes(x = Rep)) +
-  geom_point(aes(y = DO_mg_kg)) +
-  geom_point(shape = "square", size = 2, aes(y = Avg_DO_mg_kg))+
-  ggtitle("Site 035")
-
-kits <- c("106", "060", "035", "012") #082
-
-high_cv <- final_wet_dry %>%
-  filter(grepl(paste(kits, collapse = "|"), Sample_Name)) %>%
-  distinct(Dry_Sediment_Mass_g, .keep_all = TRUE)
-
-ggplot(high_cv, aes(y = Dry_Sediment_Mass_g, x = Sample_Name)) +
-  geom_boxplot()+
-  geom_point() +
-  theme(axis.text.x = element_text( angle = 90, hjust = 1, vjust = 1))
-
-ggplot(high_cv, aes(y = Water_Mass_g, x = Sample_Name)) + 
-  geom_boxplot()+
-  geom_point() +
-  theme(axis.text.x = element_text( angle = 90, hjust = 1, vjust = 1))
-
-write.csv(high_cv,paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Documents/High_CV_Sediment",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
-
 
 write.csv(wet_dry,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
 
@@ -282,10 +224,10 @@ for (i in 1:length(location)){
     summary_site_subset <- summary_site_subset[with(summary_site_subset, order(Date)),]
     
     summary_site_subset <- summary_site_subset %>% 
-      mutate(Initial_Water_mass_g = first(Water_Mass_g))
+      mutate(Initial_Water_mass_g = first(Total_Water_Mass_g))
     
     summary_site_subset <- summary_site_subset %>% 
-      mutate(Final_Water_mass_g = last(Water_Mass_g))
+      mutate(Final_Water_mass_g = last(Total_Water_Mass_g))
     
     summary_site_subset <- summary_site_subset %>% 
       select(c(Sample_Name, Initial_Water_mass_g, Final_Water_mass_g, Dry_Sediment_Mass_g)) %>% 
@@ -371,32 +313,190 @@ mutate(grav_final_diff = (average_grav_final[Treat == "Wet"] - average_grav_fina
   dplyr::select(c(kit, grav_final_diff)) %>% 
   distinct(kit, .keep_all = TRUE)
 
-ess_ex <- all_grav %>% 
-  filter(kit == "05") %>% 
-  filter(Replicate == "W1"| Replicate == "D1") %>% 
-  mutate(mass_sed = (Sample_weight_initial_g - (Sample_weight_initial_g*mean_wet_grav)))%>% 
-  mutate(grav_dry = (((Sample_weight_g - mass_sed) + Water_added_initial_g)/mass_sed))
+## EV Dry Weights ####
 
-ess_ex$Date <- as.Date(ess_ex$Date, format = "%Y-%m-%d")
+dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/EV_Moisture_Content_2023.csv"))
 
-cbPalette <- c("#D55E00","#0072B2","#999999","#E69F00", "#56B4E9","#009E73","#F0E442","#CC79A7")
+moisture <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/01_RawData/2023_Data_Raw_INC_EV.xlsx")
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"05_R1_Grav_Water.png"), width = 8, height = 8, units = "in", res = 300)
+all_moisture <- read_xlsx(moisture)
 
-ggplot(ess_ex, aes(x = Date, y = grav_dry))+
-  geom_point(aes(color = Replicate), size = 2.5)+
-  geom_line(aes(color = Replicate), linewidth = 1.5)+
-  theme_bw()+
-  ylab("Gravimetric water content \n")+
-  xlab("\n Date")+
-  scale_x_date(date_labels = "%Y - %m - %d", #breaks = unique(ess_ex$Date)
-               )+
-  theme(axis.title.x = element_text(size = 24),
-        axis.title.y = element_text(size = 24),
-        axis.text.x = element_text(size = 16, angle = 90, hjust = 1, vjust = 1),
-        axis.text.y = element_text(size =18),
-        title = element_text(size = 24),
-        legend.text = element_text(size = 18))+
-  scale_colour_manual(values=cbPalette, labels = c("Dry", "Wet"))
+all_moisture$Date <- as.Date(all_moisture$Date)
 
-dev.off()
+all_moisture$Sample_weight_Fill_g <- as.numeric(all_moisture$Sample_weight_Fill_g)
+
+mean_dry_wt <- dry_wt %>% 
+  mutate(wet_g_by_dry_g = wet_weight_g/true_dry_weight_g) %>% 
+  separate(Sample_Name, sep = "-", c("Sample_Name", "replicate")) %>% 
+  group_by(Sample_Name) %>% 
+  mutate(average = mean(wet_g_by_dry_g)) %>% 
+  mutate(cv = sd(wet_g_by_dry_g)/mean(wet_g_by_dry_g)) %>% 
+  separate(Sample_Name, sep = "_", c("Study Code", "Site"))
+
+all_moisture <- all_moisture %>% 
+  separate(Sample_Name, into = c("EC", "Site", "INC"), sep = "_", remove = FALSE)
+
+merged <- merge(all_moisture, mean_dry_wt, by = "Site")
+
+merged_clean <- merged %>% 
+  dplyr::select(-c(Notes, ...7 , ...8, ...9, ...10,...11, ...12, ...13, ...14, ...15, ...16, `Study Code`, percent_water_content_wet, percent_water_content_dry, true_dry_weight_g, wet_weight_g)) %>% 
+  unite("Sample_Name", c("EC", "Site", "INC"), sep = "_")%>% 
+  rename(Average_Wet_g_by_Dry_g = average) %>% 
+  distinct(Sample_Name, Date, .keep_all = TRUE)
+
+##All Samples - wet and dry (all dates) ####
+
+location = c("-W1", "-W2", "-W3", "-W4", "-W5", "-D1", "-D2", "-D3", "-D4", "-D5")
+
+wet_dry <- as.data.frame(matrix(NA, ncol = 8, nrow =1))
+
+colnames(wet_dry) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g", "Water_added_g", "Water_total_g")
+
+all_dates = as.data.frame(matrix(NA, ncol = 8, nrow = length(unique(all_moisture$Sample_Name))))
+
+colnames(all_dates) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g","Water_added_g", "Water_total_g")
+
+for (i in 1:length(location)){
+  
+  all_dates= as.data.frame(matrix(NA, ncol = 8, nrow = length(unique(merged_clean$Sample_Name))))
+  
+  colnames(all_dates) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g","Water_added_g", "Water_total_g")
+  
+  data_location_subset = merged_clean[grep(location[i],merged_clean$Sample_Name),]
+  
+  unique.incubations = unique(data_location_subset$Sample_Name)
+  
+  
+  for (j in 1:length(unique.incubations)){
+    
+    data_site_subset = subset(data_location_subset, data_location_subset$Sample_Name == unique.incubations[[j]])
+    
+    data_site_subset <- data_site_subset[with(data_site_subset, order(Date)),]
+    
+    data_site_subset = data_site_subset %>%
+      mutate(Tare_weight_g = first(Tare_weight_g)) %>% 
+      mutate(Dry_weight_sed_g = (first(Sample_weight_g) - Tare_weight_g)*(1/Average_Wet_g_by_Dry_g))
+    
+    merge_dates= as.data.frame(matrix(NA, ncol = 8, nrow = length(unique(all_moisture$Sample_Name))))
+    
+    colnames(merge_dates) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g", "Water_added_g", "Water_total_g")
+    
+    for (k in 1:nrow(data_site_subset)){
+      
+      if (data_site_subset$Sample_weight_Fill_g[k] > -9999) {
+        
+        merge_dates$Sample_Name[k] = as.character(data_site_subset$Sample_Name[k])
+        
+        merge_dates$Date[k] = as.character(data_site_subset$Date[k]) 
+        
+        merge_dates$Tare_weight_g[k] = as.numeric(data_site_subset$Tare_weight_g[k]) 
+        
+        merge_dates$Sample_weight_g[k] = as.numeric(data_site_subset$Sample_weight_g[k] - data_site_subset$Tare_weight_g[k])
+        
+        merge_dates$Sample_weight_Fill_g[k] = as.numeric(data_site_subset$Sample_weight_Fill_g[k] - data_site_subset$Tare_weight_g[k])
+        
+        merge_dates$Dry_weight_sed_g[k] = round(as.numeric(data_site_subset$Dry_weight_sed_g[k]), 2)
+        
+        merge_dates$Water_added_g[k] = as.numeric(data_site_subset$Sample_weight_Fill_g[k] - data_site_subset$Sample_weight_g[k])
+        
+        merge_dates$Water_total_g[k] = round((merge_dates$Sample_weight_Fill_g[k] - merge_dates$Dry_weight_sed_g[k]), 2)
+        
+         }
+      
+      else {
+        
+        merge_dates$Sample_Name[k] = as.character(data_site_subset$Sample_Name[k])
+        
+        merge_dates$Date[k] = as.character(data_site_subset$Date[k]) 
+        
+        merge_dates$Tare_weight_g[k] = as.numeric(data_site_subset$Tare_weight_g[k]) 
+        
+        merge_dates$Sample_weight_g[k] = as.numeric(data_site_subset$Sample_weight_g[k] - data_site_subset$Tare_weight_g[k])
+        
+        merge_dates$Water_added_g[k] = as.numeric(0)
+        
+        merge_dates$Dry_weight_sed_g[k] = as.numeric(data_site_subset$Dry_weight_sed_g[k])
+        
+        merge_dates$Water_total_g[k] = merge_dates$Sample_weight_g[k] - merge_dates$Dry_weight_sed_g[k]
+      
+      }
+      
+    }
+    
+    #all_dates = all_dates %>%
+    # mutate(Sample_weight_initial_g = first(Sample_weight_initial_g), round, 4)
+    
+    all_dates = rbind(all_dates, merge_dates)
+    
+  }
+  
+  
+  
+  all_dates = all_dates[!is.na(all_dates$Sample_Name),]
+  
+  wet_dry = rbind(wet_dry, all_dates)
+  
+}
+
+wet_dry = wet_dry[-1,] 
+
+final_wet_dry <- wet_dry %>% 
+  dplyr::select(-c(Tare_weight_g)) %>% 
+  rename(Wet_Sediment_Mass_g = Sample_weight_g) %>% 
+  rename(Wet_Sediment_Mass_Added_Water_g = Sample_weight_Fill_g) %>% 
+  rename(Dry_Sediment_Mass_g = Dry_weight_sed_g) %>% 
+  rename(Total_Water_Mass_g = Water_total_g) %>% 
+  rename(Added_Water_Mass_g = Water_added_g) 
+
+write.csv(final_wet_dry,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)  
+
+location = c("-W1", "-W2", "-W3", "-W4", "-W5", "-D1", "-D2", "-D3", "-D4", "-D5")
+
+water_mass <- as.data.frame(matrix(NA, ncol = 4, nrow =1))
+
+colnames(water_mass) = c("Sample_Name", "Initial_Water_Mass_g", "Final_Water_Mass_g", "Dry_Sediment_Mass_g")
+
+summary_file = as.data.frame(matrix(NA, ncol = 4, nrow = length(unique(final_wet_dry$Sample_Name))))
+
+colnames(summary_file) = c("Sample_Name", "Initial_Water_Mass_g", "Final_Water_Mass_g", "Dry_Sediment_Mass_g")
+
+for (i in 1:length(location)){
+  
+  summary_file = as.data.frame(matrix(NA, ncol = 4, nrow = length(unique(final_wet_dry$Sample_Name))))
+  
+  colnames(summary_file) = c("Sample_Name", "Initial_Water_Mass_g", "Final_Water_Mass_g", "Dry_Sediment_Mass_g")
+  
+  summary_location_subset = final_wet_dry[grep(location[i],final_wet_dry$Sample_Name),]
+  
+  unique.incubations = unique(summary_location_subset$Sample_Name)
+  
+  for (j in 1:length(unique.incubations)){
+    
+    summary_site_subset = subset(summary_location_subset, summary_location_subset$Sample_Name == unique.incubations[j])
+    
+    summary_site_subset <- summary_site_subset[with(summary_site_subset, order(Date)),]
+    
+    summary_site_subset <- summary_site_subset %>% 
+      mutate(Initial_Water_Mass_g = round(first(Total_Water_Mass_g), 2))
+    
+    summary_site_subset <- summary_site_subset %>% 
+      mutate(Final_Water_Mass_g = round(last(Total_Water_Mass_g), 2))
+    
+    summary_site_subset <- summary_site_subset %>% 
+      select(c(Sample_Name, Initial_Water_Mass_g, Final_Water_Mass_g, Dry_Sediment_Mass_g)) %>% 
+      filter(row_number()==1)
+    
+    summary_file <- rbind(summary_file, summary_site_subset)
+    
+  }
+  
+  water_mass = rbind(water_mass, summary_file)
+  
+}  
+
+water_mass <- water_mass %>% 
+  drop_na(Sample_Name) %>% 
+  filter(Dry_Sediment_Mass_g > 0) %>% 
+  mutate(Dry_Sediment_Mass_g = round(Dry_Sediment_Mass_g, 2))
+
+write.csv(water_mass,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
