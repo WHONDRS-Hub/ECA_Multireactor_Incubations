@@ -747,4 +747,14 @@ all <- (wet_no + wet_rem + dry_no + dry_rem + effect_no + effect_rem) +
 
 print(all)
 
+effect.path <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Effect_Size_Data/")
+
+
+
+#write.csv(data_clean_rem_effect, paste0(effect.path,"Effect_Size_merged_by_", pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+
+respiration.removals.path <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Plots/All_Respiration_Rates/")
+
+#write.csv(data_clean_removals, paste0(respiration.removals.path,"removed_respiration_merged_by_", pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+
 ```
