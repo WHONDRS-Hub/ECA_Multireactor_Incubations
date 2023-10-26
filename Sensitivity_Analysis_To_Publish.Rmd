@@ -30,8 +30,10 @@ library(readr)
    + EC_091_INC-D5 : Sample fell off rollers at this time
    + EC_014_INC-W1 : Bad measurements for first 6 minutes
    + EC_011-W and EC_012-W : Too much water added at beginning of 21-day incubation
+   
 
 ```{r Load and Clean Data, include = FALSE}
+
 rm(list=ls());graphics.off()
 
 # Set working directory to data file
@@ -89,7 +91,8 @@ samples = data %>%
  
 * Concentration Toggle = 1.4
   + Range between first and last DO concentration in data frame, used to keep more linear slopes from breaking/having points removed in heteroscedasticity 
-  + Tested range: 0, 0.5, 1.0, 1.5, 2.0
+  + 1.4 was best for not removing data//using segmented regression for more linear samples
+  + Tested range: 0, 0.5, 1.0, 1.4, 1.5, 2.0
 
 ```{r Set Parameters}
 
@@ -107,7 +110,7 @@ conc.range = 1.4
 plot.toggle = FALSE
 
 ```
-
+## Fit a linear model to data with chosen rules
 
 ```{r Start Loop for fitting Linear Models, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 8, fig.wight = 8}
 
@@ -136,37 +139,37 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
   
   for (j in 1:length(unique.incubations)){
     
-    ## Subset by individual sites
+    # Subset by individual sites
     
     data_site_subset = subset(data_location_subset, data_location_subset$Sample_Name == unique.incubations[j])
     
-    ## Put in ascending order for minutes
+    # Put in ascending order for minutes
     data_site_subset = data_site_subset[order(data_site_subset$Elapsed_Minute, decreasing = FALSE),]
     data_site_subset$Elapsed_Minute = as.numeric(data_site_subset$Elapsed_Minute)
     
-   #Fit linear model to all data
+   # Fit linear model to all data
     
     fit_all = lm(DO_mg_per_L~Elapsed_Minute, data = data_site_subset)
    
-    #remove points greater than High Dissolved Oxygen Threshold
+    # Remove points greater than High Dissolved Oxygen Threshold
     
     data_site_subset_low = data_site_subset %>% 
       filter(DO_mg_per_L < high.do) 
     
-  #Fit linear model to slopes with High Dissolved Oxygen Points Removed
+  # Fit linear model to slopes with High Dissolved Oxygen Points Removed
     
     fit_low = lm(DO_mg_per_L~Elapsed_Minute, data = data_site_subset_low)
     
     low.slope = fit_low$coefficients[[2]]
     
-    ## Remove samples if at >6 minutes, they are below the DO threshold. This is removing low values from the back end of curves
+    # Remove samples if at >6 minutes, they are below the DO threshold. This is removing low values from the back end of curves
     
     data_site_subset_thresh = data_site_subset_low %>% 
       filter(!(Elapsed_Minute > 4 & DO_mg_per_L < do.thresh)) 
     
     data_site_subset_rem = data_site_subset_thresh
     
-    ## If the 2 minute concentration is less than the Dissolved Oxygen Threshold set to remove low values from the back end of the curve, remove anything greater than 2 minutes
+    # If the 2 minute concentration is less than the Dissolved Oxygen Threshold set to remove low values from the back end of the curve, remove anything greater than 2 minutes
     
     for(n in 1:2){
       if(data_site_subset_rem$Elapsed_Minute[2] == 2 & data_site_subset_rem$DO_mg_per_L[2] <= do.thresh){
@@ -181,23 +184,17 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
     
     data_site_subset_fast = data_site_subset_rem
     
-    for(m in 1:1){
-      
+
       if (data_site_subset_fast$DO_mg_per_L[2] <= fast & data_site_subset_fast$Elapsed_Minute[2] <= time.thresh ){
         
         data_site_subset_fast = data_site_subset_fast
         
-      } 
+      } else if (data_site_subset_fast$DO_mg_per_L[2] >= fast){
       
-      else if (data_site_subset_fast$DO_mg_per_L[2] >= fast){
-      
-     # else if ((data_site_subset_fast$DO_mg_per_L[2] >= fast & data_site_subset_fast$Elapsed_Minute[2] <= time.thresh)|(data_site_subset_fast$DO_mg_per_L[2] >= fast & data_site_subset_fast$Elapsed_Minute[2] == 62)){
-        
-        data_site_subset_fast = data_site_subset_fast[-1,]
+         data_site_subset_fast = data_site_subset_fast[-1,]
         
       }
-    }
-    
+
     # Remove 2 minute point if put on at same time as picture is taken
     
     data_site_subset_beg = data_site_subset_fast
@@ -206,7 +203,7 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
 
       if (nrow(data_site_subset_beg) <= 2) {
   
-        ## If dataset only consists of 0 minute and 2 minute point, don't remove data
+        # If dataset only consists of 0 minute and 2 minute point, don't remove data
         
         data_site_subset_beg = data_site_subset_beg
         
@@ -222,7 +219,7 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
 
     }
     
-    ## If the first point is 0, only keep 2 points 
+    # If the first point is 0, only keep 2 points 
     
       if (data_site_subset_beg$Elapsed_Minute[1] == 0) {
         
@@ -233,7 +230,7 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
     # Fit linear model to cleaned data (low points removed, high points removed, first point removed if put on rollers at same time as picture) 
     
     fitog = lm(DO_mg_per_L~Elapsed_Minute, data = data_site_subset_beg)
-   slope_original = fitog$coefficients[[2]]
+   slope_original = fitog$coefficients[[2]] #slope of original cleaned data
    
   # Calculate segmented regression slopes:
     
@@ -241,25 +238,33 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
     
       ## Only works if more than 3 rows of data, fits segmented regession and gets best estimate of where to break the data
       
-      davies.test(fitog, seg.Z= ~Elapsed_Minute)
+      # psi gives estimated start point for the analysis
       
-    segmentog = segmented(fitog, seg.Z = ~Elapsed_Minute, psi = (((max(data_site_subset_beg$Elapsed_Minute)-min(data_site_subset_beg$Elapsed_Minute))/2)+min(data_site_subset_beg$Elapsed_Minute)))
+      segmentog = segmented(fitog, seg.Z = ~Elapsed_Minute, psi = (((max(data_site_subset_beg$Elapsed_Minute)-min(data_site_subset_beg$Elapsed_Minute))/2)+min(data_site_subset_beg$Elapsed_Minute)))
     
     fit_seg = numeric(length(data_site_subset_beg$Elapsed_Minute)) * NA
 
+    # gives DO estimates for segmented regression lm
     fit_seg[complete.cases(rowSums(cbind(data_site_subset_beg$DO_mg_per_L, data_site_subset_beg$Elapsed_Minute)))] <- broken.line(segmentog)$fit
 
     data_seg = data.frame(DO_mg_per_L = data_site_subset_beg$DO_mg_per_L, Elapsed_Minute = data_site_subset_beg$Elapsed_Minute, fit = fit_seg)
-
+    
+    # 1: Initial Break Point, 2: Chosen Break Point, 3: Approx. Standard Error
     seg = segmentog$psi
+    #Chosen Break Point
     est = seg[[2]]
+    #Standard Error
     bp_se = seg[[3]]
+    #Rounded Break Point
     data_site_subset_beg$break_point = 2*round(seg[[2]]/2)
     
+    #Break Data at rounded value
     data_site_subset_break = subset(data_site_subset_beg, Elapsed_Minute <= data_site_subset_beg$break_point[1])
      
   } else {
       
+    # If number of rows < 3, don't fit segmented regression
+    
       data_site_subset_beg = data_site_subset_beg
       
       est = "NA"
@@ -268,13 +273,13 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
       
      }
 
-
+    # Fit linear model to segmented data
     fit_break = lm(DO_mg_per_L~Elapsed_Minute, data = data_site_subset_break)
     u = fit_break$coefficients
-    b = u[[1]]
-    c = u[[2]]
+    b = u[[1]] #intercept
+    c = u[[2]] #slope
     slope_beginning = c
-    r = summary(fit_break)$r.squared
+    r = summary(fit_break)$r.squared #r squared of segmented data
     residuals = deviance(fit_break)
     r.adj = summary(fit_break)$adj.r.squared
     p = summary(fit_break)$coefficients[4]
@@ -302,10 +307,11 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
       
     }
     
+     # Fit final lm to data after deciding to use segmented regression or not
      fit_break = lm(DO_mg_per_L~Elapsed_Minute, data = data_site_subset_fin)
     u = fit_break$coefficients
-    b = u[[1]]
-    c = u[[2]]
+    b = u[[1]] #intercept
+    c = u[[2]] #slope
     slope_beginning = c
     r = summary(fit_break)$r.squared
     residuals = deviance(fit_break)
@@ -317,7 +323,7 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
     bp = bptest(fit_break)[[4]]
     bpog = bptest(fit_break)[[4]]
 
-     
+    # Fit lm to data, this will change with loop
     fit = lm(data_site_subset_fin$DO_mg_per_L~data_site_subset_fin$Elapsed_Minute)
     u = fit$coefficients
     b = u[[1]] #Intercept
@@ -330,9 +336,13 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
     res2 = residuals
     bp = bptest(fit)[[4]]
     
-    if (slope_beginning >= slope.thresh | ((first(data_site_subset_fin$DO_mg_per_L) - last(data_site_subset_fin$DO_mg_per_L)) < conc.range)) 
-      
+  
+    
+    if (slope_beginning >= slope.thresh | ((first(data_site_subset_beg$DO_mg_per_L) - last(data_site_subset_beg$DO_mg_per_L)) < conc.range)) 
+   
     {
+      
+        #if it has a flat slope, or original data has low concentration range in cleaned data, don't do anything else
       
       data_site_subset_fin = data_site_subset_fin
       
@@ -352,9 +362,13 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
     
     else {
     
+      #else start looping to remove data
+      
       for (l in 1:60) {
         
         if (nrow(data_site_subset_fin)<= min.points){
+          
+          #if there are more 2 or less points fit final lm to final data:
           
           data_site_subset_fin = data_site_subset_fin
           
@@ -374,6 +388,8 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
         
         else if (bp < bpfit & nrow(data_site_subset_fin) >= min.points){
         
+          #Else if the p-value of the Breusch-Pagan Heteroscedasticity test is less than the threshold, start removing data from the back end until it is greater than threshold or there are only 2 points
+          
           data_site_subset_fin = data_site_subset_fin[-nrow(data_site_subset_fin),]
         
         fit = lm(data_site_subset_fin$DO_mg_per_L~data_site_subset_fin$Elapsed_Minute)
@@ -394,7 +410,9 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
       
       if (slope_beginning < 0 & c > 0){
         
-        data_site_subset_fin = data_site_subset_thresh
+        # If the slope of the final is positive, use the slope of the cleaned data
+        
+        data_site_subset_fin = data_site_subset_beg
         
         fit = lm(data_site_subset_fin$DO_mg_per_L~data_site_subset_fin$Elapsed_Minute)
         u = fit$coefficients
@@ -414,6 +432,8 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
         
   my.format <- "Slope: %s\nR2: %s\np: %s"  
   my.formula <- y ~ x
+  
+  #Make Plots for the following fits: Final Data, Break Point Data, Cleaned Data, Original Data
   
   if (plot.toggle == TRUE) {
      final <- ggplot(data_site_subset_fin, aes(x = Elapsed_Minute, y = DO_mg_per_L)) + coord_cartesian(ylim = c(0,15))+ geom_point(size = 2) + expand_limits(x = 0, y = 0) +
@@ -486,43 +506,27 @@ colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_
    multi <- (final + break_rem + clean + all) +
    plot_layout(widths = c(2,2))
 
-  # ggsave(file=paste0(input.path,"/Plots/Sensitivity_Analysis/No_Breusch/DO_vs_Incubation_Time_",data_site_subset$Sample_ID[1],".pdf"), width = 7, height = 7, units = "in")
-   
-   # pdf(file = paste0(input.path,"/Plots/Sensitivity Analysis/Sat_6.5_removal/All_Fits.pdf"))
-    for(m in 1:1){
+     for(m in 1:1){
      
       print(multi)
    
     }
    
   }
-   # 
-   # dev.off()
-   
+
     rate$Sample_Name[j] = as.character(data_site_subset_fin$Sample_Name[1])
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
     rate$rate_mg_per_L_per_min[j] = round(abs(as.numeric((c))),3) #in mg O2/L min
     rate$rate_mg_per_L_per_h[j] = round(abs(as.numeric((c))*60),3) #in mg O2/L h 
-    #rate$Initial_R_squared[j] = round(abs(as.numeric((rog))),3)
     rate$R_squared[j] = round(as.numeric(abs(r)),3)
     rate$R_squared_adj[j] = round(as.numeric(abs(r.adj)),3)
     rate$p_value[j] = p
-    #rate$initial_p_value[j] = pog
-    #rate$residuals[j] = round(as.numeric(residuals),3)
-    #rate$slope_beginning[j] = round(as.numeric(slope_beginning),3)
-    
     rate$total_incubation_time_min[j] = as.numeric(tail(data_site_subset_fin$Elapsed_Minute, n = 1) - head(data_site_subset_fin$Elapsed_Minute, n = 1)) 
 
     rate$number_of_points[j] = nrow(data_site_subset_fin)
     rate$no_points_rem[j] = (as.numeric(nrow(data_site_subset)) - as.numeric(nrow(data_site_subset_fin)))
-    
-
     rate$breusch_p_value[j] = round(as.numeric(bp),3)
-    #rate$davies_p_value[j] = round(as.numeric(davies),3)
-    
     rate$slope_ratio[j] = round(as.numeric(slope.ratio),3)
-
-    
     rate$`0_min_concentration`[j] = ifelse(
       first(data_site_subset_fin$Elapsed_Minute == 0), 
         subset(data_site_subset_fin$DO_mg_per_L,                             data_site_subset_fin$Elapsed_Minute == 0),
@@ -552,232 +556,195 @@ rate$`2_min_concentration`[j] = ifelse(
 respiration = respiration[-1,]
 
 
-write.csv(respiration,paste0(output.path,"ECA_Sediment_Incubations_Respiration_Rates_", conc.range,"_Range_",Sys.Date(),".csv"), row.names = F)
+#write.csv(respiration,paste0(output.path,"ECA_Sediment_Incubations_Respiration_Rates_", conc.range,"_Range_",Sys.Date(),".csv"), row.names = F)
 
 ```
+
+## Remove Outlier Samples 
+* A distance matrix is used to remove the replicate most unlike the others if the coefficient of variation is greater than 10%
+  
+
 ```{r Remove Outlier Samples}
 
-# slope.new <- respiration %>% 
-#    separate(Sample_Name, c("ECA", "kit", "rep"), sep = "_", remove = FALSE) %>% 
-#   mutate(Treat = case_when(grepl("W",rep)~"Wet",
-#                            grepl("D", rep) ~"Dry")) %>% 
-#   unite(kit_treat, kit, Treat, remove = FALSE) %>%
-#   group_by(kit_treat) %>% 
-#   mutate(Mean_Slope_All = mean(slope_of_the_regression)) %>% 
-#    mutate(cv_before_removal = (abs(sd(slope_of_the_regression)/mean(slope_of_the_regression)))*100) %>% 
-# ungroup() %>% 
-#     dplyr::select(c(Sample_Name, ECA, kit_treat, kit,rep,slope_of_the_regression,rate_mg_per_L_per_min,rate_mg_per_L_per_h, Treat, Mean_Slope_All, cv_before_removal))
-# 
-# slope.new$flag <- NA
-# 
-# slope.final <- as.data.frame(matrix(NA, ncol = 14, nrow =1))
-# 
-# colnames(slope.final) = c("slope.temp","Sample_Name", "ECA", "kit_treat", "kit", "rep", "rate_mg_per_L_per_min","rate_mg_per_L_per_h", "Treat", "Mean_Slope_All","cv_before_removal", "cv_after_removal", "Mean_Slope_Removed","flag")
-# 
-# unique.samples = unique(slope.new$kit_treat)
-# 
-# for (i in 1:length(unique.samples)) {
-#   
-#   data_subset = subset(slope.new, slope.new$kit_treat == unique.samples[i])
-#     
-#   slope.temp = as.numeric(data_subset$slope_of_the_regression)
-#                           
-#   slope.temp.sd <- sd(slope.temp)
-#   slope.temp.mean <- mean(slope.temp)
-#   CV = abs((slope.temp.sd/slope.temp.mean)*100)
-#   
-#   #looping to get 4 out of 5 best samples
-#   for (sample.reduction in 1:5)  {
-#     
-#     if (slope.temp.mean == 0) {
-#       
-#       CV = 0
-#       
-#     }
-#     
-#     else if (length(slope.temp) > 4 & CV >= 10) {
-#       
-#       dist.temp = as.matrix(abs(dist(slope.temp)))
-#       dist.comp = numeric()
-#       
-#       for(slope.now in 1:ncol(dist.temp)) {
-#         
-#         dist.comp = rbind(dist.comp,c(slope.now,sum(dist.temp[,slope.now])))
-#         
-#       }
-#      
-#       dist.comp[,2] = as.numeric(dist.comp[,2])
-#       slope.temp = slope.temp[-which.max(dist.comp[,2])]
-#       
-#       slope.temp.sd <- sd(slope.temp)
-#       slope.temp.mean <- mean(slope.temp)
-#       slope.temp.cv <- abs((slope.temp.sd/slope.temp.mean)*100)
-#       CV = slope.temp.cv
-#       slope.temp.range <- max(slope.temp) - min(slope.temp)
-#       range = slope.temp.range
-#       
-#       }
-#   }
-#   
-#   if (length(slope.temp) >= 3) {
-#     
-#     # if(CV > 10 ) {
-#     #   
-#     #   slope.new$Slope_Removed_Mean[which(slope.new$kit_treat == unique.samples[i])] = "Samples too Variable"
-#     #   
-#     # }
-#     
-#    # else {
-#    
-#     
-#     slope.combined <- as.data.frame(slope.temp)
-#     
-#     slope.removed <- merge(slope.combined, data_subset, by.x = "slope.temp", by.y = "slope_of_the_regression", all.x = TRUE)
-#     
-#     slope.removed <- slope.removed[!duplicated(slope.removed$Sample_Name), ]
-#     
-#     slope.removed$cv_after_removal = as.numeric(abs((sd(slope.temp)/mean(slope.temp))*100))
-#     
-#     slope.removed$Mean_Slope_Removed = as.numeric(mean(slope.temp))
-#  
-#     #slope.new$cv_after_removal[which(slope.new$kit_treat == unique.samples[i])] = as.numeric(abs((sd(slope.temp)/mean(slope.temp))*100))
-#     
-#     
-#   # slope.new$Slope_Removed_Mean[which(slope.new$kit_treat == unique.samples[i])] = as.numeric(mean(slope.temp))
-#    
-#       #  }
-#     
-#   }
-#   
-#   slope.final = rbind(slope.removed, slope.final)
-#   
-#   rm('slope.temp')
-# }
-# 
-# ## This data frame has removed samples 
-# slope.final$flag <- ifelse(slope.final$cv_before_removal < slope.final$cv_after_removal, "Issue in dropping sample", NA)
-# 
-# slope.final <- rename(slope.final, "slope_of_the_regression" = "slope.temp")
-# 
-# slope.final$rem <- abs(slope.final$slope_of_the_regression) - slope.final$rate_mg_per_L_per_min
-# 
-# slope.final <- slope.final[!is.na(slope.final$Sample_Name),]
+slope.new <- respiration %>%
+   separate(Sample_Name, c("ECA", "kit", "rep"), sep = "_", remove = FALSE) %>%
+  mutate(Treat = case_when(grepl("W",rep)~"Wet",
+                           grepl("D", rep) ~"Dry")) %>%
+  unite(kit_treat, kit, Treat, remove = FALSE) %>%
+  group_by(kit_treat) %>%
+  mutate(Mean_Slope_All = mean(slope_of_the_regression)) %>%
+   mutate(cv_before_removal = (abs(sd(slope_of_the_regression)/mean(slope_of_the_regression)))*100) %>%
+ungroup() %>%
+    dplyr::select(c(Sample_Name, kit_treat, kit,rep,slope_of_the_regression,rate_mg_per_L_per_min,rate_mg_per_L_per_h, Treat, Mean_Slope_All, cv_before_removal))
+
+ slope.new$flag <- NA
+
+ slope.final <- as.data.frame(matrix(NA, ncol = 13, nrow =1))
+
+ colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "kit", "rep", "rate_mg_per_L_per_min","rate_mg_per_L_per_h", "Treat", "Mean_Slope_All","cv_before_removal", "cv_after_removal", "Mean_Slope_Removed","flag")
+
+unique.samples = unique(slope.new$kit_treat)
+
+for (i in 1:length(unique.samples)) {
+
+  data_subset = subset(slope.new, slope.new$kit_treat == unique.samples[i])
+
+  slope.temp = as.numeric(data_subset$slope_of_the_regression)
+
+  slope.temp.sd <- sd(slope.temp)
+  slope.temp.mean <- mean(slope.temp)
+  CV = abs((slope.temp.sd/slope.temp.mean)*100)
+
+  #looping to get 4 out of 5 best samples
+  for (sample.reduction in 1:5)  {
+
+    if (slope.temp.mean == 0) {
+
+      CV = 0
+
+    }
+
+    else if (length(slope.temp) > 4 & CV >= 10) {
+
+      dist.temp = as.matrix(abs(dist(slope.temp)))
+      dist.comp = numeric()
+
+      for(slope.now in 1:ncol(dist.temp)) {
+
+        dist.comp = rbind(dist.comp,c(slope.now,sum(dist.temp[,slope.now])))
+
+      }
+
+      dist.comp[,2] = as.numeric(dist.comp[,2])
+      slope.temp = slope.temp[-which.max(dist.comp[,2])]
+
+      slope.temp.sd <- sd(slope.temp)
+      slope.temp.mean <- mean(slope.temp)
+      slope.temp.cv <- abs((slope.temp.sd/slope.temp.mean)*100)
+      CV = slope.temp.cv
+      slope.temp.range <- max(slope.temp) - min(slope.temp)
+      range = slope.temp.range
+
+      }
+  }
+
+  if (length(slope.temp) >= 3) {
+
+    slope.combined <- as.data.frame(slope.temp)
+
+    slope.removed <- merge(slope.combined, data_subset, by.x = "slope.temp", by.y = "slope_of_the_regression", all.x = TRUE)
+
+    slope.removed <- slope.removed[!duplicated(slope.removed$Sample_Name), ]
+
+    slope.removed$cv_after_removal = as.numeric(abs((sd(slope.temp)/mean(slope.temp))*100))
+
+    slope.removed$Mean_Slope_Removed = as.numeric(mean(slope.temp))
+
+  }
+
+  slope.final = rbind(slope.removed, slope.final)
+
+  rm('slope.temp')
+}
+
+## This data frame has removed samples
+slope.final$flag <- ifelse(slope.final$cv_before_removal < slope.final$cv_after_removal, "Issue in dropping sample", NA)
+
+slope.final <- rename(slope.final, "slope_of_the_regression" = "slope.temp")
+
+slope.final$rem <- abs(slope.final$slope_of_the_regression) - slope.final$rate_mg_per_L_per_min
+
+slope.final <- slope.final[!is.na(slope.final$Sample_Name),]
+
+```
+
+## Calculate Effect Size/Make Histograms of data with no removals
+```{r}
+
+data_clean <- slope.new %>% 
+  mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>%
+  mutate(rate_mg = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_min)) %>% 
+  mutate(Mean_Slope_All = if_else(Mean_Slope_All >0,0,Mean_Slope_All)) %>% 
+  mutate(Mean_Slope = abs(Mean_Slope_All))
+
+wet_no <- ggplot(subset(data_clean, Treat %in% "Wet"), aes(x = rate_mg_per_L_per_min)) +
+  geom_histogram()+
+  ggtitle("Wet Rates, No Removals")+
+  theme(strip.text = element_text(
+    size = 4))
+
+dry_no <- ggplot(subset(data_clean, Treat %in% "Dry"), aes(x = rate_mg_per_L_per_min)) +
+  geom_histogram()+
+  ggtitle("Dry Rates, No Removals")+
+  theme(strip.text = element_text(
+    size = 4))
+
+data_clean_effect <- data_clean %>% 
+  filter(!grepl(011, kit)) %>% 
+  filter(!grepl(012, kit)) %>% 
+  distinct(kit_treat, .keep_all = TRUE) %>% 
+  group_by(kit) %>% 
+  mutate(effect = (Mean_Slope[Treat == "Wet"] - Mean_Slope[Treat == "Dry"])) %>% 
+  mutate(log_effect = log10(abs(effect+1))) %>% 
+  distinct(kit, .keep_all = TRUE)
+ 
+effect_no <- ggplot(data_clean_effect, aes(x = effect)) + 
+  geom_histogram() +
+  ggtitle("Effect Size, No Removals")+
+  theme(strip.text = element_text(
+    size = 4))
+
 
 ```
 
 
 ```{r Make histograms of all rates/Dataset with rates removed}
 
-# slope.final.clean = slope.final %>%
-#   mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>%
-#   mutate(rate_mg = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_min)) %>% 
-#   mutate(Mean_Slope_Removed = if_else(Mean_Slope_Removed>0,0,Mean_Slope_Removed)) %>% 
-#   dplyr::select(c(Sample_Name,rate_mg)) %>% 
-#   rename(rate_mg_per_L_per_min = rate_mg) %>% 
-#   mutate(rate_mg_per_L_per_h = rate_mg_per_L_per_min*60) %>% 
-#   separate(Sample_Name, into = c("EC", "kit", "INC"), remove = FALSE) %>% 
-#   separate(Sample_Name, into = c("ID", "rep"), sep = "-", remove = FALSE) %>% 
-#   mutate(Treat = case_when(grepl("W",rep)~"Wet",
-#                            grepl("D", rep) ~"Dry")) %>% 
-#   unite(kit_treat, c("kit", "Treat"),  sep = "_", remove = FALSE)
-# 
-# slope.final.clean$log_rate_mg_per_L_per_min = log10(slope.final.clean$rate_mg_per_L_per_min+1)
-# 
-# slope.final.clean <- na.omit(slope.final.clean)
-# 
-# slope.final.clean$Treat <- factor(slope.final.clean$Treat, levels=c('Wet', 'Dry'))
-# 
-# 
-# ggplot(slope.final.clean, aes(x = rate_mg_per_L_per_min, fill = Treat))+
-#   geom_histogram(binwidth = 0.15)+
-#   facet_grid(~Treat)+
-#   scale_fill_brewer(palette="Set2")+
-#   theme_bw()+
-#   #ggtitle("Histogram of All Slopes")+
-#   theme(axis.title.x = element_text(size = 24, margin = margin(b = 5)),
-#         axis.title.y = element_text(size = 24),
-#         axis.text.x = element_text(size = 16, angle = 90, hjust = 1, vjust = 1),
-#         axis.text.y = element_text(size =18),
-#         title = element_text(size = 24),
-#         legend.text = element_text(size = 18))+
-#   ylab("Count\n") +
-#   xlab(expression(paste("Slope (mg " ~L^-1 ~ min^-1~")"))) + 
-#   ggtitle("Rates, No Removals")
-# 
-# 
-# ggplot(slope.final, aes(x = slope_of_the_regression, fill = Treat))+
-#   geom_histogram(binwidth = 0.15)+
-#   facet_grid(~Treat)+
-#   scale_fill_brewer(palette="Set2")+
-#   theme_bw()+
-#   #ggtitle("Histogram of All Slopes")+
-#   theme(axis.title.x = element_text(size = 24, margin = margin(b = 5)),
-#         axis.title.y = element_text(size = 24),
-#         axis.text.x = element_text(size = 16, angle = 90, hjust = 1, vjust = 1),
-#         axis.text.y = element_text(size =18),
-#         title = element_text(size = 24),
-#         legend.text = element_text(size = 18))+
-#   ylab("Count\n") +
-#   xlab(expression(paste("Slope (mg " ~L^-1 ~ min^-1~")")))+
-#   ggtitle("Rates, Outliers Removed")
-# 
-
-```
-
-```{r Calculate Effect Size}
-
-# Finalize respiration data with removals ####
-#turn all positive rates to 0
+data_clean_removals = slope.final %>%
+  mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>%
+  mutate(rate_mg = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_min)) %>%
+  mutate(Mean_Slope_Removed = if_else(Mean_Slope_Removed>0,0,Mean_Slope_Removed)) %>%
+  dplyr::select(c(Sample_Name,rate_mg, Mean_Slope_Removed)) %>%
+  rename(rate_mg_per_L_per_min = rate_mg) %>%
+  mutate(rate_mg_per_L_per_h = rate_mg_per_L_per_min*60) %>%
+  separate(Sample_Name, into = c("EC", "kit", "INC"), remove = FALSE) %>%
+  separate(Sample_Name, into = c("ID", "rep"), sep = "-", remove = FALSE) %>%
+  mutate(Treat = case_when(grepl("W",rep)~"Wet",
+                           grepl("D", rep) ~"Dry")) %>%
+  unite(kit_treat, c("kit", "Treat"),  sep = "_", remove = FALSE)
 
 
-# slope.means <- slope.final.clean %>% 
-#    mutate(Treat = case_when(grepl("W", rep)~"Wet",
-#                            grepl("D", rep) ~"Dry")) %>% group_by(kit, Treat) %>% 
-#   mutate(Mean_Slope_Removed = mean(rate_mg_per_L_per_min)) %>% 
-#   distinct(kit, Treat, .keep_all = TRUE) %>% 
-#   dplyr::select(c(kit,Treat,Mean_Slope_Removed))
-# 
-# slope.means$Mean_Slope_Removed <- as.numeric(slope.means$Mean_Slope_Removed)
-# 
-# slope.means$kit <- as.factor(slope.means$kit)
-# 
-# eca <- slope.means %>% 
-#   count(kit)
-#   group_by(kit) %>% 
-#   
-#   mutate(effect = (Mean_Slope_Removed[Treat == "Wet"] - Mean_Slope_Removed[Treat == "Dry"])) %>% 
-#   mutate(log_effect = log10(abs(effect+1))) %>% 
-#   separate(kit, into = c("EC",  "Site", "INC"), sep = "_") %>% 
-#   dplyr::select(-c(EC, INC))
-# 
-# limits = c(-5,
-#            5)
-# 
-# ggplot(eca, aes(x = reorder(Site, effect), y = effect))+
-#   #geom_bar(fill = "#D55E00",col = "black", stat = "summary") +
-#   geom_bar(stat = "summary", aes(fill = effect)) +
-#   scale_fill_gradient2(limits = limits, low = "firebrick2", mid = "goldenrod2",
-#                         high = "dodgerblue2", midpoint = (max(limits)+min(limits))/2) +
-#   theme_bw()+
-#   theme(axis.title.x = element_text(size = 24),
-#         axis.title.y = element_text(size = 24),
-#         axis.text.x = element_text(size = 14, angle = 90, vjust = 0.5, hjust = 1),
-#         axis.text.y = element_text(size =18))+
-#   ylab(expression(paste("Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")))+
-#   xlab("\nSite Number")
-# 
-# ggplot(eca, aes(x = effect))+
-#  # geom_histogram(binwidth = 0.15, fill = "#009E73")+
-#   geom_histogram(binwidth = 0.15, aes(fill = after_stat(x))) +
-#   scale_fill_gradient2(limits = limits, low = "firebrick2", mid = "goldenrod2",
-#                         high = "dodgerblue2", midpoint = (max(limits)+min(limits))/2) +
-#   theme_bw()+
-#   theme(axis.title.x = element_text(size = 24),
-#         axis.title.y = element_text(size = 24),
-#         axis.text.x = element_text(size = 18),
-#         axis.text.y = element_text(size =18))+
-#   xlim(c(-5,5))+
-#   ylab("Count\n")+
-#   xlab("\n Effect Size (Wet - Dry Rate)")
+wet_rem <- ggplot(subset(data_clean_removals, Treat %in% "Wet"), aes(x = rate_mg_per_L_per_min)) +
+  geom_histogram()+
+  ggtitle("Wet Rates, Removals")+
+  theme(strip.text = element_text(
+    size = 4))
+
+dry_rem <- ggplot(subset(data_clean_removals, Treat %in% "Dry"), aes(x = rate_mg_per_L_per_min)) +
+  geom_histogram()+
+  ggtitle("Dry Rates, Removals")+
+  theme(strip.text = element_text(
+    size = 4))
+
+data_clean_rem_effect <- data_clean_removals %>% 
+  filter(!grepl(011, kit)) %>% 
+  filter(!grepl(012, kit)) %>% 
+  mutate(Mean_Slope = abs(Mean_Slope_Removed)) %>% 
+  distinct(kit_treat, .keep_all = TRUE) %>% 
+  group_by(kit) %>% 
+  mutate(effect = (Mean_Slope[Treat == "Wet"] - Mean_Slope[Treat == "Dry"])) %>% 
+  mutate(log_effect = log10(abs(effect+1))) %>% 
+  distinct(kit, .keep_all = TRUE)
+ 
+effect_rem <- ggplot(data_clean_rem_effect, aes(x = effect)) + 
+  geom_histogram() +
+  ggtitle("Effect Size, No Removals")+
+  theme(strip.text = element_text(
+    size = 4))
+
+all <- (wet_no + wet_rem + dry_no + dry_rem + effect_no + effect_rem) +
+  plot_layout(widths = c(3,3))
+
+print(all)
 
 ```
