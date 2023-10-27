@@ -3,6 +3,9 @@ title: "ECA_Optode_Respiration_Sensitivity_Analysis"
 author: "MML"
 date: "2023-10-11"
 output: html_document
+
+## Maggi Laan (maggi.laan@pnnl.gov)
+## Code used for calculating rates from dissolved oxygen concentraition data from ECA Multireactor Incubations
 ---
 
 ```{r setup, include=FALSE}
@@ -107,7 +110,7 @@ high.slope.thresh = -0.04
 time.same = 7
 break.toggle = 1.4
 conc.range = 1.4
-plot.toggle = FALSE
+plot.toggle = TRUE
 
 ```
 ## Fit a linear model to data with chosen rules

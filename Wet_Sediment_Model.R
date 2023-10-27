@@ -135,7 +135,7 @@ ggplot(inc_data, aes (x = mass_water))+
 
 mean_water <- mean(inc_data$mass_water)
 median_water <- median(inc_data$mass_water)
-sd(inc_data$mass_water)
+sd_water <- sd(inc_data$mass_water)
 
 ## MERGE DATA FOR GRAIN SIZE MODEL ####
 
@@ -179,7 +179,7 @@ hist(model_residuals)
 qqnorm(model_residuals)
 qqline(model_residuals)
 
-## dry wet sed. % mud, average grav water
+## dry wet sed. % mud, R2 0.7624
 
 model2 <- lm(mass_water ~  mean + Percent_Mud, data = all_data)
 
@@ -188,14 +188,35 @@ confint(model2)
 
 sigma(model2)/mean(all_data$mass_water)
 
+#SSA + % Mud, R2 = 0.7624
+
+model3 <- lm(mass_water ~  mean + Percent_Mud, data = all_data)
+
+summary(model3)
+confint(model3)
+
 ## 50.2 + 0.00184*ssa + 0.0422*Percent_Mud
 # +/- 4% error in Mass Water Estimate
 
 model_data <- all_data %>% 
   mutate(modelled_water = 50.2 + (0.00184*mean) + (0.0422*Percent_Mud)) %>% 
-  select(c(Sample_Name, mass_water, modelled_water)) %>% 
+  select(c(Sample_Name, mass_water, modelled_water, Dry_Sediment_Mass_g)) %>% 
   mutate(percent_error = ((mass_water - modelled_water)/mass_water)*100)
 
+## Resp MODEL
+
+all_respiration <- read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Plots/Sensitivity_Analysis/ECA_Sediment_Incubations_Respiration_Rates_1.4_Break_2023-10-25.csv")
+
+all_respiration <- all_respiration %>% 
+  select(c(Sample_Name, rate_mg_per_L_per_min))
+
+model_resp_data <- merge(all_respiration, model_data, by = "Sample_Name")
+
+model_resp_data <- model_resp_data %>% 
+  mutate(rate_mg_per_L_per_kg_real = rate_mg_per_L_per_min * (mass_water/Dry_Sediment_Mass_g)) %>% 
+  mutate(rate_mg_per_L_per_kg_model = rate_mg_per_L_per_min * (modelled_water/Dry_Sediment_Mass_g)) %>% 
+  mutate(percent_error_resp = ((rate_mg_per_L_per_kg_real - rate_mg_per_L_per_kg_model)/rate_mg_per_L_per_kg_real)*100) %>% 
+  mutate(range_model = rate_mg_per_L_per_kg_real - rate_mg_per_L_per_kg_model)
 
 ## FE MODEL ####
 
