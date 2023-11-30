@@ -54,7 +54,7 @@ inc <- inc %>%
   relocate(Sample_Name, .before = INC_tube_50ml_empty_g)
 
 ## Compare to SSA
-ssa <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/SSA/03_ProcessedData/SSA_Means_2023.csv"))
+ssa <- read_csv(paste0("C:/GitHub/ECA_Multireactor_Incubations/Data/eca_ssa_predatapackage.csv"))
 
 ssa <- ssa %>% 
   separate(Parent_ID, c("EC", "Site"), sep = "_")
@@ -77,6 +77,11 @@ for (i in 1:nrow(ssa)){
 ssa <- ssa %>% 
   unite(Sample_ID, c("EC", "Site"), sep = "_")
 
+mean_ssa <- ssa %>% 
+  group_by(Sample_ID) %>% 
+  mutate(average_ssa = mean(ssa_m2_g)) %>% 
+  distinct(Sample_ID, .keep_all = TRUE) %>% 
+  dplyr::select(Sample_ID, average_ssa)
 
 ## ORIGINAL INCUBATION WEIGHTS ####
 
@@ -143,10 +148,10 @@ all_data <- left_join(inc_data, grain_all, by = c("Sample_ID"))
 
 all_data <- left_join(all_data, moisture_clean, by = c("Sample_ID"))
 
-all_data <- left_join(all_data, ssa, by = c("Sample_ID"))
+all_data <- left_join(all_data, mean_ssa, by = c("Sample_ID"))
 
 all_data <- all_data %>% 
-  dplyr::select(c(Sample_Name, Sample_ID, Initial_Water_mass_g, Final_Water_mass_g, Dry_Sediment_Mass_g, mass_water, mean, Percent_Clay, Percent_Silt, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Tot_Sand,  percent_water_content_dry, average)) %>% 
+  dplyr::select(c(Sample_Name, Sample_ID, Initial_Water_mass_g, Final_Water_mass_g, Dry_Sediment_Mass_g, mass_water, average_ssa, Percent_Clay, Percent_Silt, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Tot_Sand,  percent_water_content_dry, average)) %>% 
   rename(average_perc_water = average) %>% 
   distinct(Sample_Name, .keep_all = TRUE)
 
@@ -164,11 +169,14 @@ all_data$Percent_Tot_Sand <- as.numeric(all_data$Percent_Tot_Sand)
 
 
 all_data <- all_data %>% 
-  mutate(Percent_Mud = Percent_Clay + Percent_Silt)
+  mutate(Percent_Mud = Percent_Clay + Percent_Silt) %>% 
+  mutate(log_ssa = log10(average_ssa)) %>% 
+  mutate(log_mud = log10(Percent_Mud))
 
 ## MLM using GRAIN SIZE and MASS WATER ####
 
-model <- lm(mass_water ~ Percent_Mud + Percent_Coarse_Sand + Percent_Med_Sand + Percent_Fine_Sand + Dry_Sediment_Mass_g + average_perc_water, data = all_data)
+#R2 0.3116
+model <- lm(mass_water ~ Percent_Mud + Percent_Coarse_Sand + Percent_Med_Sand + Percent_Fine_Sand + average_ssa, data = all_data)
 
 summary(model)
 summary(model)$coefficient
@@ -179,44 +187,75 @@ hist(model_residuals)
 qqnorm(model_residuals)
 qqline(model_residuals)
 
-## dry wet sed. % mud, R2 0.7624
+## R2 0.3031
+model.5 <- lm(mass_water ~ Percent_Mud + Percent_Coarse_Sand + average_ssa, data = all_data)
 
-model2 <- lm(mass_water ~  mean + Percent_Mud, data = all_data)
+summary(model.5)
+
+## R2 0.2612
+model_1.5 <- lm(mass_water ~  Percent_Coarse_Sand + average_ssa, data = all_data)
+
+summary(model_1.5)
+
+## ssa, % mud, R2 0.2043
+
+model2 <- lm(mass_water ~  Percent_Mud + average_ssa, data = all_data)
 
 summary(model2)
 confint(model2)
 
 sigma(model2)/mean(all_data$mass_water)
 
-#SSA + % Mud, R2 = 0.7624
 
-model3 <- lm(mass_water ~  mean + Percent_Mud, data = all_data)
+model2.5 <- lm(mass_water ~  log_mud + log_ssa, data = all_data)
+
+summary(model2.5)
+confint(model2)
+
+#R2 0.1532
+model3 <- lm(mass_water ~  log_ssa, data = all_data)
 
 summary(model3)
-confint(model3)
 
-## 50.2 + 0.00184*ssa + 0.0422*Percent_Mud
+## 50.36 + 0.029*Percent_Mud - 0.009*Coarse_Sand + 0.007*Percent_Med_Sand + 0.017*average_ssa
 # +/- 4% error in Mass Water Estimate
 
 model_data <- all_data %>% 
-  mutate(modelled_water = 50.2 + (0.00184*mean) + (0.0422*Percent_Mud)) %>% 
+  mutate(modelled_water = 50.36 + (0.029*Percent_Mud) - (0.009*Percent_Coarse_Sand) + (0.007*Percent_Med_Sand) + (0.017*average_ssa)) %>% 
   select(c(Sample_Name, mass_water, modelled_water, Dry_Sediment_Mass_g)) %>% 
   mutate(percent_error = ((mass_water - modelled_water)/mass_water)*100)
 
+
+
 ## Resp MODEL
 
-all_respiration <- read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Plots/Sensitivity_Analysis/ECA_Sediment_Incubations_Respiration_Rates_1.4_Break_2023-10-25.csv")
+all_respiration <- read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/ReadyForBoye/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2023-11-08.csv")
 
 all_respiration <- all_respiration %>% 
-  select(c(Sample_Name, rate_mg_per_L_per_min))
+  select(c(Sample_Name, Respiration_Rate_mg_DO_per_L_per_H))
 
 model_resp_data <- merge(all_respiration, model_data, by = "Sample_Name")
 
 model_resp_data <- model_resp_data %>% 
-  mutate(rate_mg_per_L_per_kg_real = rate_mg_per_L_per_min * (mass_water/Dry_Sediment_Mass_g)) %>% 
-  mutate(rate_mg_per_L_per_kg_model = rate_mg_per_L_per_min * (modelled_water/Dry_Sediment_Mass_g)) %>% 
+  mutate(rate_mg_per_L_per_kg_real = Respiration_Rate_mg_DO_per_L_per_H * (mass_water/Dry_Sediment_Mass_g)) %>% 
+  mutate(rate_mg_per_L_per_kg_model = Respiration_Rate_mg_DO_per_L_per_H * (modelled_water/Dry_Sediment_Mass_g)) %>% 
   mutate(percent_error_resp = ((rate_mg_per_L_per_kg_real - rate_mg_per_L_per_kg_model)/rate_mg_per_L_per_kg_real)*100) %>% 
   mutate(range_model = rate_mg_per_L_per_kg_real - rate_mg_per_L_per_kg_model)
+
+## CV respiration rates
+
+cv_resp <- all_respiration %>% 
+  separate(Sample_Name, c("EC", "kit", "INC"), sep = "_") %>% 
+  separate(INC, c("INC", "rep"), sep = "-") %>% 
+  mutate(Treat = case_when(grepl("W", rep)~"Wet",
+                           grepl("D", rep) ~"Dry")) %>%
+  unite(kit_treat, c("kit", "Treat"), sep = "_", remove = FALSE) %>% 
+  filter(Respiration_Rate_mg_DO_per_L_per_H != -9999) %>% 
+  group_by(kit, Treat) %>% 
+  mutate(cv = abs((sd(Respiration_Rate_mg_DO_per_L_per_H)/mean(Respiration_Rate_mg_DO_per_L_per_H))*100))
+
+ggplot(cv_resp, aes(x = kit_treat, y = Respiration_Rate_mg_DO_per_L_per_H)) + 
+  geom_boxplot()
 
 ## FE MODEL ####
 

@@ -135,7 +135,7 @@ effect_all <- effect_size %>%
   filter(Effect_Size != -9999) %>% 
   mutate(Log_Effect_Size = log10(Effect_Size + 1)) %>% 
   separate(Sample_Name, c("EC", "kit", "INC"), remove = TRUE) %>% 
-  select(c(kit, Effect_Size, Log_Effect_Size))
+  dplyr::select(c(kit, Effect_Size, Log_Effect_Size))
 
 ## Effect Size Histogram ####
 
@@ -145,7 +145,7 @@ png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team
 
 ggplot(effect_all, aes(x = Effect_Size))+
   # geom_histogram(binwidth = 0.15, fill = "#009E73")+
-  geom_histogram(binwidth = 7.5, aes(fill = after_stat(x))) +
+  geom_histogram(binwidth = 15, aes(fill = after_stat(x))) +
   scale_fill_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
                        high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2) +
   theme_bw()+
@@ -155,7 +155,8 @@ ggplot(effect_all, aes(x = Effect_Size))+
         axis.text.y = element_text(size =18))+
   xlim(c(-300,300))+
   ylab("Count\n")+
-  xlab("\n Effect Size (Wet - Dry Rate)")
+  xlab(expression("\n Effect Size (Wet - Dry Rate; mg O"^2*" L"^-1*" H"^-1*")"))
+
 
 dev.off()
 
@@ -175,7 +176,7 @@ ggplot(effect_all, aes(x = Log_Effect_Size))+
         axis.text.y = element_text(size =18))+
   xlim(c(-2.48, 2.48))+
   ylab("Count\n")+
-  xlab("\n Log Effect Size (Wet - Dry Rate)")
+  xlab(expression("\n Log Effect Size (Wet - Dry Rate; mg O"^2*" L"^-1*" H"^-1*")"))
 
 dev.off()
 
@@ -485,6 +486,29 @@ ggplot(corr, aes(x = log_clay, y = log_ssa)) +
   ylab(expression("Log Specific Surface Area (m"^2*" g"^-1*")")) + 
   theme_bw()
 
+ssa_resp <- merge(grn, rem_resp_avg, by = "kit") %>% 
+  merge(ssa_clean, by = "kit") %>% 
+  mutate(log_rate = log10(Average_Rate + 1)) %>% 
+  mutate(log_ssa = log10(mean_ssa + 1))
+
+
+
+ggplot(ssa_resp) + 
+  geom_point(aes(y = Average_Rate, x = mean_ssa, color = Treat))+
+  scale_color_manual(values=c("#D55E00", "#0072B2"),  breaks = c("Dry", "Wet"))+
+  ylab(expression("Rate (mg O"[2]*"  L"^-1*" H"^-1*")"))+
+  xlab(expression("Specific Surface Area (m"^2*" g"^-1*")")) + 
+  theme_bw()
+
+
+ggplot(ssa_resp) + 
+  geom_point(aes(y = log_rate, x = log_ssa, color = Treat))+
+  scale_color_manual(values=c("#D55E00", "#0072B2"),  breaks = c("Dry", "Wet"))+
+  ylab(expression("Log Rate (mg O"[2]*"  L"^-1*" H"^-1*")"))+
+  xlab(expression("Log Specific Surface Area (m"^2*" g"^-1*")")) + 
+  theme_bw()
+
+  
 ####
 
 #### pH, SpC, Temp ####
@@ -786,14 +810,17 @@ dev.off()
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_SSA.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(effect, aes(y = `Effect Size`, x = `mean_ssa`)) +
-  geom_point() +
+  geom_point(size = 4, aes(color = `Effect Size`)) +
+  scale_color_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
+                       high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2)+
   #stat_poly_eq()+
   #stat_poly_line()+
   #geom_smooth(method = "lm")+
   ylab("Effect Size") +
   xlab(expression("Specific Surface Area (m"^2*" g"^-1*")")) + 
   #xlab("Log % Mud")+
-  theme_bw()
+  theme_bw()+
+  theme(axis.title = element_text(size=20))
 
 dev.off()
 

@@ -653,6 +653,10 @@ slope.outliers$flag <- NA
 
 unique.samples = unique(slope.outliers$kit_treat)
 
+#try 0, 10, 30, 50, 100, export histograms of removals, effect sizes
+
+cv.threshold = 30
+
 for (i in 1:length(unique.samples)) {
 
   ## Subset replicates
@@ -675,7 +679,7 @@ for (i in 1:length(unique.samples)) {
 
     }
 
-    else if (length(slope.temp) > 4 & CV >= 10) {
+    else if (length(slope.temp) > 4 & CV >= cv.threshold) {
 
       dist.temp = as.matrix(abs(dist(slope.temp)))
       dist.comp = numeric()
@@ -743,6 +747,12 @@ data_clean_no_removals <- slope.outliers %>%
   mutate(Mean_Slope_All = abs(Mean_Slope_All)) %>% 
   separate(kit_treat, c("EC", "kit", "INC", "Treat"), sep = "_") %>% 
   dplyr::select(-c(EC, INC))
+
+#cv_before <- slope.outliers %>% 
+  #distinct(kit_treat, .keep_all = TRUE)
+
+#cv_before_plot <- ggplot(cv_before, aes(x = cv_before_removal)) + 
+  #geom_histogram()
 
 wet_no <- ggplot(subset(data_clean_no_removals, Treat %in% "Wet"), aes(x = Respiration_Rate_mg_DO_per_L_per_H)) +
   geom_histogram()+
@@ -818,6 +828,12 @@ removed_theoretical_effect <- ggplot(no_theoretical_effect, aes(x = effect)) +
 
 ```{r Make histograms of all rates/Dataset with rates removed}
 
+cv_after <- slope.final.flag %>% 
+  distinct(kit_treat, .keep_all = TRUE) 
+
+cv_after_plot <- ggplot(slope.final.flag, aes(x = cv_after_removal)) + 
+  geom_histogram()
+
 data_clean_removals = slope.final.flag %>%
   mutate(Mean_Slope_Removed = abs(Mean_Slope_Removed)) %>%
   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
@@ -831,7 +847,13 @@ data_clean_removals = slope.final.flag %>%
 removed <- data_clean_removals %>% 
   dplyr::select(c(Sample_Name, Respiration_Rate_mg_DO_per_L_per_H))
 
-write.csv(removed,paste0(output.path,"ECA_Sediment_Incubations_Removed_Respiration_Rates_",Sys.Date(),".csv"), row.names = F)
+average <- data_clean_removals %>% 
+  distinct(kit_treat, .keep_all = TRUE) %>% 
+  dplyr::select(c(ID, Treat, Mean_Slope_Removed))
+
+#write.csv(average,paste0(output.path,"ECA_Sediment_Incubations_Removed_Respiration_Rates_Averages",Sys.Date(),".csv"), row.names = F)
+
+#write.csv(removed,paste0(output.path,"ECA_Sediment_Incubations_Removed_Respiration_Rates_",Sys.Date(),".csv"), row.names = F)
 
 
 wet_rem <- ggplot(subset(data_clean_removals, Treat %in% "Wet"), aes(x = Respiration_Rate_mg_DO_per_L_per_H)) +
