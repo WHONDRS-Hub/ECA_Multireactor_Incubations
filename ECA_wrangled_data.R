@@ -24,7 +24,7 @@ pnnl.user = 'laan208'
 effect.date = '2023-11-08'
 respiration.date = '2023-11-08'
 removed.respiration.date = '2023-11-13'
-mg.kg.respiration.date = '2023-12-01'
+mg.kg.respiration.date = '2023-12-05'
 grav.date = '2023-12-01'
 
 #Read in all data
@@ -179,7 +179,7 @@ all_data <- left_join(all_respiration, iron_samples, by = "Sample_Name") %>%
   mutate(Initial_Gravimetric_Water = Initial_Water_mass_g/Dry_Sediment_Mass_g) %>% 
   mutate(Final_Gravimetric_Water = Final_Water_mass_g/Dry_Sediment_Mass_g) %>% 
   mutate(Lost_Gravimetric_Water = Initial_Gravimetric_Water - Final_Gravimetric_Water) %>% 
-select(-c(Methods_Deviation, ECA, kit, Analysis, INC, Treat, mass_water)) 
+dplyr::select(-c(Methods_Deviation, ECA, kit, Analysis, INC, Treat, mass_water)) 
  
 write.csv(all_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data.csv")  
 
@@ -213,6 +213,6 @@ effect_data <- summary_data %>%
   mutate(Final_Grav_Water_Difference = Final_Gravimetric_Water[Treat == "W"] - Final_Gravimetric_Water[Treat == "D"]) %>% 
   mutate(Final_Grav_Water_Difference = Final_Gravimetric_Water[Treat == "W"] - Final_Gravimetric_Water[Treat == "D"]) %>% 
   distinct(Sample_Name, .keep_all = TRUE) %>% 
-  select(c(Sample_Name, Effect_Size_mg_per_L, Effect_Size_mg_per_kg, Fe_Difference_mg_per_L, Fe_Difference_mg_per_kg, SpC_Difference, pH_Difference, Temp_Difference, Initial_Grav_Water_Difference, Final_Grav_Water_Difference))
+  dplyr::select(c(Sample_Name, Effect_Size_mg_per_L, Effect_Size_mg_per_kg, Fe_Difference_mg_per_L, Fe_Difference_mg_per_kg, SpC_Difference, pH_Difference, Temp_Difference, Initial_Grav_Water_Difference, Final_Grav_Water_Difference))
 
 write.csv(effect_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_ECA_Data.csv") 

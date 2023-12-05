@@ -128,7 +128,7 @@ sd_water <- sd(inc_data$mass_water)
 all_data <- left_join(inc_data, grain_all, by = c("Sample_ID")) %>% 
   left_join(moisture_clean, by = c("Sample_ID")) %>% 
   left_join(mean_ssa, by = c("Sample_ID")) %>% 
-  dplyr::select(c(Sample_Name.x, Sample_ID, Initial_Water_mass_g, Final_Water_mass_g, Dry_Sediment_Mass_g, mass_water, average_ssa, Percent_Clay, Percent_Silt, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Tot_Sand,  percent_water_content_dry, average_grav)) %>% 
+  dplyr::select(c(Sample_Name.x, Sample_ID, Initial_Water_mass_g, Final_Water_mass_g, Dry_Sediment_Mass_g, mass_sed_water, mass_water, average_ssa, Percent_Clay, Percent_Silt, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Tot_Sand,  percent_water_content_dry, average_grav)) %>% 
   distinct(Sample_Name.x, .keep_all = TRUE) %>% 
   rename(Sample_Name = Sample_Name.x)
 
@@ -151,6 +151,18 @@ all_data <- all_data %>%
   mutate(log_mud = log10(Percent_Mud))
 
 ## MLM using GRAIN SIZE and MASS WATER ####
+
+#R2 0.5045 - don't have mass_sed_water for all
+model_sed <- lm(mass_water ~ Dry_Sediment_Mass_g + Percent_Clay + Percent_Silt, data = all_data)
+
+summary(model_sed)
+summary(model_sed)$coefficient
+
+model_residuals_sed = model_sed$residuals
+
+hist(model_residuals_sed)
+qqnorm(model_residuals_sed)
+qqline(model_residuals_sed)
 
 #R2 0.3994
 model <- lm(mass_water ~ Percent_Clay + Percent_Silt + Percent_Coarse_Sand + Percent_Med_Sand + Percent_Fine_Sand + average_ssa, data = all_data)
@@ -197,8 +209,12 @@ summary(model3)
 ## 50.90 - 0.17*Percent_Clay + 0.03*Percent_Silt - 0.007*Coarse_Sand + 0.006*Percent_Med_Sand + 0.021*average_ssa
 # -4, +2% error in Mass Water Estimate
 
+#57.34 -(0.42*Dry_Sediment_Mass_g) - (0.073*Percent_Clay) + (0.011*Percent_Silt))
+# -3, +3% error in Mass Water Estimate
+
 model_data <- all_data %>% 
-  mutate(modelled_water = 50.90 - (0.017*Percent_Clay) + (0.03*Percent_Silt) - (0.007*Percent_Coarse_Sand) + (0.006*Percent_Med_Sand) + (0.021*average_ssa)) %>% 
+  #mutate(modelled_water = 50.90 - (0.017*Percent_Clay) + (0.03*Percent_Silt) - (0.007*Percent_Coarse_Sand) + (0.006*Percent_Med_Sand) + (0.021*average_ssa)) %>% 
+  mutate(modelled_water = 57.34 -(0.42*Dry_Sediment_Mass_g) - (0.073*Percent_Clay) + (0.011*Percent_Silt)) %>% 
   select(c(Sample_Name, Sample_ID, mass_water, modelled_water, Dry_Sediment_Mass_g)) %>% 
   mutate(percent_error = ((mass_water - modelled_water)/mass_water)*100) %>% 
   mutate(mean_water_error = ((mass_water - mean_water)/mass_water)*100) %>% 
@@ -224,8 +240,8 @@ model_resp_data <- left_join(all_respiration, model_data, by = c( "Sample_Name",
   mutate(Percent_Silt = as.numeric(Percent_Silt)) %>% 
   mutate(Percent_Coarse_Sand = as.numeric(Percent_Coarse_Sand)) %>% 
   mutate(Percent_Med_Sand = as.numeric(Percent_Med_Sand)) %>% 
-  mutate(mass_water = if_else(is.na(modelled_water), (50.90 - (0.017*Percent_Clay) + (0.03*Percent_Silt) - (0.007*Percent_Coarse_Sand) + (0.006*Percent_Med_Sand) + (0.021*average_ssa) ), mass_water)) %>% 
-  mutate(flag = if_else(is.na(modelled_water), "Modelled Water Mass", "N/A")) %>% 
+  mutate(mass_water = if_else(is.na(modelled_water), (57.34 -(0.42*Dry_Sediment_Mass_g) - (0.073*Percent_Clay) + (0.011*Percent_Silt) ), mass_water)) %>% 
+  mutate(flag = if_else(is.na(modelled_water), "Modelled Water Mass", "N/A")) %>%
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Respiration_Rate_mg_DO_per_L_per_H > -9999, Respiration_Rate_mg_DO_per_L_per_H * (mass_water/Dry_Sediment_Mass_g), -9999)) %>% 
   mutate(rate_mg_per_L_per_kg_model = if_else(Respiration_Rate_mg_DO_per_L_per_H > -9999,  Respiration_Rate_mg_DO_per_L_per_H * (modelled_water/Dry_Sediment_Mass_g), -9999)) %>% 
   mutate(percent_error_resp = ((Respiration_Rate_mg_DO_per_kg_per_H - rate_mg_per_L_per_kg_model)/Respiration_Rate_mg_DO_per_kg_per_H)*100) %>% 
@@ -233,7 +249,12 @@ model_resp_data <- left_join(all_respiration, model_data, by = c( "Sample_Name",
 
 
 respiration_rates <- model_resp_data %>% 
-  dplyr::select(c(Sample_Name, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H,  mass_water, modelled_water, flag)) %>% 
+  dplyr::select(c(Sample_Name, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H,  mass_water, modelled_water, Dry_Sediment_Mass_g, flag)) %>%
   mutate(across(c("Respiration_Rate_mg_DO_per_kg_per_H", "mass_water", "modelled_water"), round, 3))
 
 write.csv(respiration_rates,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/ReadyForBoye/ECA_Sediment_Incubations_mg_kg_rates_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)  
+
+solid <- respiration_rates %>% 
+  dplyr::select(c(Sample_Name, mass_water, Dry_Sediment_Mass_g, flag))
+
+write.csv(solid,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_solid_solution_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)  
