@@ -46,49 +46,23 @@ all_respiration <- all_respiration %>%
   dplyr::select(c(Sample_Name, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, mass_water))
 
 #ECA Iron
-iron <- read_csv(paste0("Fe/03_ProcessedData/EC_SFE_ReadyForBoye_06-29-2023.csv"))
+iron <- read_csv(paste0("Fe/03_ProcessedData/EC_SFE_ReadyForBoye_12-05-2023.csv"))
 
 iron <- iron %>% 
-  dplyr::select(c(sample_label, Fe_mg_per_L))
+  dplyr::select(c(Sample_Name, Fe_mg_per_L, Fe_mg_per_kg)) %>% 
+separate(Sample_Name, into = c("EC", "Site", "INC"), sep = "_", remove = FALSE)
 
-iron_ex <- read_csv(paste0("Fe/03_ProcessedData/20230711_Data_Processed_SFE_ECA_EC_1-153/20230711_Data_Processed_SFE_ECA_EC_1-153.csv"))
-
-iron_ex <- iron_ex %>% 
-  rename(Fe_mg_per_L = mg_Fe_per_L) %>%
-  filter(is.na(flag)) %>% 
-  dplyr::select(c(sample_label, Fe_mg_per_L))
-
-iron <- rbind(iron, iron_ex)
-
-iron <- iron %>% 
-separate(sample_label, into = c("EC", "Site", "INC"), sep = "_", remove = FALSE)
-
-#add "0" to start of sample kit names that don't have it
-
-for (i in 1:nrow(iron)){
-  
-  if (str_count(iron$Site[i], "[0-9]") <= 2){
-    
-    iron$Site[i] = paste0("0", iron$Site[i])
-    
-  }
-  
-  else {
-    
-    iron$Site[i] = iron$Site[i]
-  }
-  
-}
 
 iron_samples <- iron %>% 
-  drop_na(sample_label) %>% 
   separate(INC, c("Replicate", "Analytical"), sep = -1) %>% 
+  filter(!grepl("LOD", Fe_mg_per_L)) %>% 
+  filter(Fe_mg_per_L >= 0) %>% 
   group_by(Site, Replicate) %>% 
-  mutate(Fe_mg_per_L = mean(Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_L = mean(as.numeric(Fe_mg_per_L))) %>% 
+  mutate(Fe_mg_per_kg = mean(as.numeric(Fe_mg_per_kg))) %>% 
   unite(Sample_Name, c(EC:Replicate), sep = "_") %>% 
   distinct(Sample_Name, .keep_all = TRUE) %>% 
-  dplyr::select(-c(Analytical, sample_label)) %>% 
-  filter(Fe_mg_per_L > 0.03) %>% 
+  dplyr::select(-c(Analytical)) %>% 
   mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC"))
   
 
