@@ -52,7 +52,7 @@ unique.samples = unique(slope.outliers$kit_treat)
 
 #try 0, 10, 30, 50, 100, export histograms of removals, effect sizes
 
-cv.threshold = 0
+cv.threshold = 300
 
 for (i in 1:length(unique.samples)) {
   
@@ -125,6 +125,8 @@ slope.final.flag <- slope.final %>%
   rename(Respiration_Rate_mg_DO_per_L_per_H = slope.temp) %>% 
   relocate(Respiration_Rate_mg_DO_per_L_per_H, .after = Sample_Name)
 
+cv.threshold = "No_Removals"
+
 write.csv(slope.final.flag, paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/CV_mg_L_",cv.threshold,"percent_Removed_Respiration_Rates",Sys.Date(),".csv"), row.names = F)
 
 corr_samples <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
@@ -135,7 +137,7 @@ column_to_rownames("Sample_Name")
 
 all_samples_corr <- cor(corr_samples, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", as.character(Sys.Date()),"_All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "/", as.character(Sys.Date()),"_All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 corrplot(all_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "All Samples Correlation")
 
@@ -145,11 +147,13 @@ log_corr_samples <- log(corr_samples + 1)
 
 log_samples_corr <- cor(log_corr_samples, method = "pearson")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", as.character(Sys.Date()),"_Log_All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "/", as.character(Sys.Date()),"_Log_All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 corrplot(log_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "Log All Samples Correlation")
 
 dev.off()
+
+## Wet/Dry Samples ####
 
 all_samples_dry <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
   filter(grepl("D", Sample_Name)) %>% 
@@ -181,6 +185,8 @@ corrplot(all_samples_wet_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl
 
 dev.off()
 
+#####
+
 means <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
   dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal)) %>% 
   drop_na() %>% 
@@ -195,31 +201,100 @@ means <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiratio
 
 mean_samples_corr <- cor(means, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", as.character(Sys.Date()),"_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "/", as.character(Sys.Date()),"_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
-corrplot(all_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "Mean Samples Correlation")
+corrplot(mean_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "Mean Samples Correlation")
 
 dev.off()
 
+log_means <- log(means + 1)
+
+log_means_corr <- cor(log_means, method = "pearson")
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "/", as.character(Sys.Date()),"_Log_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+
+corrplot(log_means_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "Log Mean Samples Correlation")
+
+dev.off()
+
+## Wet/Dry Means ####
+
+wet_means <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal)) %>% 
+  drop_na() %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  separate(Sample_Name, c("EC", "kit", "Treat"), remove = FALSE) %>% 
+  mutate(Treat = case_when(grepl("W",Sample_Name)~"Wet",
+                           grepl("D", Sample_Name) ~"Dry")) %>% 
+  group_by(kit, Treat) %>% 
+  summarise(across(where(is.numeric), list(mean = mean), na.rm = TRUE))%>% 
+  ungroup() %>% 
+  unite(kit_treat, c("kit", "Treat")) %>% 
+  filter(grepl("Wet", kit_treat)) %>% 
+  column_to_rownames("kit_treat")
+
+dry_means <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal)) %>% 
+  drop_na() %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  separate(Sample_Name, c("EC", "kit", "Treat"), remove = FALSE) %>% 
+  mutate(Treat = case_when(grepl("W",Sample_Name)~"Wet",
+                           grepl("D", Sample_Name) ~"Dry")) %>% 
+  group_by(kit, Treat) %>% 
+  summarise(across(where(is.numeric), list(mean = mean), na.rm = TRUE))%>% 
+  ungroup() %>% 
+  unite(kit_treat, c("kit", "Treat")) %>% 
+  filter(grepl("Dry", kit_treat)) %>% 
+  column_to_rownames("kit_treat")
+
+#####
 
 
-
-
-
-effect <- 
-  
+effect <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal)) %>% 
+  drop_na() %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  separate(Sample_Name, c("EC", "kit", "Treat"), remove = FALSE) %>% 
+  mutate(Treat = case_when(grepl("W",Sample_Name)~"Wet",
+                           grepl("D", Sample_Name) ~"Dry")) %>% 
   group_by(kit, Treat) %>% 
   filter(n() >= 4) %>% 
   ungroup() %>% 
   group_by(kit) %>% 
-  filter(n() >= 6) %>% 
+  filter(n() >= 8) %>% 
   ungroup() %>% 
-  unite(kit_treat, kit, Treat, sep = "_", remove = FALSE) %>%  
-  distinct(kit_treat, .keep_all = TRUE) %>% 
+  group_by(kit, Treat) %>% 
+  summarise(across(where(is.numeric), list( mean = mean), na.rm = TRUE)) %>% 
+  ungroup() %>% 
   group_by(kit) %>% 
-  mutate(effect = (Mean_Slope_All[Treat == "Wet"] - Mean_Slope_All[Treat == "Dry"])) %>% 
-  mutate(log_effect = log10(abs(effect+1))) %>% 
-  distinct(kit, .keep_all = TRUE)
+  relocate(c(Percent_Fine_Sand_mean:average_ssa_mean), .after = Lost_Gravimetric_Water_mean) %>% 
+  summarise(
+    across(Respiration_Rate_mg_DO_per_L_per_H_mean:Lost_Gravimetric_Water_mean, diff), 
+    across(Percent_Fine_Sand_mean:average_ssa_mean, mean))%>% 
+  column_to_rownames("kit") %>% 
+  rename(Effect_Size = Respiration_Rate_mg_DO_per_L_per_H_mean) %>%
+  rename(Percent_Clay = Percent_Clay_mean) %>% 
+  rename(Percent_Silt = Percent_Silt_mean) %>% 
+  rename(SSA = average_ssa_mean) %>% 
+  rename_with(~gsub("_Sand_mean", "_Sand", .x)) %>% 
+  rename_with(~gsub("mean", "diff", .x)) 
+  
+  
+effect_corr <- cor(effect, method = "spearman")
 
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "/", as.character(Sys.Date()),"_Effect_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+
+corrplot(effect_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "Effect Correlation")
+
+dev.off()
   
-  
+log_effect <- log(effect + 1)
+
+log_effect_corr <- cor(log_effect, method = "pearson")
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "/", as.character(Sys.Date()),"_Log_Effect_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+
+corrplot(log_effect_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "Log Effect Correlation")
+
+dev.off()
+
