@@ -52,7 +52,8 @@ unique.samples = unique(slope.outliers$kit_treat)
 
 #try 0, 10, 30, 50, 100, export histograms of removals, effect sizes
 
-cv.threshold = 300
+cv.threshold = 0
+rem.threshold = 3
 
 for (i in 1:length(unique.samples)) {
   
@@ -76,7 +77,7 @@ for (i in 1:length(unique.samples)) {
       
     }
     
-    else if (length(slope.temp) > 4 & CV >= cv.threshold) {
+    else if (length(slope.temp) > rem.threshold & CV >= cv.threshold) {
       
       dist.temp = as.matrix(abs(dist(slope.temp)))
       dist.comp = numeric()
@@ -125,27 +126,113 @@ slope.final.flag <- slope.final %>%
   rename(Respiration_Rate_mg_DO_per_L_per_H = slope.temp) %>% 
   relocate(Respiration_Rate_mg_DO_per_L_per_H, .after = Sample_Name)
 
-cv.threshold = "No_Removals"
+#cv.threshold = "No_Removals"
 
-write.csv(slope.final.flag, paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/CV_mg_L_",cv.threshold,"percent_Removed_Respiration_Rates",Sys.Date(),".csv"), row.names = F)
+write.csv(slope.final.flag, paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=3/CV_mg_L_",cv.threshold,"percent_Removed_Respiration_Rates",Sys.Date(),".csv"), row.names = F)
 
 corr_samples <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
-  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal)) %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g, Fe_mg_per_kg, Percent_Tot_Sand)) %>% 
   drop_na() %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  rename(`Respiration (mg/L)` = Respiration_Rate_mg_DO_per_L_per_H) %>% 
+  rename(`Fe (mg/L)` = Fe_mg_per_L) %>% 
+    rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
+    rename(`% Med. Sand` = Percent_Med_Sand) %>% 
+    rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
+    rename(`% Clay` = Percent_Clay) %>% 
+    rename(`% Silt` = Percent_Silt) %>% 
+    rename(SSA = average_ssa) %>% 
+    rename(`In.Grav.Moi.` = Initial_Gravimetric_Water) %>% 
+    rename(`Fin.Grav.Moi.` = Final_Gravimetric_Water) %>% 
+    rename(`LostGrav.Moi.` = Lost_Gravimetric_Water) %>% 
 column_to_rownames("Sample_Name")
 
-all_samples_corr <- cor(corr_samples, method = "spearman")
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/_All_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "/", as.character(Sys.Date()),"_All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
-
-corrplot(all_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "All Samples Correlation")
+ggplot(gather(corr_samples, cols, value), aes(x = value)) + 
+  geom_histogram() + 
+  facet_wrap(.~cols, scales = 'free_x')
 
 dev.off()
 
-log_corr_samples <- log(corr_samples + 1)
+#all_samples_corr <- cor(corr_samples, method = "spearman")
+
+## Correlation Matrix Function (Spearman) ####
+panel.cor.spear <- function(x, y, digits=2, prefix="", cex.cor)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r = (cor(x, y, method = c("spearman")))
+  txt <- format(c(r, 0.123456789), digits=digits)[1]
+  txt <- paste(prefix, txt, sep="")
+  if(missing(cex.cor)) {cex.cor <- 0.8/strwidth(txt)} else {cex = cex.cor}
+  text(0.5, 0.5, txt, cex = cex.cor * (1 + r)/1)
+  
+  # if(missing(cex.cor)) {cex <- 1.2/strwidth(txt)} else {cex = cex.cor}
+  # text(0.5, 0.5, txt, cex = cex * sin(sqrt(abs(r))))
+  
+  test <- cor.test(x,y)
+  Signif <- symnum(test$p.value, corr = FALSE, na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1), symbols = c("***", "**", "*", " "))
+  #text(0.5, 0.5, txt, cex = cex * r)
+  text(.5, .8, Signif, cex=cex, col=2)
+  
+}
+
+## Correlation Matrix Function (Pearson) ####
+panel.cor.pear <- function(x, y, digits=2, prefix="", cex.cor)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r = (cor(x, y, method = c("pearson")))
+  txt <- format(c(r, 0.123456789), digits=digits)[1]
+  txt <- paste(prefix, txt, sep="")
+  if(missing(cex.cor)) {cex.cor <- 0.8/strwidth(txt)} else {cex = cex.cor}
+  text(0.5, 0.5, txt, cex = cex.cor * (1 + r)/1)
+  
+  # if(missing(cex.cor)) {cex <- 1.2/strwidth(txt)} else {cex = cex.cor}
+  # text(0.5, 0.5, txt, cex = cex * sin(sqrt(abs(r))))
+  
+  test <- cor.test(x,y)
+  Signif <- symnum(test$p.value, corr = FALSE, na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1), symbols = c("***", "**", "*", " "))
+  #text(0.5, 0.5, txt, cex = cex * r)
+  text(.5, .8, Signif, cex=cex, col=2)
+  
+}
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/_All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+
+pairs(corr_samples, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = .75)
+
+#corrplot(all_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "All Samples Correlation")
+
+dev.off()
+
+log_corr_samples <- corr_samples %>% 
+  mutate(`Log Respiration (mg/L)` = log10(`Respiration (mg/L)` + 0.5*min(`Respiration (mg/L)`[`Respiration (mg/L)` != min(`Respiration (mg/L)`)]))) %>% 
+  mutate(`Log Fe (mg/L)` = log10(`Fe (mg/L)` + 0.5*min(`Fe (mg/L)`[`Fe (mg/L)` != min(`Fe (mg/L)`)]))) %>% 
+  mutate(`Log % Fine Sand` = log10(`% Fine Sand` + 0.5*min(`% Fine Sand`))) %>% 
+  mutate(`Log % Med. Sand` = log10(`% Med. Sand` + 0.5*min(`% Med. Sand`))) %>% 
+  mutate(`Log % Coarse Sand` = log10(`% Coarse Sand` + 0.5*min(`% Coarse Sand`))) %>% 
+  mutate(`Log % Clay` = log10(`% Clay` + 0.5*min(`% Clay`[`% Clay` != min(`% Clay`)])))
+
+
+
+       
+                
+                
+               
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "/", as.character(Sys.Date()),"_Log_All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+
+ggplot(gather(log_corr_samples, cols, value), aes(x = value)) + 
+  geom_histogram() + 
+  facet_grid(.~cols)
+
 
 log_samples_corr <- cor(log_corr_samples, method = "pearson")
+
+
+
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "/", as.character(Sys.Date()),"_Log_All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
@@ -157,7 +244,7 @@ dev.off()
 
 all_samples_dry <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
   filter(grepl("D", Sample_Name)) %>% 
-  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal)) %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g)) %>% 
   drop_na() %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H))%>% 
   column_to_rownames("Sample_Name")
@@ -172,7 +259,7 @@ dev.off()
 
 all_samples_wet <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
   filter(grepl("W", Sample_Name)) %>% 
-  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal)) %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g)) %>% 
   drop_na() %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H))%>% 
   column_to_rownames("Sample_Name")
@@ -188,7 +275,7 @@ dev.off()
 #####
 
 means <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
-  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal)) %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g)) %>% 
   drop_na() %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   separate(Sample_Name, c("EC", "kit", "Treat"), remove = FALSE) %>% 
@@ -220,7 +307,7 @@ dev.off()
 ## Wet/Dry Means ####
 
 wet_means <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
-  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal)) %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g)) %>% 
   drop_na() %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   separate(Sample_Name, c("EC", "kit", "Treat"), remove = FALSE) %>% 
@@ -234,7 +321,7 @@ wet_means <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respir
   column_to_rownames("kit_treat")
 
 dry_means <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
-  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal)) %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g)) %>% 
   drop_na() %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   separate(Sample_Name, c("EC", "kit", "Treat"), remove = FALSE) %>% 
@@ -251,7 +338,7 @@ dry_means <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respir
 
 
 effect <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
-  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal)) %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g)) %>% 
   drop_na() %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   separate(Sample_Name, c("EC", "kit", "Treat"), remove = FALSE) %>% 
