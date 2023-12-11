@@ -54,10 +54,10 @@ colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_
 unique.samples = unique(slope.outliers$kit_treat)
 
 #try 0, 10, 30, 50, 100, export histograms of removals, effect sizes
-cv.threshold = 0
+cv.threshold = 250
 
 #try keeping n = 3,4 samples
-rem.threshold = 3
+rem.threshold = 4
 
 for (i in 1:length(unique.samples)) {
   
@@ -130,7 +130,8 @@ slope.final.flag <- slope.final %>%
   rename(Respiration_Rate_mg_DO_per_L_per_H = slope.temp) %>% 
   relocate(Respiration_Rate_mg_DO_per_L_per_H, .after = Sample_Name)
 
-#cv.threshold = "No_Removals"
+cv.threshold = "No_Removals"
+rem.threshold = 3
 
 #Write data frame with removed respiration rates
 
@@ -553,7 +554,7 @@ effect <- means %>%
   rename(`In.Grav.Moi. Diff.` = `Mean In.Grav.Moi.`) %>% 
   rename(`Fin.Grav.Moi. Diff.` = `Mean Fin.Grav.Moi.`) %>%
   rename(`LostGrav.Moi. Diff.` = `Mean LostGrav.Moi.`)
-  
+
 #effect_corr <- cor(effect, method = "spearman")
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Effect_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
