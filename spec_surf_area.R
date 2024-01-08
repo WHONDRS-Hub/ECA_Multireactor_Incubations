@@ -377,6 +377,11 @@ gs_ssa2 %>%
   select(Parent_ID, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Tot_Sand, Percent_Clay, Percent_Silt, ssa_m2_g) %>% 
   write.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/eca_grain_size_ssa.csv", row.names = F) 
 
+#exporting for maggi
+ssa_outliers_removed2 %>% 
+  select(Sample_ID, Parent_ID, ssa_m2_g, cv) %>% 
+  write.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/eca_ssa_predatapackage.csv", row.names = F)
+
   
 silt_cv_plot <- ggplot(data = gs_ssa, aes(x = cv, y = Percent_Silt, color = Parent_ID)) +
   geom_jitter()
@@ -391,11 +396,23 @@ sand_cv_plot <- ggplot(data = gs_ssa, aes(x = cv, y = Percent_Tot_Sand, color = 
 
 ### Data Package Preparation ----
 
-ssa_dp %>% 
-  ssa_outliers_removed2 %>% 
-  select(Sample_ID, ssa_m2_g)
+ssa2 <- read_excel(input.path) %>% 
+  mutate(Parent_ID = str_extract(Sample_ID, ".{5}(?=_)")) 
 
-  
+ssa_dp <-  
+  ssa_outliers_removed2 %>%
+  full_join(ssa2, by = "Sample_ID") %>% 
+  select(Study_Code, Sample_ID, ssa_m2_g) %>% 
+  mutate(Material = "Sediment",
+         Study_Code = str_replace_all(Study_Code, "EC", "CM"),
+         Sample_ID = str_replace_all(Sample_ID, "EC", "CM")) %>% 
+  relocate(Material, .after = Sample_ID) %>% 
+  rename(Sample_Name = Sample_ID) 
+
+
+ssa_dp %>% 
+  write.csv("C:/Users/guil098/OneDrive - PNNL/Data Generation and Files/ECA/SSA/02_FormattedData/CM_SSA_ReadyForBoye_11-19-2023.csv", row.names = F)  
+
   
   
 
