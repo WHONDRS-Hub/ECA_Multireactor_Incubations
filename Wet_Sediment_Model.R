@@ -11,28 +11,17 @@ setwd("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents
 
 ## GRAIN SIZE ####
 
-grain <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/v2_CM_SSS_Sediment_Grain_Size.csv", skip = 2, header = TRUE)
+grain <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/v3_CM_SSS_Sediment_Grain_Size.csv", skip = 2, header = TRUE)
 
-grain <- grain %>% 
+grain_all <- grain %>% 
   filter(!row_number() %in% c(1:11)) %>% 
-  dplyr::select(-c(Field_Name, Material)) 
-
-grain_new <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ICON_ModEx_SSS/09_Grain_Size/03_ProcessedData/20230721_Grain_Size_SBR_RC4_CM_R21/20230721_Data_Processed_Grain_Size_SBR_RC4_CM_R21.csv"))
-
-grain <- grain %>% 
-  mutate(Sample_ID = Sample_Name) %>% 
-  dplyr::select(-c(Sample_Name))
-
-grain_all <- rbind(grain, grain_new)
-
-grain_all$Sample_ID <- str_replace(grain_all$Sample_ID, "CM", "EC") 
-
-grain_all <- grain_all %>% 
-  filter(!grepl("SSS", Sample_ID)) %>% 
-  separate(Sample_ID, into = c("EC", "Kit", "GRN"), sep = "_") %>% 
-  unite("Sample_ID", EC:Kit, sep = "_") %>% 
-  dplyr::select(-c(GRN)) %>% 
-  filter(!grepl("NA", Sample_ID))
+  dplyr::select(-c(Field_Name, Material)) %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "CM", "EC")) %>% 
+  filter(!grepl("SSS", Sample_Name)) %>% 
+  separate(Sample_Name, into = c("EC", "Kit", "GRN"), sep = "_") %>% 
+  unite("Sample_Name", EC:Kit, sep = "_") %>% 
+  dplyr::select(-c(GRN, IGSN)) %>% 
+  filter(!grepl("NA", Sample_Name))
 
 ## KNOWN INCUBATION WEIGHTS ####
 
@@ -73,17 +62,17 @@ for (i in 1:nrow(ssa)){
 }
 
 ssa <- ssa %>% 
-  unite(Sample_ID, c("EC", "Site"), sep = "_")
+  unite(Sample_Name, c("EC", "Site"), sep = "_")
 
 mean_ssa <- ssa %>% 
-  group_by(Sample_ID) %>% 
+  group_by(Sample_Name) %>% 
   mutate(average_ssa = mean(ssa_m2_g)) %>% 
-  distinct(Sample_ID, .keep_all = TRUE) %>% 
-  dplyr::select(Sample_ID, average_ssa)
+  distinct(Sample_Name, .keep_all = TRUE) %>% 
+  dplyr::select(Sample_Name, average_ssa)
 
 ## ORIGINAL INCUBATION WEIGHTS ####
 
-og_inc <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_merged_by_laan208_on_2023-12-01.csv"))
+og_inc <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_ReadyForBoye_2024-01-04.csv"))
 
 ## MOISTURE TIN DATA ####
 
@@ -92,18 +81,18 @@ moisture <- read_csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequi
 moisture_clean <- moisture %>%
   filter(is.na(flag)) %>% 
   separate(Sample_Name, c("EC", "Site", "Rep"), sep = "_", remove = FALSE) %>% 
-  unite(Sample_ID, c("EC", "Site")) %>% 
-  group_by(Sample_ID) %>% 
+  unite(Sample_Name, c("EC", "Site")) %>% 
+  group_by(Sample_Name) %>% 
   mutate(average_grav = mean(percent_water_content_dry)) %>% 
   mutate(cv = (sd(percent_water_content_dry)/mean(percent_water_content_dry))*100)
 
 moisture_average <- moisture_clean %>% 
-  distinct(Sample_ID, .keep_all = TRUE) %>% 
-  select(c(Sample_ID, average_grav))
+  distinct(Sample_Name, .keep_all = TRUE) %>% 
+  select(c(Sample_Name, average_grav))
 
 ## Regression of Moisture by Grain Size
 
-moi_grn <- left_join(moisture_average, grain_all, by = c("Sample_ID"))
+moi_grn <- left_join(moisture_average, grain_all, by = c("Sample_Name"))
 
 moi_grn$Percent_Clay <- as.numeric(moi_grn$Percent_Clay)
 
@@ -112,8 +101,10 @@ moi_grn$Percent_Silt <- as.numeric(moi_grn$Percent_Silt)
 ## MERGE DATA FOR MASS WATER####
 
 inc_data <- left_join(og_inc, inc, by = c("Sample_Name")) %>% 
-  mutate(mass_water = mass_sed_water - Dry_Sediment_Mass_g) %>% separate(Sample_Name, into = c("EC", "Kit", "REP"), sep = "_", remove = FALSE) %>% 
-  unite("Sample_ID", EC:Kit, sep = "_") %>% 
+  mutate(mass_water = mass_sed_water - Dry_Sediment_Mass_g) %>% 
+  separate(Sample_Name, into = c("EC", "Kit", "REP"), sep = "_", remove = FALSE) %>% 
+  rename(Sample_ID = Sample_Name) %>% 
+  unite("Sample_Name", EC:Kit, sep = "_") %>% 
   drop_na(mass_water) 
 
 ggplot(inc_data, aes (x = mass_water))+
@@ -125,12 +116,11 @@ sd_water <- sd(inc_data$mass_water)
 
 ## MERGE DATA FOR GRAIN SIZE MODEL ####
 
-all_data <- left_join(inc_data, grain_all, by = c("Sample_ID")) %>% 
-  left_join(moisture_clean, by = c("Sample_ID")) %>% 
-  left_join(mean_ssa, by = c("Sample_ID")) %>% 
-  dplyr::select(c(Sample_Name.x, Sample_ID, Initial_Water_mass_g, Final_Water_mass_g, Dry_Sediment_Mass_g, mass_sed_water, mass_water, average_ssa, Percent_Clay, Percent_Silt, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Tot_Sand,  percent_water_content_dry, average_grav)) %>% 
-  distinct(Sample_Name.x, .keep_all = TRUE) %>% 
-  rename(Sample_Name = Sample_Name.x)
+all_data <- left_join(inc_data, grain_all, by = c("Sample_Name")) %>% 
+  left_join(moisture_average, by = c("Sample_Name")) %>% 
+  left_join(mean_ssa, by = c("Sample_Name")) %>% 
+  dplyr::select(c(Sample_Name, Sample_ID, Initial_Water_Mass_g, Final_Water_Mass_g, Dry_Sediment_Mass_g, mass_sed_water, mass_water, average_ssa, Percent_Clay, Percent_Silt, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Tot_Sand,  average_grav)) %>% 
+  distinct(Sample_ID, .keep_all = TRUE)
 
 all_data$Percent_Clay <- as.numeric(all_data$Percent_Clay)
 
@@ -152,7 +142,7 @@ all_data <- all_data %>%
 
 ## MLM using GRAIN SIZE and MASS WATER ####
 
-#R2 0.5045 - don't have mass_sed_water for all
+#Adj.R2 0.4893 - don't have mass_sed_water for all, only dry_sed_mass sig., %clay/silt both 0.1 (%Silt, %Clay sometimes sig. in other models), removing R2 0.4759
 model_sed <- lm(mass_water ~ Dry_Sediment_Mass_g + Percent_Clay + Percent_Silt, data = all_data)
 
 summary(model_sed)
@@ -164,7 +154,13 @@ hist(model_residuals_sed)
 qqnorm(model_residuals_sed)
 qqline(model_residuals_sed)
 
-#R2 0.3994
+
+model <- lm(mass_water ~ Dry_Sediment_Mass_g + Percent_Clay + Percent_Silt + Percent_Coarse_Sand + Percent_Med_Sand + Percent_Fine_Sand + average_ssa, data = all_data)
+
+summary(model)
+summary(model)$coefficient
+
+#R2 0.3653
 model <- lm(mass_water ~ Percent_Clay + Percent_Silt + Percent_Coarse_Sand + Percent_Med_Sand + Percent_Fine_Sand + average_ssa, data = all_data)
 
 summary(model)
