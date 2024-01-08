@@ -5,7 +5,7 @@ date: "2023-10-11"
 output: html_document
 
 ## Maggi Laan (maggi.laan@pnnl.gov)
-## Code used for calculating rates from dissolved oxygen concentraition data from ECA Multireactor Incubations
+## Code used for calculating rates and effect sizes from dissolved oxygen concentraition data from ECA Multireactor Incubations
 ---
 
 ```{r setup, include=FALSE}
@@ -45,7 +45,7 @@ pnnl.user = 'laan208'
 
 input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Raw_DO_by_Min/EC_INC_ReadyForBoye_10-03-2023.csv")
 
-output.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Plots/Sensitivity_Analysis/")
+output.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/ReadyForBoye/")
 
 data = read.csv(input.path)
 
@@ -110,7 +110,7 @@ high.slope.thresh = -0.04
 time.same = 7
 break.toggle = 1.4
 conc.range = 1.4
-plot.toggle = TRUE
+plot.toggle = FALSE
 
 ```
 ## Fit a linear model to data with chosen rules
@@ -558,42 +558,114 @@ rate$`2_min_concentration`[j] = ifelse(
 
 respiration = respiration[-1,]
 
-
-#write.csv(respiration,paste0(output.path,"ECA_Sediment_Incubations_Respiration_Rates_", conc.range,"_Range_",Sys.Date(),".csv"), row.names = F)
+#write.csv(respiration,paste0(output.path,"ECA_Sediment_Incubations_Respiration_Rates_",Sys.Date(),".csv"), row.names = F)
 
 ```
 
 ## Remove Outlier Samples 
 * A distance matrix is used to remove the replicate most unlike the others if the coefficient of variation is greater than 10%
   
+  
+```{r Boye Format for Respiration Rates}
+
+ ## Pull out Method Deviations from Raw Data, removing RATE_004
+removed <- data %>% 
+  distinct(Sample_Name, .keep_all = TRUE) %>% 
+  dplyr::select(c(Sample_Name, Methods_Deviation)) %>% 
+  mutate_all(~gsub("RATE_004", "N/A",.)) %>% 
+  mutate_all(~gsub(";  N/A|; N/A", "",.)) 
+
+## Join Methods Deviations, Mean Slopes, and Original Slopes. Add RATE_005 deviation for slopes with theoretical 0 minute point. Add RATE_CV_010 deviation for sites with CV > 10%. CV calculated here from slope of regression. 
+
+all.samples <-  left_join(removed, respiration, by = "Sample_Name") %>% 
+  separate(Sample_Name, into = c("EC", "kit", "rep"), sep = "_", remove = FALSE) %>% 
+   mutate(Treat = case_when(grepl("W",rep)~"Wet",
+                           grepl("D", rep) ~"Dry")) %>% 
+  mutate(Methods_Deviation.theoretical = if_else(number_of_points == 2 & `2_min_concentration` <= 5.5, "RATE_005", NA_character_)) %>% 
+  mutate(`2_min_concentration` = case_when(Methods_Deviation.theoretical == "RATE_005" ~ -9999, TRUE ~ `2_min_concentration`)) 
+
+
+## Get respiration data in Boye format 
+boye <- all.samples %>% 
+  mutate(p_value = round(p_value, 4)) %>%
+  mutate(`2_min_concentration` = round(`2_min_concentration`, 4)) %>% 
+  mutate(slope_of_the_regression = if_else(slope_of_the_regression >0,0,slope_of_the_regression)) %>%
+  mutate(rate_mg_per_L_per_min = if_else(slope_of_the_regression >=0,0,rate_mg_per_L_per_min )) %>%
+mutate(rate_mg_per_L_per_h = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_h)) %>% 
+  mutate(rate_mg_per_L_per_h = if_else(is.na(rate_mg_per_L_per_h), 9999, rate_mg_per_L_per_h)) %>%
+   mutate(R_squared = if_else(is.na(R_squared), -9999, R_squared)) %>% 
+   mutate(R_squared_adj = if_else(is.na(R_squared_adj), -9999, R_squared_adj)) %>% 
+   mutate(p_value = if_else(is.na(p_value ), -9999, p_value )) %>% 
+   mutate(total_incubation_time_min = if_else(is.na(total_incubation_time_min), -9999, total_incubation_time_min)) %>% 
+  mutate(`2_min_concentration` = if_else(is.na(`2_min_concentration`), -9999, `2_min_concentration`)) %>% 
+   mutate(number_of_points = if_else(is.na(number_of_points), as.numeric(-9999), as.numeric(number_of_points))) %>% 
+  mutate(no_points_rem = if_else(is.na(no_points_rem), -9999, no_points_rem)) %>% 
+    mutate(Methods_Deviation = if_else(is.na(Methods_Deviation.theoretical), Methods_Deviation, paste(Methods_Deviation, Methods_Deviation.theoretical, sep = "; "))) %>% 
+  dplyr::select(c(Sample_Name, rate_mg_per_L_per_h, R_squared, R_squared_adj, `p_value`, total_incubation_time_min, number_of_points, no_points_rem, `2_min_concentration`, Methods_Deviation, kit, Treat)) %>% 
+  mutate(rate_mg_per_L_per_h = rate_mg_per_L_per_h * -1) %>%
+  mutate(Material = "Sediment") %>% 
+  relocate(Material, .after = Sample_Name) %>% 
+  relocate(Methods_Deviation, .after = `2_min_concentration`) %>% 
+  rename(Respiration_Rate_mg_DO_per_L_per_H = rate_mg_per_L_per_h) %>% 
+  rename(Respiration_R_Squared = R_squared) %>% 
+  rename(Respiration_R_Squared_Adj = R_squared_adj) %>% 
+  rename(Respiration_p_value = p_value) %>% 
+  rename(Total_Incubation_Time_Min = total_incubation_time_min) %>% 
+  rename(Number_Points_In_Respiration_Regression = number_of_points) %>% 
+  rename(Number_Points_Removed_Respiration_Regression = no_points_rem) %>% 
+  rename(DO_Concentration_At_Incubation_Time_Zero = `2_min_concentration`) %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = as.numeric(Respiration_Rate_mg_DO_per_L_per_H)) %>%
+     group_by(kit, Treat) %>% 
+  mutate(cv_before_removal = abs(sd(Respiration_Rate_mg_DO_per_L_per_H)/mean(Respiration_Rate_mg_DO_per_L_per_H))*100) %>% 
+   mutate(Methods_Deviation.processed = if_else(cv_before_removal >= 10, "RATE_CV_010", NA_character_)) %>%
+  fill(Methods_Deviation.processed, .direction = "downup") %>% 
+  ungroup() %>%
+   mutate(Methods_Deviation = if_else(is.na(Methods_Deviation.processed), Methods_Deviation, paste(Methods_Deviation, Methods_Deviation.processed, sep = "; "))) %>%
+  mutate_all(~gsub("N/A; |N/A ; ", "",.)) %>% 
+  dplyr::select(-c(kit, Treat, cv_before_removal, Methods_Deviation.processed))
+
+#write.csv(boye,paste0(output.path,"ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye",Sys.Date(),".csv"), row.names = F)
+      
+	
+```  
 
 ```{r Remove Outlier Samples}
 
-slope.new <- respiration %>%
-   separate(Sample_Name, c("ECA", "kit", "rep"), sep = "_", remove = FALSE) %>%
-  mutate(Treat = case_when(grepl("W",rep)~"Wet",
-                           grepl("D", rep) ~"Dry")) %>%
-  unite(kit_treat, kit, Treat, remove = FALSE) %>%
-  group_by(kit_treat) %>%
-  mutate(Mean_Slope_All = mean(slope_of_the_regression)) %>%
-   mutate(cv_before_removal = (abs(sd(slope_of_the_regression)/mean(slope_of_the_regression)))*100) %>%
-ungroup() %>%
-    dplyr::select(c(Sample_Name, kit_treat, kit,rep,slope_of_the_regression,rate_mg_per_L_per_min,rate_mg_per_L_per_h, Treat, Mean_Slope_All, cv_before_removal))
+## Remove samples with no Rates (-9999)
+slope.outliers <- boye %>% 
+  separate(Sample_Name, c("Kit", "Rep"), sep = "-", remove = FALSE) %>% 
+  mutate(Treat = case_when(grepl("W", Rep)~"Wet",
+                           grepl("D", Rep) ~"Dry")) %>% 
+  unite(kit_treat, Kit, Treat, sep = "_", remove = FALSE) %>% 
+  filter(Respiration_Rate_mg_DO_per_L_per_H != -9999) %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = as.numeric(Respiration_Rate_mg_DO_per_L_per_H)) %>%
+  group_by(Kit, Treat) %>% 
+  mutate(Mean_Slope_All = mean(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  mutate(cv_before_removal = abs((sd(Respiration_Rate_mg_DO_per_L_per_H)/mean(Respiration_Rate_mg_DO_per_L_per_H))*100)) %>% 
+  ungroup() %>% 
+  dplyr::select(c(Sample_Name, Material, Respiration_Rate_mg_DO_per_L_per_H, Methods_Deviation, Mean_Slope_All, cv_before_removal, kit_treat)) 
 
- slope.new$flag <- NA
+slope.outliers$flag <- NA
 
- slope.final <- as.data.frame(matrix(NA, ncol = 13, nrow =1))
+ slope.final <- as.data.frame(matrix(NA, ncol = 10, nrow =1))
 
- colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "kit", "rep", "rate_mg_per_L_per_min","rate_mg_per_L_per_h", "Treat", "Mean_Slope_All","cv_before_removal", "cv_after_removal", "Mean_Slope_Removed","flag")
+ colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Material", "Mean_Slope_All","cv_before_removal", "cv_after_removal", "Mean_Slope_Removed","flag", "Methods_Deviation")
 
-unique.samples = unique(slope.new$kit_treat)
+unique.samples = unique(slope.outliers$kit_treat)
+
+#try 0, 10, 30, 50, 100, export histograms of removals, effect sizes
+
+cv.threshold = 30
 
 for (i in 1:length(unique.samples)) {
 
-  data_subset = subset(slope.new, slope.new$kit_treat == unique.samples[i])
+  ## Subset replicates
+  data_subset = subset(slope.outliers, slope.outliers$kit_treat == unique.samples[i])
 
-  slope.temp = as.numeric(data_subset$slope_of_the_regression)
+  ## Pull out Rate values
+  slope.temp = as.numeric(data_subset$Respiration_Rate_mg_DO_per_L_per_H)
 
+  ## Calculate standard deviation, average, and coefficient of variation of rates
   slope.temp.sd <- sd(slope.temp)
   slope.temp.mean <- mean(slope.temp)
   CV = abs((slope.temp.sd/slope.temp.mean)*100)
@@ -607,7 +679,7 @@ for (i in 1:length(unique.samples)) {
 
     }
 
-    else if (length(slope.temp) > 4 & CV >= 10) {
+    else if (length(slope.temp) > 4 & CV >= cv.threshold) {
 
       dist.temp = as.matrix(abs(dist(slope.temp)))
       dist.comp = numeric()
@@ -635,7 +707,7 @@ for (i in 1:length(unique.samples)) {
 
     slope.combined <- as.data.frame(slope.temp)
 
-    slope.removed <- merge(slope.combined, data_subset, by.x = "slope.temp", by.y = "slope_of_the_regression", all.x = TRUE)
+    slope.removed <- merge(slope.combined, data_subset, by.x = "slope.temp", by.y = "Respiration_Rate_mg_DO_per_L_per_H", all.x = TRUE)
 
     slope.removed <- slope.removed[!duplicated(slope.removed$Sample_Name), ]
 
@@ -651,43 +723,77 @@ for (i in 1:length(unique.samples)) {
 }
 
 ## This data frame has removed samples
-slope.final$flag <- ifelse(slope.final$cv_before_removal < slope.final$cv_after_removal, "Issue in dropping sample", NA)
+slope.final.flag <- slope.final %>% 
+  mutate(flag = if_else(cv_before_removal < cv_after_removal, "Issue in dropping sample", "N/A")) %>% 
+rename(Respiration_Rate_mg_DO_per_L_per_H = slope.temp)
 
-slope.final <- rename(slope.final, "slope_of_the_regression" = "slope.temp")
 
-slope.final$rem <- abs(slope.final$slope_of_the_regression) - slope.final$rate_mg_per_L_per_min
+## Fix boye file to reflect sites/treatments where removing samples doesn't decrease CV
 
-slope.final <- slope.final[!is.na(slope.final$Sample_Name),]
+final_boye <- left_join(boye, slope.final.flag, by = c( "Sample_Name", "Material", "Methods_Deviation")) %>% 
+  rename(Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H.x) %>% 
+  mutate(flag_removal = if_else(is.na(Respiration_Rate_mg_DO_per_L_per_H.y), "Outlier to remove", "N/A"))
+
 
 ```
 
+
 ## Calculate Effect Size/Make Histograms of data with no removals
-```{r}
 
-data_clean <- slope.new %>% 
-  mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>%
-  mutate(rate_mg = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_min)) %>% 
-  mutate(Mean_Slope_All = if_else(Mean_Slope_All >0,0,Mean_Slope_All)) %>% 
-  mutate(Mean_Slope = abs(Mean_Slope_All))
+```{r Data without Removals}
 
-wet_no <- ggplot(subset(data_clean, Treat %in% "Wet"), aes(x = rate_mg_per_L_per_min)) +
+data_clean_no_removals <- slope.outliers %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  mutate(Mean_Slope_All = abs(Mean_Slope_All)) %>% 
+  separate(kit_treat, c("EC", "kit", "INC", "Treat"), sep = "_") %>% 
+  dplyr::select(-c(EC, INC))
+
+#cv_before <- slope.outliers %>% 
+  #distinct(kit_treat, .keep_all = TRUE)
+
+#cv_before_plot <- ggplot(cv_before, aes(x = cv_before_removal)) + 
+  #geom_histogram()
+
+wet_no <- ggplot(subset(data_clean_no_removals, Treat %in% "Wet"), aes(x = Respiration_Rate_mg_DO_per_L_per_H)) +
   geom_histogram()+
   ggtitle("Wet Rates, No Removals")+
   theme(strip.text = element_text(
     size = 4))
 
-dry_no <- ggplot(subset(data_clean, Treat %in% "Dry"), aes(x = rate_mg_per_L_per_min)) +
+dry_no <- ggplot(subset(data_clean_no_removals, Treat %in% "Dry"), aes(x = Respiration_Rate_mg_DO_per_L_per_H)) +
   geom_histogram()+
   ggtitle("Dry Rates, No Removals")+
   theme(strip.text = element_text(
     size = 4))
 
-data_clean_effect <- data_clean %>% 
-  filter(!grepl(011, kit)) %>% 
-  filter(!grepl(012, kit)) %>% 
+no_theoretical <- data_clean_no_removals %>% 
+  filter(!grepl("RATE_005", Methods_Deviation))
+  
+removed_theoretical_dry <- ggplot(subset(no_theoretical, Treat %in% "Dry"), aes(x = Respiration_Rate_mg_DO_per_L_per_H)) +
+  geom_histogram()+
+  ggtitle("Dry Rates, Theoretical Removed")+
+  theme(strip.text = element_text(
+    size = 4))
+
+removed_theoretical_wet <- ggplot(subset(no_theoretical, Treat %in% "Wet"), aes(x = Respiration_Rate_mg_DO_per_L_per_H)) +
+  geom_histogram()+
+  ggtitle("Wet Rates, Theoretical Removed")+
+  theme(strip.text = element_text(
+    size = 4))
+
+## Calculate effect Size only if we have n = 4 for Wet and Dry rates
+## 11 and 12 only have dry rates
+data_clean_effect <- data_clean_no_removals %>% 
+  group_by(kit, Treat) %>% 
+  filter(n() >= 4) %>% 
+  ungroup() %>% 
+  group_by(kit) %>% 
+  filter(n() >= 6) %>% 
+  ungroup() %>% 
+  unite(kit_treat, kit, Treat, sep = "_", remove = FALSE) %>%  
   distinct(kit_treat, .keep_all = TRUE) %>% 
   group_by(kit) %>% 
-  mutate(effect = (Mean_Slope[Treat == "Wet"] - Mean_Slope[Treat == "Dry"])) %>% 
+  mutate(effect = (Mean_Slope_All[Treat == "Wet"] - Mean_Slope_All[Treat == "Dry"])) %>% 
   mutate(log_effect = log10(abs(effect+1))) %>% 
   distinct(kit, .keep_all = TRUE)
  
@@ -697,51 +803,89 @@ effect_no <- ggplot(data_clean_effect, aes(x = effect)) +
   theme(strip.text = element_text(
     size = 4))
 
+no_theoretical_effect <- no_theoretical %>% 
+  group_by(kit, Treat) %>% 
+  filter(n() >= 4) %>% 
+  ungroup() %>% 
+  group_by(kit) %>% 
+  filter(n() >= 6) %>% 
+  ungroup() %>% 
+  unite(kit_treat, kit, Treat, sep = "_", remove = FALSE) %>%  
+  distinct(kit_treat, .keep_all = TRUE) %>% 
+  group_by(kit) %>% 
+  mutate(effect = (Mean_Slope_All[Treat == "Wet"] - Mean_Slope_All[Treat == "Dry"])) %>% 
+  mutate(log_effect = log10(abs(effect+1))) %>% 
+  distinct(kit, .keep_all = TRUE)
+  
+removed_theoretical_effect <- ggplot(no_theoretical_effect, aes(x = effect)) + 
+  geom_histogram() +
+  ggtitle("Effect Size, No Theoretical")+
+  theme(strip.text = element_text(
+    size = 4))
 
 ```
 
 
 ```{r Make histograms of all rates/Dataset with rates removed}
 
-data_clean_removals = slope.final %>%
-  mutate(slope_of_the_regression = if_else(slope_of_the_regression>0,0,slope_of_the_regression)) %>%
-  mutate(rate_mg = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_min)) %>%
-  mutate(Mean_Slope_Removed = if_else(Mean_Slope_Removed>0,0,Mean_Slope_Removed)) %>%
-  dplyr::select(c(Sample_Name,rate_mg, Mean_Slope_Removed)) %>%
-  rename(rate_mg_per_L_per_min = rate_mg) %>%
-  mutate(rate_mg_per_L_per_h = rate_mg_per_L_per_min*60) %>%
+cv_after <- slope.final.flag %>% 
+  distinct(kit_treat, .keep_all = TRUE) 
+
+cv_after_plot <- ggplot(slope.final.flag, aes(x = cv_after_removal)) + 
+  geom_histogram()
+
+data_clean_removals = slope.final.flag %>%
+  mutate(Mean_Slope_Removed = abs(Mean_Slope_Removed)) %>%
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  dplyr::select(c(Sample_Name,Respiration_Rate_mg_DO_per_L_per_H, Mean_Slope_Removed)) %>%
   separate(Sample_Name, into = c("EC", "kit", "INC"), remove = FALSE) %>%
   separate(Sample_Name, into = c("ID", "rep"), sep = "-", remove = FALSE) %>%
   mutate(Treat = case_when(grepl("W",rep)~"Wet",
                            grepl("D", rep) ~"Dry")) %>%
   unite(kit_treat, c("kit", "Treat"),  sep = "_", remove = FALSE)
 
+removed <- data_clean_removals %>% 
+  dplyr::select(c(Sample_Name, Respiration_Rate_mg_DO_per_L_per_H))
 
-wet_rem <- ggplot(subset(data_clean_removals, Treat %in% "Wet"), aes(x = rate_mg_per_L_per_min)) +
+average <- data_clean_removals %>% 
+  distinct(kit_treat, .keep_all = TRUE) %>% 
+  dplyr::select(c(ID, Treat, Mean_Slope_Removed))
+
+#write.csv(average,paste0(output.path,"ECA_Sediment_Incubations_Removed_Respiration_Rates_Averages",Sys.Date(),".csv"), row.names = F)
+
+#write.csv(removed,paste0(output.path,"ECA_Sediment_Incubations_Removed_Respiration_Rates_",Sys.Date(),".csv"), row.names = F)
+
+
+wet_rem <- ggplot(subset(data_clean_removals, Treat %in% "Wet"), aes(x = Respiration_Rate_mg_DO_per_L_per_H)) +
   geom_histogram()+
   ggtitle("Wet Rates, Removals")+
   theme(strip.text = element_text(
     size = 4))
 
-dry_rem <- ggplot(subset(data_clean_removals, Treat %in% "Dry"), aes(x = rate_mg_per_L_per_min)) +
+dry_rem <- ggplot(subset(data_clean_removals, Treat %in% "Dry"), aes(x = Respiration_Rate_mg_DO_per_L_per_H)) +
   geom_histogram()+
   ggtitle("Dry Rates, Removals")+
   theme(strip.text = element_text(
     size = 4))
 
+
 data_clean_rem_effect <- data_clean_removals %>% 
-  filter(!grepl(011, kit)) %>% 
-  filter(!grepl(012, kit)) %>% 
-  mutate(Mean_Slope = abs(Mean_Slope_Removed)) %>% 
+ group_by(kit, Treat) %>% 
+  filter(n() >= 4) %>% 
+  ungroup() %>% 
+  group_by(kit) %>% 
+  filter(n() >= 6) %>% 
+  ungroup() %>% 
   distinct(kit_treat, .keep_all = TRUE) %>% 
   group_by(kit) %>% 
-  mutate(effect = (Mean_Slope[Treat == "Wet"] - Mean_Slope[Treat == "Dry"])) %>% 
+  mutate(effect = (Mean_Slope_Removed[Treat == "Wet"] - Mean_Slope_Removed[Treat == "Dry"])) %>% 
   mutate(log_effect = log10(abs(effect+1))) %>% 
-  distinct(kit, .keep_all = TRUE)
+  distinct(kit, .keep_all = TRUE) %>% 
+  ungroup()
  
 effect_rem <- ggplot(data_clean_rem_effect, aes(x = effect)) + 
   geom_histogram() +
-  ggtitle("Effect Size, No Removals")+
+  ggtitle("Effect Size, Removals")+
   theme(strip.text = element_text(
     size = 4))
 
@@ -750,14 +894,24 @@ all <- (wet_no + wet_rem + dry_no + dry_rem + effect_no + effect_rem) +
 
 print(all)
 
-effect.path <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Effect_Size_Data/")
+kits <- boye %>%
+  separate(Sample_Name, c("ID", "Rep"), sep = "-", remove = FALSE) %>% 
+  distinct(ID, .keep_all = TRUE) %>% 
+  filter(!is.na(ID)) %>% 
+  dplyr::select(c(ID, Methods_Deviation, Material))
+
+effect_boye <- left_join(kits, data_clean_rem_effect, by = "ID") %>% 
+  dplyr::select(c(ID, Material, effect, Methods_Deviation)) %>% 
+  rename(Effect_Size = effect) %>% 
+  rename(Sample_Name = ID) %>% 
+  mutate(Effect_Size = if_else(is.na(Effect_Size), -9999, Effect_Size)) %>% 
+  mutate(Effect_Size = round(Effect_Size, 3)) %>% 
+  mutate(Methods_Deviation = if_else(Effect_Size == -9999, "EFFECT_000", "N/A")) 
+  
+
+effect.path <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/ReadyForBoye/")
 
 
-
-#write.csv(data_clean_rem_effect, paste0(effect.path,"Effect_Size_merged_by_", pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
-
-respiration.removals.path <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Plots/All_Respiration_Rates/")
-
-#write.csv(data_clean_removals, paste0(respiration.removals.path,"removed_respiration_merged_by_", pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
+write.csv(effect_boye, paste0(effect.path,"ECA_Effect_Size_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)
 
 ```
