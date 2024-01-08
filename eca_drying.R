@@ -62,7 +62,7 @@ all_moisture <- all_moisture %>%
   unite(Sample_Name, c("Sample_ID", "INC"), sep = "_", remove = FALSE)
 
 
-merged <- merge(all_moisture, dry_wt_averages, by = "Sample_ID") %>% 
+merged <- left_join(all_moisture, dry_wt_averages, by = "Sample_ID") %>% 
   dplyr::select(-c(Notes, ...8, ...9, ...10)) %>% 
   distinct(Sample_Name, Date, .keep_all = TRUE)
   # dplyr::select(-c(Notes, `Jars or 40 mL vials`, ...8, ...9, ...10, `Study Code`, percent_water_content_wet, percent_water_content_dry, true_dry_weight_g, wet_weight_g))
@@ -195,7 +195,9 @@ final_wet_dry <- wet_dry %>%
   rename(Added_Water_Mass_g = Water_added_g) %>% 
   distinct(Sample_Name, Date, .keep_all = TRUE) %>% 
   mutate(across(c("Dry_Sediment_Mass_g", "Total_Water_Mass_g"),round,2)) %>% 
-  mutate(Wet_Sediment_Mass_Added_Water_g= if_else(is.na(Wet_Sediment_Mass_Added_Water_g), -9999, Wet_Sediment_Mass_Added_Water_g))
+  mutate(Wet_Sediment_Mass_Added_Water_g= if_else(is.na(Wet_Sediment_Mass_Added_Water_g), -9999, Wet_Sediment_Mass_Added_Water_g)) %>% 
+  mutate(Dry_Sediment_Mass_g = if_else(is.na(Dry_Sediment_Mass_g), -9999, Dry_Sediment_Mass_g)) %>% 
+  mutate(Total_Water_Mass_g = if_else(is.na(Total_Water_Mass_g), -9999, Total_Water_Mass_g)) 
 
 
 write.csv(final_wet_dry,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EC_Drying_Masses_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)  
@@ -250,7 +252,9 @@ for (i in 1:length(location)){
     
 water_mass <- water_mass %>% 
   drop_na(Sample_Name) %>% 
-  mutate(across(c("Initial_Water_mass_g", "Final_Water_mass_g", "Dry_Sediment_Mass_g"),round,2))
+  mutate(across(c("Initial_Water_mass_g", "Final_Water_mass_g", "Dry_Sediment_Mass_g"),round,2)) %>% 
+  rename(Initial_Water_Mass_g = Initial_Water_mass_g) %>% 
+  rename(Final_Water_Mass_g = Final_Water_mass_g)
 
 write.csv(water_mass,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)
 

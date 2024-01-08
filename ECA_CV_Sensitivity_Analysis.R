@@ -43,18 +43,19 @@ slope.outliers <- cv %>%
   mutate(Mean_Slope_All_L = mean(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   mutate(Mean_Slope_All_kg = mean(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   ungroup() %>% 
-  dplyr::select(c(Sample_Name, Respiration_Rate_mg_DO_per_L_per_H,Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat)) 
+  dplyr::select(c(Sample_Name, Respiration_Rate_mg_DO_per_L_per_H,Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat)) %>% 
+  drop_na(Respiration_Rate_mg_DO_per_kg_per_H)
 
 slope.outliers$flag <- NA
 
 slope.final <- as.data.frame(matrix(NA, ncol = 11, nrow =1))
 
-colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_Rate_mg_DO_per_kg_per_H", "Mean_Slope_All_L", "Mean_Slope_All_kg", "cv_before_removal_L", "cv_before_removal_kg", "cv_after_removal", "Mean_Slope_Removed","flag")
+colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_Rate_mg_DO_per_L_per_H", "Mean_Slope_All_L", "Mean_Slope_All_kg", "cv_before_removal_L", "cv_before_removal_kg", "cv_after_removal", "Mean_Slope_Removed","flag")
 
 unique.samples = unique(slope.outliers$kit_treat)
 
 #try 0, 10, 30, 50, 100, export histograms of removals, effect sizes
-cv.threshold = 250
+cv.threshold = 300
 
 #try keeping n = 3,4 samples
 rem.threshold = 4
@@ -65,7 +66,8 @@ for (i in 1:length(unique.samples)) {
   data_subset = subset(slope.outliers, slope.outliers$kit_treat == unique.samples[i])
   
   ## Pull out Rate values
-  slope.temp = as.numeric(data_subset$Respiration_Rate_mg_DO_per_L_per_H)
+  #slope.temp = as.numeric(data_subset$Respiration_Rate_mg_DO_per_L_per_H)
+  slope.temp = as.numeric(data_subset$Respiration_Rate_mg_DO_per_kg_per_H)
   
   ## Calculate standard deviation, average, and coefficient of variation of rates
   slope.temp.sd <- sd(slope.temp)
@@ -109,7 +111,7 @@ for (i in 1:length(unique.samples)) {
     
     slope.combined <- as.data.frame(slope.temp)
     
-    slope.removed <- merge(slope.combined, data_subset, by.x = "slope.temp", by.y = "Respiration_Rate_mg_DO_per_L_per_H", all.x = TRUE)
+    slope.removed <- merge(slope.combined, data_subset, by.x = "slope.temp", by.y = "Respiration_Rate_mg_DO_per_kg_per_H", all.x = TRUE)
     
     slope.removed <- slope.removed[!duplicated(slope.removed$Sample_Name), ]
     
@@ -126,26 +128,26 @@ for (i in 1:length(unique.samples)) {
 
 ## This data frame has removed samples
 slope.final.flag <- slope.final %>% 
-  mutate(flag = if_else(cv_before_removal_L < cv_after_removal, "Issue in dropping sample", "N/A")) %>% 
-  rename(Respiration_Rate_mg_DO_per_L_per_H = slope.temp) %>% 
-  relocate(Respiration_Rate_mg_DO_per_L_per_H, .after = Sample_Name)
+  mutate(flag = if_else(cv_before_removal_kg < cv_after_removal, "Issue in dropping sample", "N/A")) %>% 
+  rename(Respiration_Rate_mg_DO_per_kg_per_H = slope.temp) %>% 
+  relocate(Respiration_Rate_mg_DO_per_kg_per_H, .after = Sample_Name)
 
 cv.threshold = "No_Removals"
 rem.threshold = 3
 
 #Write data frame with removed respiration rates
 
-write.csv(slope.final.flag, paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/CV_mg_L_",cv.threshold,"percent_Removed_Respiration_Rates",Sys.Date(),".csv"), row.names = F)
+write.csv(slope.final.flag, paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/CV_mg_kg_",cv.threshold,"percent_Removed_Respiration_Rates",Sys.Date(),".csv"), row.names = F)
 
 ## All Samples ####
 
 ##Merge removed samples with other data
 corr_samples <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
-  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g, Fe_mg_per_kg, Percent_Tot_Sand)) %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_L_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g, Fe_mg_per_L, Percent_Tot_Sand)) %>% 
   drop_na() %>% 
-  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
-  rename(`Respiration (mg/L)` = Respiration_Rate_mg_DO_per_L_per_H) %>% 
-  rename(`Fe (mg/L)` = Fe_mg_per_L) %>% 
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = abs(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  rename(`Respiration (mg/kg)` = Respiration_Rate_mg_DO_per_kg_per_H) %>% 
+  rename(`Fe (mg/kg)` = Fe_mg_per_kg) %>% 
     rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
     rename(`% Med. Sand` = Percent_Med_Sand) %>% 
     rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
@@ -158,7 +160,7 @@ corr_samples <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Res
 column_to_rownames("Sample_Name")
 
 ## Make histogram of all data
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/All_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/All_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(corr_samples, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -210,7 +212,7 @@ panel.cor.pear <- function(x, y, digits=2, prefix="", cex.cor)
 }
 
 #####
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(corr_samples, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -221,8 +223,8 @@ dev.off()
 ## Log All Samples ####
 
 log_corr_samples <- corr_samples %>% 
-  mutate(`Log Respiration (mg/L)` = log10(`Respiration (mg/L)` + 0.5*min(`Respiration (mg/L)`[`Respiration (mg/L)` != min(`Respiration (mg/L)`)]))) %>% 
-  mutate(`Log Fe (mg/L)` = log10(`Fe (mg/L)` + 0.5*min(`Fe (mg/L)`[`Fe (mg/L)` != min(`Fe (mg/L)`)]))) %>% 
+  mutate(`Log Respiration (mg/kg)` = log10(`Respiration (mg/kg)` + 0.5*min(`Respiration (mg/kg)`[`Respiration (mg/kg)` != min(`Respiration (mg/kg)`)]))) %>% 
+  mutate(`Log Fe (mg/kg)` = log10(`Fe (mg/kg)` + 0.5*min(`Fe (mg/kg)`[`Fe (mg/kg)` != min(`Fe (mg/kg)`)]))) %>% 
   mutate(`Log % Fine Sand` = log10(`% Fine Sand` + 0.5*min(`% Fine Sand`))) %>% 
   mutate(`Log % Med. Sand` = log10(`% Med. Sand` + 0.5*min(`% Med. Sand`))) %>% 
   mutate(`Log % Coarse Sand` = log10(`% Coarse Sand` + 0.5*min(`% Coarse Sand`))) %>% 
@@ -236,13 +238,13 @@ log_corr_samples <- corr_samples %>%
   mutate(`Log Fin.Grav.Moi.` = log10(`Fin.Grav.Moi.` + 0.5*min(`Fin.Grav.Moi.`))) %>% 
   mutate(`Log Fin.Grav.Moi.` = log10(`Fin.Grav.Moi.` + 0.5*min(`Fin.Grav.Moi.`))) %>% 
   mutate(`Log LostGrav.Moi.` = log10(`LostGrav.Moi.` + 0.5*min(`LostGrav.Moi.`))) %>% 
-   dplyr::select(c(`Log Respiration (mg/L)`, `Log Fe (mg/L)`, `Log % Fine Sand`, `Log % Med. Sand`, `Log % Coarse Sand`, `Log % Clay`, `Log % Silt`, `Log SSA`, `Log SpC`, `Log Temp`, `Log pH`, `Log In.Grav.Moi.`, `Log Fin.Grav.Moi.`, `Log LostGrav.Moi.`))
+   dplyr::select(c(`Log Respiration (mg/kg)`, `Log Fe (mg/kg)`, `Log % Fine Sand`, `Log % Med. Sand`, `Log % Coarse Sand`, `Log % Clay`, `Log % Silt`, `Log SSA`, `Log SpC`, `Log Temp`, `Log pH`, `Log In.Grav.Moi.`, `Log Fin.Grav.Moi.`, `Log LostGrav.Moi.`))
 
 # histogram of log transformed samples (log + 1/2 of minimum to get at 0 values)
 
 #question - do this across the board even if no 0's?
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_All_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_All_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(log_corr_samples, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -252,7 +254,7 @@ dev.off()
 
 #log_samples_corr <- cor(log_corr_samples, method = "pearson")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_All_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(corr_samples, lower.panel = panel.smooth,upper.panel = panel.cor.pear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -268,7 +270,7 @@ all_samples_dry <- corr_samples %>%
   column_to_rownames("Sample_Name")
 
 ## Make histogram of all data
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/All_Dry_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/All_Dry_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(all_samples_dry, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -276,7 +278,7 @@ ggplot(gather(all_samples_dry, cols, value), aes(x = value)) +
 
 dev.off()
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/All_Dry_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/All_Dry_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(all_samples_dry, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -289,7 +291,7 @@ log_all_dry <- log_corr_samples %>%
   filter(grepl("D", Sample_Name)) %>% 
   column_to_rownames("Sample_Name")
   
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_All_Dry_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_All_Dry_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(log_all_dry, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -297,7 +299,7 @@ ggplot(gather(log_all_dry, cols, value), aes(x = value)) +
 
 dev.off()
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_All_Dry_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_All_Dry_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(log_all_dry, lower.panel = panel.smooth,upper.panel = panel.cor.pear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -309,7 +311,7 @@ all_samples_wet <-  corr_samples %>%
   column_to_rownames("Sample_Name")
 
 ## Make histogram of all data
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/All_Wet_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/All_Wet_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(all_samples_wet, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -319,7 +321,7 @@ dev.off()
 
 #all_samples_dry_corr <- cor(all_samples_dry,method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/All_Wet_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/All_Wet_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(all_samples_wet, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -334,7 +336,7 @@ log_all_wet <- log_corr_samples %>%
   column_to_rownames("Sample_Name")
 
 ## Make histogram of all data
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_All_Wet_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_All_Wet_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(log_all_wet, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -342,7 +344,7 @@ ggplot(gather(log_all_wet, cols, value), aes(x = value)) +
 
 dev.off()
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_All_Wet_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_All_Wet_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(log_all_wet, lower.panel = panel.smooth,upper.panel = panel.cor.pear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -358,8 +360,8 @@ means <- corr_samples %>%
   group_by(kit, Treat) %>% 
   summarise(across(where(is.numeric), list(mean = mean), na.rm = TRUE))%>% 
   unite(kit_treat, c("kit", "Treat")) %>% 
-  rename(`Mean Respiration (mg/L)` = `Respiration (mg/L)_mean`) %>% 
-  rename(`Mean Fe (mg/L)` = `Fe (mg/L)_mean`) %>% 
+  rename(`Mean Respiration (mg/kg)` = `Respiration (mg/kg)_mean`) %>% 
+  rename(`Mean Fe (mg/kg)` = `Fe (mg/kg)_mean`) %>% 
   rename(`% Fine Sand` = `% Fine Sand_mean`) %>% 
   rename(`% Med. Sand` = `% Med. Sand_mean`) %>% 
   rename(`% Coarse Sand` = `% Coarse Sand_mean`) %>% 
@@ -374,7 +376,7 @@ means <- corr_samples %>%
   rename(`Mean LostGrav.Moi.` = LostGrav.Moi._mean) %>% 
   column_to_rownames("kit_treat")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(means, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -384,7 +386,7 @@ dev.off()
 
 #mean_samples_corr <- cor(means, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(means, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -394,8 +396,8 @@ dev.off()
 
 ## Log Mean Samples ####
 log_means <- means %>% 
-  mutate(`Log Mean Respiration (mg/L)` = log10(`Mean Respiration (mg/L)` + 0.5*min(`Mean Respiration (mg/L)`[`Mean Respiration (mg/L)` != min(`Mean Respiration (mg/L)`)]))) %>% 
-  mutate(`Log Mean Fe (mg/L)` = log10(`Mean Fe (mg/L)` + 0.5*min(`Mean Fe (mg/L)`[`Mean Fe (mg/L)` != min(`Mean Fe (mg/L)`)]))) %>% 
+  mutate(`Log Mean Respiration (mg/kg)` = log10(`Mean Respiration (mg/kg)` + 0.5*min(`Mean Respiration (mg/kg)`[`Mean Respiration (mg/kg)` != min(`Mean Respiration (mg/kg)`)]))) %>% 
+  mutate(`Log Mean Fe (mg/kg)` = log10(`Mean Fe (mg/kg)` + 0.5*min(`Mean Fe (mg/kg)`[`Mean Fe (mg/kg)` != min(`Mean Fe (mg/kg)`)]))) %>% 
   mutate(`Log % Fine Sand` = log10(`% Fine Sand` + 0.5*min(`% Fine Sand`))) %>% 
   mutate(`Log % Med. Sand` = log10(`% Med. Sand` + 0.5*min(`% Med. Sand`))) %>% 
   mutate(`Log % Coarse Sand` = log10(`% Coarse Sand` + 0.5*min(`% Coarse Sand`))) %>% 
@@ -409,9 +411,9 @@ log_means <- means %>%
   mutate(`Log Mean Fin.Grav.Moi.` = log10(`Mean Fin.Grav.Moi.` + 0.5*min(`Mean Fin.Grav.Moi.`))) %>% 
   mutate(`Log Mean Fin.Grav.Moi.` = log10(`Mean Fin.Grav.Moi.` + 0.5*min(`Mean Fin.Grav.Moi.`))) %>% 
   mutate(`Log Mean LostGrav.Moi.` = log10(`Mean LostGrav.Moi.` + 0.5*min(`Mean LostGrav.Moi.`))) %>% 
-  dplyr::select(c(`Log Mean Respiration (mg/L)`, `Log Mean Fe (mg/L)`, `Log % Fine Sand`, `Log % Med. Sand`, `Log % Coarse Sand`, `Log % Clay`, `Log % Silt`, `Log SSA`, `Log Mean SpC`, `Log Mean Temp`, `Log Mean pH`, `Log Mean In.Grav.Moi.`, `Log Mean Fin.Grav.Moi.`, `Log Mean LostGrav.Moi.`))
+  dplyr::select(c(`Log Mean Respiration (mg/kg)`, `Log Mean Fe (mg/kg)`, `Log % Fine Sand`, `Log % Med. Sand`, `Log % Coarse Sand`, `Log % Clay`, `Log % Silt`, `Log SSA`, `Log Mean SpC`, `Log Mean Temp`, `Log Mean pH`, `Log Mean In.Grav.Moi.`, `Log Mean Fin.Grav.Moi.`, `Log Mean LostGrav.Moi.`))
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(log_means, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -421,7 +423,7 @@ dev.off()
 
 #mean_samples_corr <- cor(means, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(log_means, lower.panel = panel.smooth,upper.panel = panel.cor.pear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -439,7 +441,7 @@ wet_means <- means %>%
   dplyr::select(-c(`Mean Fin.Grav.Moi.`, `Mean LostGrav.Moi.`)) %>% 
   column_to_rownames("kit_treat")         
   
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Wet_Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Wet_Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(wet_means, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -449,7 +451,7 @@ dev.off()
 
 #mean_samples_corr <- cor(means, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Wet_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Wet_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(wet_means, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -463,7 +465,7 @@ dry_means <- means %>%
   filter(grepl("D", kit_treat)) %>% 
   column_to_rownames("kit_treat")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Dry_Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Dry_Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(dry_means, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -473,7 +475,7 @@ dev.off()
 
 #mean_samples_corr <- cor(means, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Dry_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Dry_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(dry_means, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -489,7 +491,7 @@ log_wet_means <- log_means %>%
   dplyr::select(-c(`Log Mean LostGrav.Moi.`, `Log Mean In.Grav.Moi.`, `Log Mean Fin.Grav.Moi.`)) %>% 
   column_to_rownames("kit_treat")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_Wet_Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_Wet_Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(log_wet_means, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -499,7 +501,7 @@ dev.off()
 
 #mean_samples_corr <- cor(means, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_Wet_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_Wet_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(log_wet_means, lower.panel = panel.smooth,upper.panel = panel.cor.pear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -513,7 +515,7 @@ log_dry_means <- log_means %>%
   filter(grepl("D", kit_treat)) %>% 
   column_to_rownames("kit_treat")
   
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_Dry_Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_Dry_Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(log_dry_means, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -523,7 +525,7 @@ dev.off()
 
 #mean_samples_corr <- cor(means, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_Dry_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_Dry_Mean_Samples_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(log_dry_means, lower.panel = panel.smooth,upper.panel = panel.cor.pear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -532,8 +534,6 @@ pairs(log_dry_means, lower.panel = panel.smooth,upper.panel = panel.cor.pear, ga
 dev.off()
 
 #####
-
-
 effect <- means %>% 
   rownames_to_column("kit_treat") %>% 
   separate(kit_treat, c("kit", "treat"), remove = FALSE) %>% 
@@ -543,11 +543,11 @@ effect <- means %>%
   group_by(kit) %>% 
   relocate(c(`% Fine Sand`:SSA), .after = `Mean LostGrav.Moi.`) %>% 
   summarise(
-    across(`Mean Respiration (mg/L)`:`Mean LostGrav.Moi.`, diff), 
+    across(`Mean Respiration (mg/kg)`:`Mean LostGrav.Moi.`, diff), 
     across(`% Fine Sand`:SSA, mean))%>% 
   column_to_rownames("kit") %>% 
-  rename(`Effect Size` = `Mean Respiration (mg/L)`) %>% 
-  rename(`Fe (mg/L) Diff.` = `Mean Fe (mg/L)`) %>% 
+  rename(`Effect Size` = `Mean Respiration (mg/kg)`) %>% 
+  rename(`Fe (mg/kg) Diff.` = `Mean Fe (mg/kg)`) %>% 
   rename(`SpC Diff.` = `Mean SpC`) %>% 
   rename(`Temp Diff.` = `Mean Temp`) %>% 
   rename(`pH Diff.` = `Mean pH`) %>% 
@@ -557,7 +557,7 @@ effect <- means %>%
 
 #effect_corr <- cor(effect, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Effect_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Effect_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(effect, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -567,7 +567,7 @@ dev.off()
 
 #mean_samples_corr <- cor(means, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Effect_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Effect_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(effect, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
 
@@ -583,11 +583,11 @@ log_effect <- log_means %>%
   group_by(kit) %>% 
   relocate(c(`Log % Fine Sand`:`Log SSA`), .after = `Log Mean LostGrav.Moi.`) %>% 
   summarise(
-    across(`Log Mean Respiration (mg/L)`:`Log Mean LostGrav.Moi.`, diff), 
+    across(`Log Mean Respiration (mg/kg)`:`Log Mean LostGrav.Moi.`, diff), 
     across(`Log % Fine Sand`:`Log SSA`, mean))%>% 
   column_to_rownames("kit") %>% 
-  rename(`Log Effect Size` = `Log Mean Respiration (mg/L)`) %>% 
-  rename(`Log Fe (mg/L) Diff.` = `Log Mean Fe (mg/L)`) %>% 
+  rename(`Log Effect Size` = `Log Mean Respiration (mg/kg)`) %>% 
+  rename(`Log Fe (mg/kg) Diff.` = `Log Mean Fe (mg/kg)`) %>% 
   rename(`Log SpC Diff.` = `Log Mean SpC`) %>% 
   rename(`Log Temp Diff.` = `Log Mean Temp`) %>% 
   rename(`Log pH Diff.` = `Log Mean pH`) %>% 
@@ -595,7 +595,7 @@ log_effect <- log_means %>%
   rename(`Log Fin.Grav.Moi. Diff.` = `Log Mean Fin.Grav.Moi.`) %>%
   dplyr::select(-c(`Log Mean LostGrav.Moi.`))
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_Effect_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_Effect_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 ggplot(gather(log_effect, cols, value), aes(x = value)) + 
   geom_histogram() + 
@@ -605,11 +605,68 @@ dev.off()
 
 #mean_samples_corr <- cor(means, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_Effect_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Log_Effect_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
 pairs(log_effect, lower.panel = panel.smooth,upper.panel = panel.cor.pear, gap = 0, cex.labels = 0.5, cex = .75)
 
 #corrplot(effect_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "Effect Correlation")
 
 dev.off()
+
+
+
+
+wet_dry_effect <- means %>% 
+  rownames_to_column("kit_treat") %>% 
+  separate(kit_treat, c("kit", "treat"), remove = FALSE) %>% 
+  group_by(kit) %>% 
+  filter(n() >= 2) %>% 
+  ungroup() %>% 
+  group_by(kit) %>% 
+  relocate(c(`% Fine Sand`:SSA), .after = `Mean LostGrav.Moi.`) %>% 
+  mutate(`Effect Size` = (`Mean Respiration (mg/kg)`[treat == "Wet"])/(`Mean Respiration (mg/kg)`[treat == "Dry"])) %>%
+  mutate(`Fe (mg/kg)` = `Mean Fe (mg/kg)`[treat == "Wet"]/`Mean Fe (mg/kg)`[treat == "Dry"]) %>%
+  mutate(`SpC` = `Mean SpC`[treat == "Wet"]/`Mean SpC`[treat == "Dry"]) %>%
+  mutate(`Temp` = `Mean Temp`[treat == "Wet"]/`Mean Temp`[treat == "Dry"]) %>%
+  mutate(`pH` = `Mean pH`[treat == "Wet"]/`Mean pH`[treat == "Dry"]) %>%
+  mutate(`In.Grav.Moi.` = `Mean In.Grav.Moi.`[treat == "Wet"]/`Mean In.Grav.Moi.`[treat == "Dry"]) %>%
+  mutate(`Fin.Grav.Moi.` = `Mean Fin.Grav.Moi.`[treat == "Wet"]/`Mean Fin.Grav.Moi.`[treat == "Dry"]) %>%
+  mutate(`LostGrav.Moi.` = `Mean LostGrav.Moi.`[treat == "Wet"]/`Mean LostGrav.Moi.`[treat == "Dry"]) %>%
+  mutate(across(`% Fine Sand`:SSA, mean)) %>% 
+  filter(treat != "Wet") %>% 
+  select(c(kit, `Effect Size`, `Fe (mg/kg)`, SpC, Temp, pH, In.Grav.Moi., Fin.Grav.Moi., LostGrav.Moi., `% Fine Sand`, `% Med. Sand`, `% Coarse Sand`, `% Clay`, `% Silt`, SSA)) %>% 
+  filter(kit != "018") %>% 
+  filter(kit != "024") %>% 
+  filter(kit != "039")%>% 
+  filter(kit != "056") %>% 
+  column_to_rownames("kit") #%>% 
+# rename(`Effect Size` = `Mean Respiration (mg/kg)`) %>% 
+# rename(`Fe (mg/kg) Diff.` = `Mean Fe (mg/kg)`) %>% 
+# rename(`SpC Diff.` = `Mean SpC`) %>% 
+# rename(`Temp Diff.` = `Mean Temp`) %>% 
+# rename(`pH Diff.` = `Mean pH`) %>% 
+# rename(`In.Grav.Moi. Diff.` = `Mean In.Grav.Moi.`) %>% 
+# rename(`Fin.Grav.Moi. Diff.` = `Mean Fin.Grav.Moi.`) %>%
+# rename(`LostGrav.Moi. Diff.` = `Mean LostGrav.Moi.`)
+# 
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Wet_Div_Dry_Effect_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+
+ggplot(gather(wet_dry_effect, cols, value), aes(x = value)) + 
+  geom_histogram() + 
+  facet_wrap(.~cols, scales = 'free_x')
+
+dev.off()
+
+#mean_samples_corr <- cor(means, method = "spearman")
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=",rem.threshold,"/Wet_Div_Dry_Effect_Correlation_Matrix_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
+
+pairs(wet_dry_effect, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
+
+#corrplot(effect_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "Effect Correlation")
+
+dev.off()
+
+
 
