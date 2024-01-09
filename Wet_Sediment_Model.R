@@ -41,32 +41,23 @@ inc <- inc %>%
   relocate(Sample_Name, .before = INC_tube_50ml_empty_g)
 
 ## Compare to SSA
-ssa <- read_csv(paste0("C:/GitHub/ECA_Multireactor_Incubations/Data/eca_ssa_predatapackage.csv"))
+ssa <- read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/CM_SSS_Sediment_Specific_Surface_Area.csv", skip = 2, header = TRUE)
 
-ssa <- ssa %>% 
-  separate(Parent_ID, c("EC", "Site"), sep = "_")
+ssa_clean <- ssa %>% 
+  filter(!row_number() %in% c(1:11)) %>% 
+  dplyr::select(-c(Field_Name, Material)) %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "CM", "EC")) %>% 
+  filter(!grepl("SSS", Sample_Name)) %>% 
+  separate(Sample_Name, into = c("EC", "Kit", "GRN"), sep = "_") %>% 
+  unite("Sample_Name", EC:Kit, sep = "_") %>% 
+  dplyr::select(-c(GRN, IGSN)) %>% 
+  filter(!grepl("NA", Sample_Name)) %>% 
+  filter(!grepl("-9999", Specific_Surface_Area_m2_per_g)) %>% 
+  mutate(Specific_Surface_Area_m2_per_g = as.numeric(Specific_Surface_Area_m2_per_g))
 
-for (i in 1:nrow(ssa)){
-  
-  if (str_count(ssa$Site[i], "[0-9]") <= 2){
-    
-    ssa$Site[i] = paste0("0", ssa$Site[i])
-    
-  }
-  
-  else {
-    
-    ssa$Site[i] = ssa$Site[i]
-  }
-  
-}
-
-ssa <- ssa %>% 
-  unite(Sample_Name, c("EC", "Site"), sep = "_")
-
-mean_ssa <- ssa %>% 
+mean_ssa <- ssa_clean %>% 
   group_by(Sample_Name) %>% 
-  mutate(average_ssa = mean(ssa_m2_g)) %>% 
+  mutate(average_ssa = mean(Specific_Surface_Area_m2_per_g)) %>% 
   distinct(Sample_Name, .keep_all = TRUE) %>% 
   dplyr::select(Sample_Name, average_ssa)
 
