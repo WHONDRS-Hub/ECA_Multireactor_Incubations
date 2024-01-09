@@ -673,6 +673,35 @@ dev.off()
 
 ### LASSO REGRESSION
 
-resp <- all_data$Respiration_Rate_mg_DO_per_L_per_H
+lasso <- all_data %>% 
+  drop_na(Fe_mg_per_L) %>% 
+  drop_na(average_ssa) %>% 
+  drop_na(Initial_Gravimetric_Water) %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H))
 
-pred <- data.matrix(all_data)
+resp <- lasso$Respiration_Rate_mg_DO_per_L_per_H
+
+resp <- scale(resp)
+
+pred <- data.matrix(lasso[, c('Fe_mg_per_L', 'Percent_Fine_Sand', 'Percent_Med_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'average_ssa', 'SpC', 'Temp', 'pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water', 'Lost_Gravimetric_Water')])
+
+pred <- scale(pred)
+
+cv_model <- cv.glmnet(pred, resp, alpha = 1)
+
+best_lambda <- cv_model$lambda.min
+best_lambda
+
+plot(cv_model)
+
+best_model <- glmnet(pred, resp, alpha = 1, lambda = best_lambda)
+coef(best_model)
+
+resp_predict <- predict(best_model, s = best_lambda, newx = pred)
+
+sst <- sum((resp - mean(resp))^2)
+sse <- sum((resp_predict - resp)^2)
+
+rsq = 1 - sse/sst
+
+rsq
