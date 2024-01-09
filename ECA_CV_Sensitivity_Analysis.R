@@ -3,6 +3,7 @@
 library(dplyr)
 library(tidyverse)
 library(corrplot)
+library(glmnet)
 
 rm(list=ls());graphics.off()
 
@@ -670,3 +671,8 @@ dev.off()
 
 
 
+### LASSO REGRESSION
+
+resp <- all_data$Respiration_Rate_mg_DO_per_L_per_H
+
+pred <- data.matrix(all_data)
