@@ -253,10 +253,15 @@ samples =
  # mutate(nmol_per_g = med_ppm_calculate * (0.005/dried_sediment_mass_g)) %>% 
   mutate(actual_nM = if_else(rlu <= low_end_range,                              low_ppm_calculate * dilution_factor,
                      if_else(rlu > low_end_range & rlu <= med_end_range, med_ppm_calculate * dilution_factor, high_ppm_calculate * dilution_factor))) %>% 
+  mutate(sc_used = if_else(rlu <= low_end_range,                              "low",
+                           if_else(rlu > low_end_range & rlu <= med_end_range, "med", "high"))) %>% 
   separate(sample_id, c("Sample", "Rep"), sep = -1) %>% 
   group_by(Sample) %>% 
   mutate(cv_samp = (sd(actual_nM)/mean(actual_nM))*100) %>% 
-  relocate(method_notes, .after = cv_samp)
+  relocate(method_notes, .after = cv_samp) %>% 
+  relocate(actual_nM, .after = rlu) %>% 
+  relocate(source, .after = actual_nM) %>% 
+  relocate(sc_used, .after = actual_nM)
 
 png(file = paste0(processed.data,"samples_nM.png"), width = 15, height = 15, units = "in", res = 300) 
 
@@ -267,3 +272,7 @@ dev.off()
 
 ggplot(samples, aes(x = cv_samp)) + 
   geom_histogram()
+
+ggplot(samples, aes(x = rlu, y = actual_nM)) + 
+  geom_point(aes(color = source))
+  
