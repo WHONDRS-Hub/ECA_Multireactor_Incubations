@@ -12,6 +12,20 @@ raw.data = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Fiel
 
 processed.data = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/ATP/03_ProcessedData/")
 
+moisture <- read_csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/ECA_Moisture_Outliers_Removed.csv"))
+
+moisture_clean <- moisture %>%
+  filter(is.na(flag)) %>% 
+  separate(Sample_Name, c("EC", "Site", "Rep"), sep = "_", remove = FALSE) %>% 
+  unite(Sample_Name, c("EC", "Site")) %>% 
+  group_by(Sample_Name) %>% 
+  mutate(average_grav = mean(percent_water_content_dry)) %>% 
+  mutate(cv = (sd(percent_water_content_dry)/mean(percent_water_content_dry))*100)
+
+moisture_average <- moisture_clean %>% 
+  distinct(Sample_Name, .keep_all = TRUE) %>% 
+  select(c(Sample_Name, average_grav))
+
 #setwd(input.path)
 
 filePaths_atp<- list.files(path = raw.data, pattern = "Data_Raw_ATP", full.names = TRUE, recursive = TRUE) 
@@ -223,12 +237,19 @@ reference =
   calibrate_atp_data(data_formatted) %>% 
   filter(grepl("PE", sample_id)) %>% 
   mutate(dried_sediment_mass_g = as.numeric(dried_sediment_15_m_l_mass_g) - as.numeric(x15_m_l_mass_g)) %>% 
-  mutate(nmol_per_g = med_ppm_calculate * (0.005/dried_sediment_mass_g)) %>% 
-  mutate(cv_all = (sd(nmol_per_g)/mean(nmol_per_g))*100) %>% 
+  mutate(water_mass_g = as.numeric(x15_m_l_sediment_edta_wet_mass_g) - as.numeric(x15_m_l_mass_g) - as.numeric(edta_mass_g)) %>% 
+  mutate(pmol_per_g_na = (med_ppm_calculate * (0.005/dried_sediment_mass_g))*1000) %>%
+  mutate(pmol_per_g_corr = (med_ppm_calculate * ((0.005 + (water_mass_g/1000))/dried_sediment_mass_g))*1000) %>% 
+  ungroup() %>% 
+  mutate(cv_all_na = (sd(pmol_per_g_na)/mean(pmol_per_g_na))*100) %>% 
+  mutate(cv_all_corr = (sd(pmol_per_g_corr)/mean(pmol_per_g_corr))*100) %>%
   group_by(source) %>% 
-  mutate(cv_day = (sd(nmol_per_g)/mean(nmol_per_g))*100)
+  mutate(cv_day_na = (sd(pmol_per_g_na)/mean(pmol_per_g_na))*100) %>% 
+  mutate(cv_day_corr = (sd(pmol_per_g_corr)/mean(pmol_per_g_corr))*100) %>% 
+  ungroup() %>% 
+  select(c(sample_id, dilution_factor, rlu, med_ppm_calculate, pmol_per_g_na, pmol_per_g_corr, cv_all_na, cv_all_corr, cv_day_na, cv_day_corr, source))
 
-mean = mean(reference$nmol_per_g)
+mean = mean(reference$pmol_per_g)
 
 png(file = paste0(processed.data,"ref_standards_med_g.png"), width = 15, height = 15, units = "in", res = 300) 
 
@@ -253,15 +274,20 @@ samples =
  # mutate(nmol_per_g = med_ppm_calculate * (0.005/dried_sediment_mass_g)) %>% 
   mutate(actual_nM = if_else(rlu <= low_end_range,                              low_ppm_calculate * dilution_factor,
                      if_else(rlu > low_end_range & rlu <= med_end_range, med_ppm_calculate * dilution_factor, high_ppm_calculate * dilution_factor))) %>% 
+  mutate(low_med_ppm_calculate = low_med_ppm_calculate * dilution_factor) %>% 
   mutate(sc_used = if_else(rlu <= low_end_range,                              "low",
                            if_else(rlu > low_end_range & rlu <= med_end_range, "med", "high"))) %>% 
+  mutate(sc_used = if_else(actual_nM <= 10 & rlu >= med_beg_range, "low_med", sc_used)) %>% 
+  mutate(actual_nM = if_else(actual_nM <= 10 & rlu >= med_beg_range, low_med_ppm_calculate * dilution_factor, actual_nM)) %>% 
   separate(sample_id, c("Sample", "Rep"), sep = -1) %>% 
   group_by(Sample) %>% 
   mutate(cv_samp = (sd(actual_nM)/mean(actual_nM))*100) %>% 
-  relocate(method_notes, .after = cv_samp) %>% 
-  relocate(actual_nM, .after = rlu) %>% 
-  relocate(source, .after = actual_nM) %>% 
-  relocate(sc_used, .after = actual_nM)
+  mutate(water_mass_g = as.numeric(x15_m_l_sediment_edta_wet_mass_g) - as.numeric(edta_mass_g) - as.numeric(x15_m_l_mass_g)) %>% 
+  mutate(dried_sed_mass_g = as.numeric(dried_sediment_15_m_l_mass_g) - as.numeric(x15_m_l_mass_g)) %>% 
+  select(c(Sample, Rep, dilution_factor, rlu, actual_nM, sc_used, source, low_ppm_calculate, med_ppm_calculate, low_med_ppm_calculate, high_ppm_calculate, dried_sed_mass_g, water_mass_g))  %>% 
+  mutate(error_low_med = ((low_med_ppm_calculate - actual_nM)/actual_nM)*100) %>% 
+   relocate(error_low_med, .after = actual_nM)
+
 
 png(file = paste0(processed.data,"samples_nM.png"), width = 15, height = 15, units = "in", res = 300) 
 
