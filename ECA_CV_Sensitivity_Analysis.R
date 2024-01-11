@@ -672,6 +672,7 @@ dev.off()
 
 
 ### LASSO REGRESSION
+#scale because large differences in magnitude between pred. variables
 
 lasso <- all_data %>% 
   drop_na(Fe_mg_per_L) %>% 
@@ -705,3 +706,57 @@ sse <- sum((resp_predict - resp)^2)
 rsq = 1 - sse/sst
 
 rsq
+
+
+## Log LASSO
+
+lasso <- all_data %>% 
+  drop_na(Fe_mg_per_L) %>% 
+  drop_na(average_ssa) %>% 
+  drop_na(Initial_Gravimetric_Water) %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H))
+
+log_lasso <- lasso %>% 
+  mutate(log_resp_mg_l = log10(Respiration_Rate_mg_DO_per_L_per_H + 0.5*min(Respiration_Rate_mg_DO_per_L_per_H[Respiration_Rate_mg_DO_per_L_per_H != min(Respiration_Rate_mg_DO_per_L_per_H)]))) %>% 
+  mutate(log_fe_mg_l = log10(Fe_mg_per_L + 0.5*min(Fe_mg_per_L[Fe_mg_per_L != min(Fe_mg_per_L)]))) %>% 
+  mutate(log_fine_sand = log10(Percent_Fine_Sand + 0.5*min(Percent_Fine_Sand))) %>% 
+  mutate(log_med_sand = log10(Percent_Med_Sand + 0.5*min(Percent_Med_Sand))) %>% 
+  mutate(log_coarse_sand = log10(Percent_Coarse_Sand + 0.5*min(Percent_Coarse_Sand))) %>% 
+  mutate(log_clay = log10(Percent_Clay + 0.5*min(Percent_Clay[Percent_Clay != min(Percent_Clay)]))) %>% 
+  mutate(log_silt = log10(Percent_Silt + 0.5*min(Percent_Silt[Percent_Silt != min(Percent_Silt)]))) %>% 
+  mutate(log_ssa = log10(average_ssa + 0.5*min(average_ssa))) %>% 
+  mutate(log_spc = log10(`SpC` + 0.5*min(`SpC`))) %>% 
+  mutate(log_temp = log10(`Temp` + 0.5*min(`Temp`))) %>%
+  mutate(log_ph = log10(`pH` + 0.5*min(`pH`))) %>% 
+  mutate(log_initial_grav = log10(Initial_Gravimetric_Water + 0.5*min(Initial_Gravimetric_Water))) %>% 
+  mutate(log_fin_grav = log10(Final_Gravimetric_Water + 0.5*min(Final_Gravimetric_Water))) %>% 
+  mutate(log_lost_grav = log10(Lost_Gravimetric_Water + 0.5*min(Lost_Gravimetric_Water))) %>% 
+  dplyr::select(c(log_resp_mg_l, log_fe_mg_l, log_fine_sand, log_med_sand, log_coarse_sand, log_clay, log_silt, log_ssa, log_spc, log_temp, log_ph, log_initial_grav, log_fin_grav))
+
+log_resp <- log_lasso$log_resp_mg_l
+
+#log_resp <- scale(log_resp)
+
+log_pred <- data.matrix(log_lasso[, c('log_fe_mg_l', 'log_fine_sand', 'log_med_sand', 'log_coarse_sand', 'log_clay','log_silt', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_initial_grav', 'log_fin_grav')])
+
+#log_pred <- scale(log_pred)
+
+log_cv_model <- cv.glmnet(log_pred, log_resp, alpha = 1)
+
+log_best_lambda <- log_cv_model$lambda.min
+log_best_lambda
+
+plot(log_cv_model)
+
+log_best_model <- glmnet(log_pred, log_resp, alpha = 1, lambda = log_best_lambda)
+coef(log_best_model)
+
+log_resp_predict <- predict(log_best_model, s = log_best_lambda, newx = log_pred)
+
+log_sst <- sum((log_resp - mean(log_resp))^2)
+log_sse <- sum((log_resp_predict - log_resp)^2)
+
+log_rsq = 1 - log_sse/log_sst
+
+log_rsq
+
