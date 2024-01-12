@@ -3,7 +3,6 @@ library(dplyr)
 library(readxl)
 library(ggpmisc)
 
-
 rm(list=ls());graphics.off()
 
 pnnl.user = 'laan208'
@@ -232,6 +231,21 @@ calibrate_atp_data = function(data_formatted){
     mutate(low_med_ppm_calculate = (rlu*low_med_slope) + low_med_intercept) 
   }
 
+qa = 
+  calibrate_atp_data(data_formatted) %>% 
+  filter(grepl("standard", sample_id)) %>% 
+  filter(is.na(standard_curve_mg_l)) %>% 
+  mutate(actual_nM = if_else(rlu <= low_end_range,                              low_ppm_calculate * dilution_factor,
+                             if_else(rlu > low_end_range & rlu <= med_end_range, med_ppm_calculate * dilution_factor, high_ppm_calculate * dilution_factor))) %>% 
+  relocate(actual_nM, .after = rlu) %>% 
+  relocate(source, .after = actual_nM) %>% 
+  drop_na(actual_nM) %>% 
+  select(c(sample_id, randomized_id, rlu, actual_nM, source)) %>% 
+  group_by(randomized_id) %>% 
+  mutate(cv_all = (sd(actual_nM)/mean(actual_nM))*100) %>% 
+  ungroup() %>% 
+  group_by(source, randomized_id) %>% 
+  mutate(cv_day = (sd(actual_nM)/mean(actual_nM))*100)
 
 reference = 
   calibrate_atp_data(data_formatted) %>% 
@@ -294,15 +308,26 @@ samples =
   mutate(error_low_med = ((low_med_ppm_calculate - actual_nM)/actual_nM)*100) %>% 
    relocate(error_low_med, .after = actual_nM) %>% 
   group_by(Sample) %>% 
-  mutate(cv_samp = (sd(pmol_g_moi)/mean(pmol_g_moi))*100) %>% 
+  mutate(cv_samp_moi = (sd(pmol_g_moi)/mean(pmol_g_moi))*100) %>% 
+  mutate(cv_samp_corr = (sd(pmol_g_corr)/mean(pmol_g_corr))*100) %>% 
+  mutate(cv_samp_na = (sd(pmol_g_na)/mean(pmol_g_na))*100) %>% 
   ungroup() %>% 
   group_by(Sample_Name) %>% 
-  mutate(cv_kit = (sd(pmol_g_moi)/mean(pmol_g_moi))*100)
+  mutate(cv_kit_moi = (sd(pmol_g_moi)/mean(pmol_g_moi))*100) %>% 
+  mutate(cv_kit_corr = (sd(pmol_g_corr)/mean(pmol_g_corr))*100) %>% 
+  mutate(cv_kit_na = (sd(pmol_g_na)/mean(pmol_g_na))*100)
 
 
 png(file = paste0(processed.data,"samples_nM.png"), width = 15, height = 15, units = "in", res = 300) 
 
 ggplot(samples, aes(y = actual_nM, x = Sample)) + 
+  geom_boxplot()
+
+dev.off()
+
+png(file = paste0(processed.data,"samples_pmol_g_corr.png"), width = 15, height = 15, units = "in", res = 300) 
+
+ggplot(samples, aes(y = pmol_g_corr, x = Sample)) + 
   geom_boxplot()
 
 dev.off()
