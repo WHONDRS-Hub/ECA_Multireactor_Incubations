@@ -249,14 +249,14 @@ reference =
   ungroup() %>% 
   select(c(sample_id, dilution_factor, rlu, med_ppm_calculate, pmol_per_g_na, pmol_per_g_corr, cv_all_na, cv_all_corr, cv_day_na, cv_day_corr, source))
 
-mean = mean(reference$pmol_per_g)
+mean = mean(reference$pmol_per_g_corr)
 
 png(file = paste0(processed.data,"ref_standards_med_g.png"), width = 15, height = 15, units = "in", res = 300) 
 
-ggplot(reference, aes(y = nmol_per_g)) + 
+ggplot(reference, aes(y = pmol_per_g_corr)) + 
   geom_boxplot()+
   facet_grid(~source) + 
-  geom_hline(aes(yintercept = 0.302))
+  geom_hline(aes(yintercept = 412))
 
 dev.off()
 
@@ -270,6 +270,8 @@ samples =
   ungroup() %>% 
   select(-c(randomized_id, standard_curve_mg_l)) %>% 
   filter(grepl("EC", sample_id)) %>% 
+  separate(sample_id, into = c("Sample_Name", "Treat"), remove = FALSE, sep = "_ATP") %>% 
+  left_join(moisture_average, by = "Sample_Name") %>% 
   #mutate(dried_sediment_mass_g = as.numeric(dried_sediment_15_m_l_mass_g) - as.numeric(x15_m_l_mass_g)) %>% 
  # mutate(nmol_per_g = med_ppm_calculate * (0.005/dried_sediment_mass_g)) %>% 
   mutate(actual_nM = if_else(rlu <= low_end_range,                              low_ppm_calculate * dilution_factor,
@@ -282,11 +284,20 @@ samples =
   separate(sample_id, c("Sample", "Rep"), sep = -1) %>% 
   group_by(Sample) %>% 
   mutate(cv_samp = (sd(actual_nM)/mean(actual_nM))*100) %>% 
-  mutate(water_mass_g = as.numeric(x15_m_l_sediment_edta_wet_mass_g) - as.numeric(edta_mass_g) - as.numeric(x15_m_l_mass_g)) %>% 
   mutate(dried_sed_mass_g = as.numeric(dried_sediment_15_m_l_mass_g) - as.numeric(x15_m_l_mass_g)) %>% 
-  select(c(Sample, Rep, dilution_factor, rlu, actual_nM, sc_used, source, low_ppm_calculate, med_ppm_calculate, low_med_ppm_calculate, high_ppm_calculate, dried_sed_mass_g, water_mass_g))  %>% 
+  mutate(water_mass_g = (as.numeric(x15_m_l_sediment_edta_wet_mass_g) - as.numeric(edta_mass_g) - as.numeric(x15_m_l_mass_g)) - dried_sed_mass_g) %>% 
+  mutate(water_mass_moi_g = dried_sed_mass_g * (average_grav/100)) %>% 
+  mutate(pmol_g_na = (actual_nM * (0.005/dried_sed_mass_g))*1000) %>% 
+  mutate(pmol_g_corr = (actual_nM * ((0.005 + (water_mass_g/1000))/dried_sed_mass_g))*1000) %>% 
+  mutate(pmol_g_moi = (actual_nM * ((0.005 + (water_mass_moi_g/1000))/dried_sed_mass_g))*1000) %>% 
+  select(c(Sample, Sample_Name, Rep, dilution_factor, rlu, actual_nM, sc_used, source, low_ppm_calculate, med_ppm_calculate, low_med_ppm_calculate, high_ppm_calculate, average_grav, dried_sed_mass_g, water_mass_g, water_mass_moi_g, pmol_g_na, pmol_g_corr, pmol_g_moi))  %>% 
   mutate(error_low_med = ((low_med_ppm_calculate - actual_nM)/actual_nM)*100) %>% 
-   relocate(error_low_med, .after = actual_nM)
+   relocate(error_low_med, .after = actual_nM) %>% 
+  group_by(Sample) %>% 
+  mutate(cv_samp = (sd(pmol_g_moi)/mean(pmol_g_moi))*100) %>% 
+  ungroup() %>% 
+  group_by(Sample_Name) %>% 
+  mutate(cv_kit = (sd(pmol_g_moi)/mean(pmol_g_moi))*100)
 
 
 png(file = paste0(processed.data,"samples_nM.png"), width = 15, height = 15, units = "in", res = 300) 
