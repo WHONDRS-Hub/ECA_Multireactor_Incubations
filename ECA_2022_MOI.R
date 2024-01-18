@@ -22,7 +22,7 @@ data.out.path <- file.path("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim
 moisture <- read_excel(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/01_RawData/2022_Data_Raw_MOI_ECA_EC.xlsx")) %>% janitor::clean_names()
 
 #Remove data from Jars experiment
-moisture_clean <- moisture %>% filter(!grepl("Jars", moisture$from_jars_or_40_m_l_vials))
+moisture_clean <- moisture #%>% filter(!grepl("Jars", moisture$from_jars_or_40_m_l_vials))
 
 # Subseting data by wet weight
 wet_weight <- moisture_clean %>% dplyr::select(sample_name, date, tare_weight_g, sample_weight_g) %>% 
