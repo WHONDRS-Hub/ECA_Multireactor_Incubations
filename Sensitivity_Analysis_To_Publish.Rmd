@@ -26,7 +26,7 @@ library(readr)
 ```
 ## Read in and clean raw DO data.
 * Remove all missing samples with missing values: 
-    + EC_027_INC-D1, D2, W5 : Bad lighting,       overexposed samples
+    + EC_027_INC-D1, D2, W5 : Bad lighting, overexposed samples
     + EC_013_INC-D4, W5 : Bad lighting, overexposed samples
    + EC_014_INC-W5 : Bad lighting, overexposed samples
    + EC_072_INC-D5, W5 : Not enough sample for five replicates
@@ -43,7 +43,7 @@ rm(list=ls());graphics.off()
 #Example:
 pnnl.user = 'laan208'
 
-input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/Raw_DO_by_Min/EC_INC_ReadyForBoye_10-03-2023.csv")
+input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EC_INC_ReadyForBoye_10-03-2023.csv")
 
 output.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/ReadyForBoye/")
 
@@ -568,6 +568,9 @@ respiration = respiration[-1,]
   
 ```{r Boye Format for Respiration Rates}
 
+## Pull in solid:solution ratio data for mg/kg calculations
+solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_ReadyForBoye_01-17-2024.csv"))
+
  ## Pull out Method Deviations from Raw Data, removing RATE_004
 removed <- data %>% 
   distinct(Sample_Name, .keep_all = TRUE) %>% 
@@ -585,7 +588,8 @@ all.samples <-  left_join(removed, respiration, by = "Sample_Name") %>%
   mutate(`2_min_concentration` = case_when(Methods_Deviation.theoretical == "RATE_005" ~ -9999, TRUE ~ `2_min_concentration`)) 
 
 
-## Get respiration data in Boye format 
+
+## Get respiration data in Boye format. Join solid:solution ratio and calculate mg/kg values
 boye <- all.samples %>% 
   mutate(p_value = round(p_value, 4)) %>%
   mutate(`2_min_concentration` = round(`2_min_concentration`, 4)) %>% 
@@ -622,7 +626,15 @@ mutate(rate_mg_per_L_per_h = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_
   ungroup() %>%
    mutate(Methods_Deviation = if_else(is.na(Methods_Deviation.processed), Methods_Deviation, paste(Methods_Deviation, Methods_Deviation.processed, sep = "; "))) %>%
   mutate_all(~gsub("N/A; |N/A ; ", "",.)) %>% 
-  dplyr::select(-c(kit, Treat, cv_before_removal, Methods_Deviation.processed))
+  dplyr::select(-c(kit, Treat, cv_before_removal, Methods_Deviation.processed)) %>% 
+  left_join(solid, by = "Sample_Name") %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = as.numeric(Respiration_Rate_mg_DO_per_L_per_H)) %>%
+   mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Respiration_Rate_mg_DO_per_L_per_H > -9999, Respiration_Rate_mg_DO_per_L_per_H * (Incubation_Water_Mass_g/Dry_Sediment_Mass_g), -9999)) %>% 
+ mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Incubation_Water_Mass_g == -9999, -9999, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  relocate(Respiration_Rate_mg_DO_per_kg_per_H, .after = Respiration_Rate_mg_DO_per_L_per_H) %>% 
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = round(Respiration_Rate_mg_DO_per_kg_per_H, 3)) %>% 
+  dplyr::select(-c(Initial_Water_Mass_g, Final_Water_Mass_g, Incubation_Water_Mass_g, Dry_Sediment_Mass_g, Methods_Deviation.y, flag)) %>% 
+  rename(Methods_Deviation = Methods_Deviation.x)
 
 #write.csv(boye,paste0(output.path,"ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye",Sys.Date(),".csv"), row.names = F)
       
