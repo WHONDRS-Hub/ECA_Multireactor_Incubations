@@ -11,15 +11,15 @@ raw.data = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Fiel
 
 processed.data = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/ATP/03_ProcessedData/")
 
-moisture <- read_csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/ECA_Moisture_Outliers_Removed.csv"))
+moisture <- read_csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/EC_MOI_ReadyForBoye_01-15-2024.csv"))
 
 moisture_clean <- moisture %>%
-  filter(is.na(flag)) %>% 
+  filter(grepl("N/A", Methods_Deviation)) %>% 
   separate(Sample_Name, c("EC", "Site", "Rep"), sep = "_", remove = FALSE) %>% 
   unite(Sample_Name, c("EC", "Site")) %>% 
   group_by(Sample_Name) %>% 
-  mutate(average_grav = mean(percent_water_content_dry)) %>% 
-  mutate(cv = (sd(percent_water_content_dry)/mean(percent_water_content_dry))*100)
+  mutate(average_grav = mean(Gravimetric_Moisture)) %>% 
+  mutate(cv = (sd(Gravimetric_Moisture)/mean(Gravimetric_Moisture))*100)
 
 moisture_average <- moisture_clean %>% 
   distinct(Sample_Name, .keep_all = TRUE) %>% 
@@ -306,7 +306,10 @@ samples =
   mutate(pmol_g_moi = (actual_nM * ((0.005 + (water_mass_moi_g/1000))/dried_sed_mass_g))*1000) %>% 
   select(c(Sample, Sample_Name, Rep, dilution_factor, rlu, actual_nM, sc_used, source, low_ppm_calculate, med_ppm_calculate, low_med_ppm_calculate, high_ppm_calculate, average_grav, dried_sed_mass_g, water_mass_g, water_mass_moi_g, pmol_g_na, pmol_g_corr, pmol_g_moi))  %>% 
   mutate(error_low_med = ((low_med_ppm_calculate - actual_nM)/actual_nM)*100) %>% 
+  mutate(range_low_med = abs(low_med_ppm_calculate - actual_nM)) %>% 
    relocate(error_low_med, .after = actual_nM) %>% 
+  relocate(range_low_med, .after = error_low_med) %>% 
+  relocate(low_med_ppm_calculate, .after = actual_nM) %>% 
   group_by(Sample) %>% 
   mutate(cv_samp_moi = (sd(pmol_g_moi)/mean(pmol_g_moi))*100) %>% 
   mutate(cv_samp_corr = (sd(pmol_g_corr)/mean(pmol_g_corr))*100) %>% 
@@ -317,6 +320,13 @@ samples =
   mutate(cv_kit_corr = (sd(pmol_g_corr)/mean(pmol_g_corr))*100) %>% 
   mutate(cv_kit_na = (sd(pmol_g_na)/mean(pmol_g_na))*100)
 
+samples %>% 
+  filter(sc_used == "low") %>% 
+  filter(error_low_med < 250) %>% 
+  filter(dilution_factor == 1) %>% 
+  ggplot(samples, mapping = aes(y = error_low_med, x = actual_nM, color = error_low_med))+ 
+  geom_point()+
+  geom_hline(yintercept = -10)
 
 png(file = paste0(processed.data,"samples_nM.png"), width = 15, height = 15, units = "in", res = 300) 
 
