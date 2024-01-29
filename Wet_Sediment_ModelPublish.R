@@ -131,13 +131,16 @@ solid <- left_join(inc, model_data, by = "Sample_Name") %>%
   dplyr::select(c(Sample_Name, Initial_Water_Mass_g, Final_Water_Mass_g, Dry_Sediment_Mass_g, Incubation_Water_Mass_g, Incubation_Water_Mass_g_Actual, Incubation_Water_Mass_g_Modelled, Percent_Clay, Percent_Silt, Methods_Deviation.x)) %>%
   rename(Methods_Deviation = Methods_Deviation.x) %>% 
   mutate(Incubation_Water_Mass_g_Modelled = if_else(is.na(Incubation_Water_Mass_g_Actual), 57.34 -(0.42*Dry_Sediment_Mass_g) - (0.073*Percent_Clay) + (0.011*Percent_Silt), -9999)) %>% 
-  mutate(flag = if_else(is.na(Incubation_Water_Mass_g_Actual), "Modelled Water Mass", "N/A")) %>% 
-  mutate(Incubation_Water_Mass_g = if_else(Incubation_Water_Mass_g_Modelled > 1000, -9999, Incubation_Water_Mass_g_Modelled)) %>% 
-  mutate(Incubation_Water_Mass_g_Modelled = round(Incubation_Water_Mass_g_Modelled, 2)) %>% 
-  mutate(Incubation_Water_Mass_g = round(Incubation_Water_Mass_g, 2)) %>% 
-  select(c(Sample_Name, Initial_Water_Mass_g, Final_Water_Mass_g, Dry_Sediment_Mass_g, Incubation_Water_Mass_g, Incubation_Water_Mass_g_Actual, Incubation_Water_Mass_g_Modelled, Methods_Deviation, flag))
+  mutate(flag = if_else(is.na(Incubation_Water_Mass_g_Actual), "Modelled Water Mass", "N/A")) %>%
+   mutate(Incubation_Water_Mass_g_Modelled = round(Incubation_Water_Mass_g_Modelled, 2)) %>% 
+  mutate(Incubation_Water_Mass_g = if_else(flag == "N/A", Incubation_Water_Mass_g_Actual, Incubation_Water_Mass_g_Modelled)) %>% 
+  mutate(Incubation_Water_Mass_g = if_else(Incubation_Water_Mass_g > 1000, -9999, Incubation_Water_Mass_g)) %>% 
+mutate(Incubation_Water_Mass_g = round(Incubation_Water_Mass_g, 2)) %>% 
+  mutate(Methods_Deviation = if_else(Methods_Deviation != "N/A" & flag == "Modelled Water Mass", paste(Methods_Deviation, "; INC_QA_005"), Methods_Deviation)) %>% 
+  mutate(Methods_Deviation = if_else(Methods_Deviation == "N/A" & flag == "Modelled Water Mass", "INC_QA_005", Methods_Deviation)) %>% 
+  select(c(Sample_Name, Initial_Water_Mass_g, Final_Water_Mass_g, Dry_Sediment_Mass_g, Incubation_Water_Mass_g,Methods_Deviation))
 
-#write.csv(solid,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_ReadyForBoye_01-17-2024.csv"), row.names = F)  
+#write.csv(solid,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_ReadyForBoye_01-29-2024.csv"), row.names = F)  
 
 
 ## Other Models Tried ####
