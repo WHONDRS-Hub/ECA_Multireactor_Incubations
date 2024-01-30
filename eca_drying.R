@@ -5,7 +5,7 @@ rm(list=ls());graphics.off()
 pnnl.user = 'laan208'
 
 ## ECA Dry Weights ####
-dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/ECA_Moisture_Outliers_Removed.csv"))
+dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/CM_MOI_ReadyForBoye_01-19-2024.csv"))
 #EV_Moisture_Content_2023.csv
 
 dry_wt_averages <- dry_wt %>% 
@@ -13,10 +13,11 @@ dry_wt_averages <- dry_wt %>%
   separate(Sample_Name, c("EC", "Site", "Rep"), sep = "_", remove = FALSE) %>% 
   unite(Sample_ID, c("EC", "Site")) %>% 
   group_by(Sample_ID) %>% 
-  mutate(average_grav = mean(percent_water_content_dry)) %>% 
-  mutate(cv = (sd(percent_water_content_dry)/mean(percent_water_content_dry))*100)%>% 
+  mutate(average_grav = mean(Gravimetric_Moisture)) %>% 
+  mutate(cv = (sd(Gravimetric_Moisture)/mean(Gravimetric_Moisture))*100)%>% 
   distinct(Sample_ID, .keep_all = TRUE) %>% 
-  select(c(Sample_ID, average_grav)) %>% mutate(average_wet_g_by_dry_g = 1 + (average_grav/100))
+  select(c(Sample_ID, average_grav)) %>% mutate(average_wet_g_by_dry_g = 1 + (average_grav/100)) %>% 
+  mutate(Sample_ID = str_replace(Sample_ID, "CM", "EC"))
   
 moisture <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/01_RawData/2022_Data_Raw_INC_ECA_EC.xlsx")
 #2022_Data_Raw_INC_ECA_EC.xlsx
@@ -196,11 +197,12 @@ final_wet_dry <- wet_dry %>%
   distinct(Sample_Name, Date, .keep_all = TRUE) %>% 
   mutate(across(c("Dry_Sediment_Mass_g", "Total_Water_Mass_g"),round,2)) %>% 
   mutate(Wet_Sediment_Mass_Added_Water_g= if_else(is.na(Wet_Sediment_Mass_Added_Water_g), -9999, Wet_Sediment_Mass_Added_Water_g)) %>% 
+  mutate(Added_Water_Mass_g= if_else(Added_Water_Mass_g == 0, -9999, Added_Water_Mass_g)) %>% 
   mutate(Dry_Sediment_Mass_g = if_else(is.na(Dry_Sediment_Mass_g), -9999, Dry_Sediment_Mass_g)) %>% 
   mutate(Total_Water_Mass_g = if_else(is.na(Total_Water_Mass_g), -9999, Total_Water_Mass_g)) 
 
 
-write.csv(final_wet_dry,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EC_Drying_Masses_merged_by_",pnnl.user,"_on_",Sys.Date(),".csv"), row.names = F)  
+write.csv(final_wet_dry,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)  
 
 ggplot(final_wet_dry, aes(x = Dry_Sediment_Mass_g))+
   geom_histogram()
