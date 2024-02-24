@@ -22,6 +22,10 @@ sum_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/S
 effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_ECA_Data.csv",header = TRUE) %>% 
   dplyr::select(-c(X))
 
+effect_scale <- effect_data %>% 
+  column_to_rownames(var = "Sample_Name") %>% 
+  scale()
+
 ## Start SA
 
 #Remove RR with -9999, calculate CV for replicates for mg/L and mg/kg values
@@ -56,10 +60,10 @@ colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_
 unique.samples = unique(slope.outliers$kit_treat)
 
 #try 0, 10, 30, 50, 100, export histograms of removals, effect sizes
-cv.threshold = 300
+cv.threshold = 50
 
 #try keeping n = 3,4 samples
-rem.threshold = 4
+rem.threshold = 3
 
 for (i in 1:length(unique.samples)) {
   
@@ -133,7 +137,7 @@ slope.final.flag <- slope.final %>%
   rename(Respiration_Rate_mg_DO_per_kg_per_H = slope.temp) %>% 
   relocate(Respiration_Rate_mg_DO_per_kg_per_H, .after = Sample_Name)
 
-cv.threshold = "No_Removals"
+cv.threshold = 0
 rem.threshold = 3
 
 #Write data frame with removed respiration rates
@@ -143,12 +147,14 @@ write.csv(slope.final.flag, paste0("C:/Github/ECA_Multireactor_Incubations/Data/
 ## All Samples ####
 
 ##Merge removed samples with other data
-corr_samples <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
-  dplyr::select(-c(Respiration_Rate_mg_DO_per_L_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g, Fe_mg_per_L, Percent_Tot_Sand)) %>% 
+corr_samples <- left_join(all_data, slope.final.flag, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
+  mutate(flag = if_else(is.na(Mean_Slope_All_L),  "Remove Outlier", "N/A"))
+#left_join(all_data, slope.final.flag, by = c("Sample_Name"))%>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g, Fe_mg_per_kg, Percent_Tot_Sand)) %>% 
   drop_na() %>% 
-  mutate(Respiration_Rate_mg_DO_per_kg_per_H = abs(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  rename(`Respiration (mg/kg)` = Respiration_Rate_mg_DO_per_kg_per_H) %>% 
-  rename(`Fe (mg/kg)` = Fe_mg_per_kg) %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  rename(`Respiration (mg/L)` = Respiration_Rate_mg_DO_per_L_per_H) %>% 
+ # rename(`Fe (mg/kg)` = Fe_mg_per_kg) %>% 
     rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
     rename(`% Med. Sand` = Percent_Med_Sand) %>% 
     rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
@@ -684,7 +690,7 @@ resp <- lasso$Respiration_Rate_mg_DO_per_L_per_H
 
 resp <- scale(resp)
 
-pred <- data.matrix(lasso[, c('Fe_mg_per_L', 'Percent_Fine_Sand', 'Percent_Med_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'average_ssa', 'SpC', 'Temp', 'pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water', 'Lost_Gravimetric_Water')])
+pred <- data.matrix(lasso[, c('Fe_mg_per_L', 'Percent_Fine_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'average_ssa', 'SpC', 'Temp', 'pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water', 'Lost_Gravimetric_Water')])
 
 pred <- scale(pred)
 
@@ -707,6 +713,7 @@ rsq = 1 - sse/sst
 
 rsq
 
+## LASSO ####
 
 ## Log LASSO
 
@@ -759,4 +766,145 @@ log_sse <- sum((log_resp_predict - log_resp)^2)
 log_rsq = 1 - log_sse/log_sst
 
 log_rsq
+
+## Log FS, SSA, Fe, Resp, Moi
+
+log_pred_co <- data.matrix(log_lasso[, c('log_fe_mg_l', 'log_fine_sand', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_fin_grav')])
+
+#log_pred <- scale(log_pred)
+
+log_cv_model_co <- cv.glmnet(log_pred_co, log_resp, alpha = 1)
+
+log_best_lambda_co <- log_cv_model_co$lambda.min
+log_best_lambda_co
+
+plot(log_cv_model_co)
+
+log_best_model_co <- glmnet(log_pred_co, log_resp, alpha = 1, lambda = log_best_lambda_co)
+coef(log_best_model_co)
+
+log_resp_predict_co <- predict(log_best_model_co, s = log_best_lambda_co, newx = log_pred_co)
+
+log_sst_co <- sum((log_resp - mean(log_resp))^2)
+log_sse_co <- sum((log_resp_predict_co - log_resp)^2)
+
+log_rsq_co = 1 - log_sse_co/log_sst_co
+
+log_rsq_co
+
+## Log LASSO Dry Samples
+
+log_lasso_dry <- lasso %>% 
+  filter(grepl("D", Sample_Name)) %>%
+  filter(Lost_Gravimetric_Water > 0) %>% 
+  mutate(log_resp_mg_l = log10(Respiration_Rate_mg_DO_per_L_per_H + 0.5*min(Respiration_Rate_mg_DO_per_L_per_H[Respiration_Rate_mg_DO_per_L_per_H != min(Respiration_Rate_mg_DO_per_L_per_H)]))) %>% 
+  mutate(log_fe_mg_l = log10(Fe_mg_per_L + 0.5*min(Fe_mg_per_L[Fe_mg_per_L != min(Fe_mg_per_L)]))) %>% 
+  mutate(log_fine_sand = log10(Percent_Fine_Sand + 0.5*min(Percent_Fine_Sand))) %>% 
+  mutate(log_ssa = log10(average_ssa + 0.5*min(average_ssa))) %>% 
+  mutate(log_spc = log10(`SpC` + 0.5*min(`SpC`))) %>% 
+  mutate(log_temp = log10(`Temp` + 0.5*min(`Temp`))) %>%
+  mutate(log_ph = log10(`pH` + 0.5*min(`pH`))) %>% 
+  #mutate(log_initial_grav = log10(Initial_Gravimetric_Water + 0.5*min(Initial_Gravimetric_Water))) %>% 
+  mutate(log_fin_grav = log10(Final_Gravimetric_Water + 0.5*min(Final_Gravimetric_Water))) %>% 
+  mutate(log_lost_grav = log10(Lost_Gravimetric_Water + 0.5*min(Lost_Gravimetric_Water))) %>% 
+  dplyr::select(c(log_resp_mg_l, log_fe_mg_l, log_fine_sand, log_ssa, log_spc, log_temp, log_ph, log_fin_grav, log_lost_grav))
+
+log_resp_dry <- log_lasso_dry$log_resp_mg_l
+
+log_pred_dry <- data.matrix(log_lasso_dry[, c('log_fe_mg_l', 'log_fine_sand', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_fin_grav', 'log_lost_grav')])
+
+#log_pred <- scale(log_pred)
+
+log_cv_model_dry <- cv.glmnet(log_pred_dry, log_resp_dry, alpha = 1)
+
+log_best_lambda_dry <- log_cv_model_dry$lambda.min
+log_best_lambda_dry
+
+plot(log_cv_model_dry)
+
+log_best_model_dry <- glmnet(log_pred_dry, log_resp_dry, alpha = 1, lambda = log_best_lambda_dry)
+coef(log_best_model_dry)
+
+log_resp_predict_dry <- predict(log_best_model_dry, s = log_best_lambda_dry, newx = log_pred_dry)
+
+log_sst_dry <- sum((log_resp_dry - mean(log_resp_dry))^2)
+log_sse_dry <- sum((log_resp_predict_dry - log_resp_dry)^2)
+
+log_rsq_dry = 1 - log_sse_dry/log_sst_dry
+
+log_rsq_dry
+
+## Log Wet LASSO
+log_lasso_wet <- lasso %>% 
+  filter(grepl("W", Sample_Name)) %>%
+  filter(Lost_Gravimetric_Water > 0) %>% 
+  mutate(log_resp_mg_l = log10(Respiration_Rate_mg_DO_per_L_per_H + 0.5*min(Respiration_Rate_mg_DO_per_L_per_H[Respiration_Rate_mg_DO_per_L_per_H != min(Respiration_Rate_mg_DO_per_L_per_H)]))) %>% 
+  mutate(log_fe_mg_l = log10(Fe_mg_per_L + 0.5*min(Fe_mg_per_L[Fe_mg_per_L != min(Fe_mg_per_L)]))) %>% 
+  mutate(log_fine_sand = log10(Percent_Fine_Sand + 0.5*min(Percent_Fine_Sand))) %>% 
+  mutate(log_ssa = log10(average_ssa + 0.5*min(average_ssa))) %>% 
+  mutate(log_spc = log10(`SpC` + 0.5*min(`SpC`))) %>% 
+  mutate(log_temp = log10(`Temp` + 0.5*min(`Temp`))) %>%
+  mutate(log_ph = log10(`pH` + 0.5*min(`pH`))) %>% 
+  mutate(log_initial_grav = log10(Initial_Gravimetric_Water + 0.5*min(Initial_Gravimetric_Water))) %>% 
+ # mutate(log_fin_grav = log10(Final_Gravimetric_Water + 0.5*min(Final_Gravimetric_Water))) %>% 
+ # mutate(log_lost_grav = log10(Lost_Gravimetric_Water + 0.5*min(Lost_Gravimetric_Water))) %>% 
+  dplyr::select(c(log_resp_mg_l, log_fe_mg_l, log_fine_sand, log_ssa, log_spc, log_temp, log_ph, log_initial_grav))
+
+log_resp_wet <- log_lasso_wet$log_resp_mg_l
+
+log_pred_wet <- data.matrix(log_lasso_wet[, c('log_fe_mg_l', 'log_fine_sand', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_initial_grav')])
+
+#log_pred <- scale(log_pred)
+
+log_cv_model_wet <- cv.glmnet(log_pred_wet, log_resp_wet, alpha = 1)
+
+log_best_lambda_wet <- log_cv_model_wet$lambda.min
+log_best_lambda_wet
+
+plot(log_cv_model_wet)
+
+log_best_model_wet <- glmnet(log_pred_wet, log_resp_wet, alpha = 1, lambda = log_best_lambda_wet)
+coef(log_best_model_wet)
+
+log_resp_predict_wet <- predict(log_best_model_wet, s = log_best_lambda_wet, newx = log_pred_wet)
+
+log_sst_wet <- sum((log_resp_wet - mean(log_resp_wet))^2)
+log_sse_wet <- sum((log_resp_predict_wet - log_resp_wet)^2)
+
+log_rsq_wet = 1 - log_sse_wet/log_sst_wet
+
+log_rsq_wet
+
+
+## Effect LASSO 
+effect_lasso <- effect_data 
+
+eff <- effect_lasso$`Effect Size`
+
+eff <- scale(eff)
+
+pred <- data.matrix(effect_lasso[, c("In.Grav.Moi. Diff.", "Fin.Grav.Moi. Diff.", "% Fine Sand", "% Med. Sand", "% Coarse Sand" , "% Clay", "% Silt", "SSA")]) #effect_lasso$`Fe (mg/kg) Diff.`, effect_lasso$`SpC Diff.`, effect_lasso$`Temp Diff.`, effect_lasso$`pH Diff.`, 
+  
+
+pred <- scale(pred)
+
+cv_model <- cv.glmnet(pred, eff, alpha = 1)
+
+best_lambda <- cv_model$lambda.min
+best_lambda
+
+plot(cv_model)
+
+best_model <- glmnet(pred, eff, alpha = 1, lambda = best_lambda)
+coef(best_model)
+
+eff_predict <- predict(best_model, s = best_lambda, newx = pred)
+
+sst <- sum((eff - mean(eff))^2)
+sse <- sum((eff_predict - eff)^2)
+
+rsq = 1 - sse/sst
+
+rsq
+
 

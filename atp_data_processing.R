@@ -207,8 +207,9 @@ blanks <- qa %>%
   filter(randomized_id == "0_std") %>% 
   group_by(source) %>% 
   mutate(day_lod = mean(actual_nM)) %>% 
+  mutate(range = max(actual_nM) - min(actual_nM)) %>% 
   ungroup() %>% 
-  mutate(all_lod = mean(actual_nM))
+  mutate(all_lod = mean(actual_nM)) 
 
 lod <-  blanks %>% 
   select(c(source,day_lod)) %>% 

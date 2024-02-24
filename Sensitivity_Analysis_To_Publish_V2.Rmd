@@ -1,7 +1,7 @@
 ---
 title: "ECA_Optode_Respiration_Sensitivity_Analysis"
 author: "MML"
-date: "2024-01-19"
+date: "2024-02-23"
 output: html_document
 ---
 
@@ -568,8 +568,7 @@ respiration = respiration[-1,]
 ```
 
 ## Remove Outlier Samples 
-* A distance matrix is used to remove the replicate most unlike the others if the coefficient of variation is greater than 10%
-
+* A distance matrix is used to remove the replicate most unlike the others if the coefficient of variation is greater than 50%
 
 ```{r Boye Format for Respiration Rates}
 
