@@ -768,14 +768,14 @@ slope.final.flag <- slope.final %>%
   rename(Respiration_Rate_mg_DO_per_kg_per_H = slope.temp) %>% 
   relocate(Respiration_Rate_mg_DO_per_kg_per_H, .after = Sample_Name)
 
-outliers_flag <- left_join(boye_dev, slope.final.flag, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H", "Material", "SpC", "Temp", "pH", "Respiration_R_Squared", "Respiration_R_Squared_Adj", "Respiration_p_value", "Total_Incubation_Time_Min", "Number_Points_In_Respiration_Regression", "Number_Points_Removed_Respiration_Regression", "DO_Concentration_At_Incubation_Time_Zero", "Methods_Deviation")) %>% 
+outliers_flag <- left_join(boye_dev, slope.final.flag, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
   mutate(flag = if_else(is.na(Mean_Slope_All_L),  "Remove Outlier", "N/A")) %>% 
   dplyr::select(-c(Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, cv_after_removal, Mean_Slope_Removed))
 
 cv.threshold = 50
 rem.threshold = 3
 
-write.csv(boye,paste0(output.path,"ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)
+#write.csv(outliers_flag, "C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All_Respiration_Flagged.csv", row.names = F)
 
 ```
 
