@@ -23,8 +23,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(dplyr); library(ggplot2);library(ggsignif)
 library(ggpubr);library(reshape2);library(ggpmisc)
-library(segmented);library(broom);library(lmtest);library(car)
-library(ggpmisc);library(lubridate); library(readxl);
+library(segmented);library(broom);library(lmtest);library(car); library(corrplot)
+library(ggpmisc);library(lubridate); library(readxl); library(glmnet)
 library(tidyverse);library(patchwork)
 library(readr)
 
@@ -567,13 +567,12 @@ respiration = respiration[-1,]
 
 ```
 
-## Remove Outlier Samples 
-* A distance matrix is used to remove the replicate most unlike the others if the coefficient of variation is greater than 50%
+
 
 ```{r Boye Format for Respiration Rates}
 
 ## Pull in solid:solution ratio data for mg/kg calculations
-solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_ReadyForBoye_01-17-2024.csv"))
+solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_ReadyForBoye_01-29-2024.csv"))
 
 ## Pull in SpC, Temp, pH for these samples
 chem <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/SpC_pH_Temp_Processed_Data/EC_SpC_pH_Temp_ReadyForBoye_10-03-2023.csv"))
@@ -642,7 +641,142 @@ boye <- all.samples %>%
   relocate(Methods_Deviation.x, .before = Methods_Deviation.y) %>% 
   dplyr::select(-c(Initial_Water_Mass_g, Final_Water_Mass_g, Incubation_Water_Mass_g, Dry_Sediment_Mass_g)) # rename(Methods_Deviation = Methods_Deviation.x)
 
+boye_dev <- boye %>% 
+  separate(Methods_Deviation.y, c("MOI_1", "MOI_2"), sep = ";") %>% 
+  mutate(MOI_1 = str_replace(MOI_1, "INC_QA_005", "N/A")) %>% 
+  mutate(MOI_1 = str_replace(MOI_1, "MOI_002", "N/A")) %>% 
+  mutate(MOI_2 = str_replace(MOI_2, "INC_QA_005", "N/A")) %>% 
+  mutate(MOI_1 = str_trim(MOI_1)) %>% 
+  mutate(MOI_3 = if_else(MOI_1 == Methods_Deviation, MOI_1, if_else(MOI_1 == "N/A", Methods_Deviation, paste(MOI_1, Methods_Deviation, sep = "; ")))) %>% 
+  mutate(Methods_Deviation.fin = if_else(Methods_Deviation.x ==  MOI_3, Methods_Deviation.x, if_else(Methods_Deviation.x == "N/A", MOI_3, if_else(MOI_3 == "N/A", Methods_Deviation.x, paste(Methods_Deviation.x, MOI_3, sep = "; "))))) %>% 
+  dplyr::select(-c(Methods_Deviation.x, Methods_Deviation, MOI_1, MOI_2, MOI_3)) %>% 
+rename(Methods_Deviation = Methods_Deviation.fin)
+
+```
+## Remove Outlier Samples 
+* A distance matrix is used to remove the replicate most unlike the others if the coefficient of variation is greater than 50%
+
+```{r Remove Outliers}
+
+#Remove RR with -9999, calculate CV for replicates for mg/L and mg/kg values
+
+cv <- boye_dev %>% 
+  mutate(Treat = case_when(grepl("W",Sample_Name)~"Wet",
+                           grepl("D", Sample_Name) ~"Dry")) %>% 
+  separate(Sample_Name, c("Sample_ID", "Replicate"), sep = -1, remove = FALSE) %>% 
+  filter(Respiration_Rate_mg_DO_per_L_per_H > -9999) %>% 
+  group_by(Sample_ID, Treat) %>% 
+  mutate(cv_before_removal_L = abs(sd(Respiration_Rate_mg_DO_per_L_per_H)/mean(Respiration_Rate_mg_DO_per_L_per_H))*100) %>% 
+  mutate(cv_before_removal_kg = abs(sd(Respiration_Rate_mg_DO_per_kg_per_H)/mean(Respiration_Rate_mg_DO_per_kg_per_H))*100) %>% 
+  mutate(cv_diff = cv_before_removal_L - cv_before_removal_kg)
+
+## Start data frame for removals, calculate means of replicate samples
+
+slope.outliers <- cv %>% 
+  unite(kit_treat, Sample_ID, Treat, sep = "_", remove = FALSE) %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = as.numeric(Respiration_Rate_mg_DO_per_L_per_H)) %>%
+  group_by(Sample_ID, Treat) %>% 
+  mutate(Mean_Slope_All_L = mean(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  mutate(Mean_Slope_All_kg = mean(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  ungroup() %>% 
+  dplyr::select(c(Sample_Name, Respiration_Rate_mg_DO_per_L_per_H,Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat)) %>% 
+  drop_na(Respiration_Rate_mg_DO_per_kg_per_H)
+
+slope.outliers$flag <- NA
+
+slope.final <- as.data.frame(matrix(NA, ncol = 11, nrow =1))
+
+colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_Rate_mg_DO_per_L_per_H", "Mean_Slope_All_L", "Mean_Slope_All_kg", "cv_before_removal_L", "cv_before_removal_kg", "cv_after_removal", "Mean_Slope_Removed","flag")
+
+unique.samples = unique(slope.outliers$kit_treat)
+
+#try 0, 10, 30, 50, 100, export histograms of removals, effect sizes
+cv.threshold = 50
+
+#try keeping n = 3,4 samples
+rem.threshold = 3
+
+for (i in 1:length(unique.samples)) {
+  
+  ## Subset replicates
+  data_subset = subset(slope.outliers, slope.outliers$kit_treat == unique.samples[i])
+  
+  ## Pull out Rate values
+  #slope.temp = as.numeric(data_subset$Respiration_Rate_mg_DO_per_L_per_H)
+  slope.temp = as.numeric(data_subset$Respiration_Rate_mg_DO_per_kg_per_H)
+  
+  ## Calculate standard deviation, average, and coefficient of variation of rates
+  slope.temp.sd <- sd(slope.temp)
+  slope.temp.mean <- mean(slope.temp)
+  CV = abs((slope.temp.sd/slope.temp.mean)*100)
+  
+  #looping to get 4 out of 5 best samples
+  for (sample.reduction in 1:5)  {
+    
+    if (slope.temp.mean == 0) {
+      
+      CV = 0
+      
+    }
+    
+    else if (length(slope.temp) > rem.threshold & CV >= cv.threshold) {
+      
+      dist.temp = as.matrix(abs(dist(slope.temp)))
+      dist.comp = numeric()
+      
+      for(slope.now in 1:ncol(dist.temp)) {
+        
+        dist.comp = rbind(dist.comp,c(slope.now,sum(dist.temp[,slope.now])))
+        
+      }
+      
+      dist.comp[,2] = as.numeric(dist.comp[,2])
+      slope.temp = slope.temp[-which.max(dist.comp[,2])]
+      
+      slope.temp.sd <- sd(slope.temp)
+      slope.temp.mean <- mean(slope.temp)
+      slope.temp.cv <- abs((slope.temp.sd/slope.temp.mean)*100)
+      CV = slope.temp.cv
+      slope.temp.range <- max(slope.temp) - min(slope.temp)
+      range = slope.temp.range
+      
+    }
+  }
+  
+  if (length(slope.temp) >= 3) {
+    
+    slope.combined <- as.data.frame(slope.temp)
+    
+    slope.removed <- merge(slope.combined, data_subset, by.x = "slope.temp", by.y = "Respiration_Rate_mg_DO_per_kg_per_H", all.x = TRUE)
+    
+    slope.removed <- slope.removed[!duplicated(slope.removed$Sample_Name), ]
+    
+    slope.removed$cv_after_removal = as.numeric(abs((sd(slope.temp)/mean(slope.temp))*100))
+    
+    slope.removed$Mean_Slope_Removed = as.numeric(mean(slope.temp))
+    
+  }
+  
+  slope.final = rbind(slope.removed, slope.final)
+  
+  rm('slope.temp')
+}
+
+## This data frame has removed samples
+slope.final.flag <- slope.final %>% 
+  mutate(flag = if_else(cv_before_removal_kg < cv_after_removal, "Issue in dropping sample", "N/A")) %>% 
+  rename(Respiration_Rate_mg_DO_per_kg_per_H = slope.temp) %>% 
+  relocate(Respiration_Rate_mg_DO_per_kg_per_H, .after = Sample_Name)
+
+outliers_flag <- left_join(boye_dev, slope.final.flag, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H", "Material", "SpC", "Temp", "pH", "Respiration_R_Squared", "Respiration_R_Squared_Adj", "Respiration_p_value", "Total_Incubation_Time_Min", "Number_Points_In_Respiration_Regression", "Number_Points_Removed_Respiration_Regression", "DO_Concentration_At_Incubation_Time_Zero", "Methods_Deviation")) %>% 
+  mutate(flag = if_else(is.na(Mean_Slope_All_L),  "Remove Outlier", "N/A")) %>% 
+  dplyr::select(-c(Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, cv_after_removal, Mean_Slope_Removed))
+
+cv.threshold = 50
+rem.threshold = 3
+
 write.csv(boye,paste0(output.path,"ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)
 
 ```
+
 

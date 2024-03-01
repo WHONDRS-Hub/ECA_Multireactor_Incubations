@@ -4,6 +4,7 @@ library(dplyr)
 library(tidyverse)
 library(corrplot)
 library(glmnet)
+library(readxl)
 
 rm(list=ls());graphics.off()
 
@@ -12,6 +13,13 @@ rm(list=ls());graphics.off()
 #Individual samples 
 all_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data.csv",header = TRUE) %>% 
   dplyr::select(-c(X))
+
+#ATP data
+
+atp <- read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/ATP/03_ProcessedData/EC_ATP_ReadyForBoye_01-26-2024.csv") %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "ATP", "INC"))
+
+all_data <- left_join(all_data, atp, by = "Sample_Name")
 
 #Summary Data 
 
@@ -137,8 +145,9 @@ slope.final.flag <- slope.final %>%
   rename(Respiration_Rate_mg_DO_per_kg_per_H = slope.temp) %>% 
   relocate(Respiration_Rate_mg_DO_per_kg_per_H, .after = Sample_Name)
 
-cv.threshold = 0
+cv.threshold = 50
 rem.threshold = 3
+
 
 #Write data frame with removed respiration rates
 
@@ -148,10 +157,12 @@ write.csv(slope.final.flag, paste0("C:/Github/ECA_Multireactor_Incubations/Data/
 
 ##Merge removed samples with other data
 corr_samples <- left_join(all_data, slope.final.flag, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
-  mutate(flag = if_else(is.na(Mean_Slope_All_L),  "Remove Outlier", "N/A"))
-#left_join(all_data, slope.final.flag, by = c("Sample_Name"))%>% 
-  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g, Fe_mg_per_kg, Percent_Tot_Sand)) %>% 
+  mutate(flag = if_else(is.na(Mean_Slope_All_L),  "Remove Outlier", "N/A")) %>% 
+  filter(flag != "Remove Outlier") %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g, Fe_mg_per_kg, Percent_Tot_Sand, Material, Methods_Deviation, ATP_nanomol_per_L)) %>% 
   drop_na() %>% 
+  filter(ATP_picomol_per_g != -9999) %>% 
+  filter(Respiration_Rate_mg_DO_per_L_per_H != -9999) %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   rename(`Respiration (mg/L)` = Respiration_Rate_mg_DO_per_L_per_H) %>% 
  # rename(`Fe (mg/kg)` = Fe_mg_per_kg) %>% 
@@ -166,6 +177,7 @@ corr_samples <- left_join(all_data, slope.final.flag, by = c("Sample_Name", "Res
     rename(`LostGrav.Moi.` = Lost_Gravimetric_Water) %>% 
 column_to_rownames("Sample_Name")
 
+#####
 ## Make histogram of all data
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/All_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
@@ -230,8 +242,8 @@ dev.off()
 ## Log All Samples ####
 
 log_corr_samples <- corr_samples %>% 
-  mutate(`Log Respiration (mg/kg)` = log10(`Respiration (mg/kg)` + 0.5*min(`Respiration (mg/kg)`[`Respiration (mg/kg)` != min(`Respiration (mg/kg)`)]))) %>% 
-  mutate(`Log Fe (mg/kg)` = log10(`Fe (mg/kg)` + 0.5*min(`Fe (mg/kg)`[`Fe (mg/kg)` != min(`Fe (mg/kg)`)]))) %>% 
+  mutate(`Log Respiration (mg/L)` = log10(`Respiration (mg/L)` + 0.5*min(`Respiration (mg/L)`[`Respiration (mg/L)` != min(`Respiration (mg/L)`)]))) %>% 
+  mutate(`Log Fe (mg/L)` = log10(Fe_mg_per_L + 0.5*min(Fe_mg_per_L[Fe_mg_per_L != min(Fe_mg_per_L)]))) %>% 
   mutate(`Log % Fine Sand` = log10(`% Fine Sand` + 0.5*min(`% Fine Sand`))) %>% 
   mutate(`Log % Med. Sand` = log10(`% Med. Sand` + 0.5*min(`% Med. Sand`))) %>% 
   mutate(`Log % Coarse Sand` = log10(`% Coarse Sand` + 0.5*min(`% Coarse Sand`))) %>% 
@@ -245,7 +257,8 @@ log_corr_samples <- corr_samples %>%
   mutate(`Log Fin.Grav.Moi.` = log10(`Fin.Grav.Moi.` + 0.5*min(`Fin.Grav.Moi.`))) %>% 
   mutate(`Log Fin.Grav.Moi.` = log10(`Fin.Grav.Moi.` + 0.5*min(`Fin.Grav.Moi.`))) %>% 
   mutate(`Log LostGrav.Moi.` = log10(`LostGrav.Moi.` + 0.5*min(`LostGrav.Moi.`))) %>% 
-   dplyr::select(c(`Log Respiration (mg/kg)`, `Log Fe (mg/kg)`, `Log % Fine Sand`, `Log % Med. Sand`, `Log % Coarse Sand`, `Log % Clay`, `Log % Silt`, `Log SSA`, `Log SpC`, `Log Temp`, `Log pH`, `Log In.Grav.Moi.`, `Log Fin.Grav.Moi.`, `Log LostGrav.Moi.`))
+  mutate(`Log ATP (pmol/g)` = log10(ATP_picomol_per_g + 0.5*min(ATP_picomol_per_g))) %>% 
+   dplyr::select(c(`Log Respiration (mg/L)`, `Log Fe (mg/L)`, `Log ATP (pmol/g)`, `Log % Fine Sand`, `Log % Med. Sand`, `Log % Coarse Sand`, `Log % Clay`, `Log % Silt`, `Log SSA`, `Log SpC`, `Log Temp`, `Log pH`, `Log In.Grav.Moi.`, `Log Fin.Grav.Moi.`, `Log LostGrav.Moi.`))
 
 # histogram of log transformed samples (log + 1/2 of minimum to get at 0 values)
 
@@ -359,29 +372,31 @@ dev.off()
 
 ## Means ####
 
-means <- corr_samples %>% 
+mean_resp <- corr_samples %>%
   rownames_to_column("Sample_Name") %>% 
+  select(c(Sample_Name, `Respiration (mg/L)`)) %>% 
   separate(Sample_Name, c("EC", "kit", "Treat"), remove = FALSE) %>% 
   mutate(Treat = case_when(grepl("W",Sample_Name)~"Wet",
                            grepl("D", Sample_Name) ~"Dry")) %>% 
   group_by(kit, Treat) %>% 
-  summarise(across(where(is.numeric), list(mean = mean), na.rm = TRUE))%>% 
+  summarise(across(where(is.numeric), list(mean = mean), na.rm = TRUE)) %>% 
+  unite(kit_treat, c("kit", "Treat")) 
+
+means <- all_data %>% 
+  select(c(Sample_Name, Fe_mg_per_L, ATP_picomol_per_g, SpC, Temp, pH, Initial_Gravimetric_Water, Final_Gravimetric_Water, Lost_Gravimetric_Water, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Clay, Percent_Silt, average_ssa)) %>% 
+  filter(ATP_picomol_per_g != -9999) %>% 
+  separate(Sample_Name, c("EC", "kit", "Treat"), remove = FALSE) %>% 
+  mutate(Treat = case_when(grepl("W",Sample_Name)~"Wet",
+                           grepl("D", Sample_Name) ~"Dry")) %>% 
+  group_by(kit, Treat) %>% 
+  summarise(across(where(is.numeric), list(mean = mean), na.rm = TRUE)) %>% 
   unite(kit_treat, c("kit", "Treat")) %>% 
-  rename(`Mean Respiration (mg/kg)` = `Respiration (mg/kg)_mean`) %>% 
-  rename(`Mean Fe (mg/kg)` = `Fe (mg/kg)_mean`) %>% 
-  rename(`% Fine Sand` = `% Fine Sand_mean`) %>% 
-  rename(`% Med. Sand` = `% Med. Sand_mean`) %>% 
-  rename(`% Coarse Sand` = `% Coarse Sand_mean`) %>% 
-  rename(`% Clay` = `% Clay_mean`) %>% 
-  rename(`% Silt` = `% Silt_mean`) %>% 
-  rename(SSA = SSA_mean) %>% 
-  rename(`Mean pH` = pH_mean) %>% 
-  rename(`Mean SpC` = SpC_mean) %>% 
-  rename(`Mean Temp` = Temp_mean) %>% 
-  rename(`Mean In.Grav.Moi.` = In.Grav.Moi._mean) %>% 
-  rename(`Mean Fin.Grav.Moi.` = Fin.Grav.Moi._mean) %>% 
-  rename(`Mean LostGrav.Moi.` = LostGrav.Moi._mean) %>% 
-  column_to_rownames("kit_treat")
+  left_join(mean_resp, by = "kit_treat") %>% 
+  drop_na()
+
+
+
+  
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
@@ -403,7 +418,7 @@ dev.off()
 
 ## Log Mean Samples ####
 log_means <- means %>% 
-  mutate(`Log Mean Respiration (mg/kg)` = log10(`Mean Respiration (mg/kg)` + 0.5*min(`Mean Respiration (mg/kg)`[`Mean Respiration (mg/kg)` != min(`Mean Respiration (mg/kg)`)]))) %>% 
+  mutate(`Log Mean Respiration (mg/L)` = log10(`Mean Respiration (mg/L)` + 0.5*min(`Mean Respiration (mg/kg)`[`Mean Respiration (mg/kg)` != min(`Mean Respiration (mg/kg)`)]))) %>% 
   mutate(`Log Mean Fe (mg/kg)` = log10(`Mean Fe (mg/kg)` + 0.5*min(`Mean Fe (mg/kg)`[`Mean Fe (mg/kg)` != min(`Mean Fe (mg/kg)`)]))) %>% 
   mutate(`Log % Fine Sand` = log10(`% Fine Sand` + 0.5*min(`% Fine Sand`))) %>% 
   mutate(`Log % Med. Sand` = log10(`% Med. Sand` + 0.5*min(`% Med. Sand`))) %>% 
@@ -542,25 +557,29 @@ dev.off()
 
 #####
 effect <- means %>% 
-  rownames_to_column("kit_treat") %>% 
+ # rownames_to_column("kit_treat") %>% 
   separate(kit_treat, c("kit", "treat"), remove = FALSE) %>% 
   group_by(kit) %>% 
   filter(n() >= 2) %>% 
   ungroup() %>% 
   group_by(kit) %>% 
-  relocate(c(`% Fine Sand`:SSA), .after = `Mean LostGrav.Moi.`) %>% 
+ # relocate(c(`% Fine Sand`:SSA), .after = `ATP_picomol_per_g_mean`) %>% 
+  relocate(c(Percent_Fine_Sand_mean:average_ssa_mean), .after = `Respiration (mg/L)_mean`) %>% 
+  rename(`Mean Respiration (mg/L)` = `Respiration (mg/L)_mean`) %>% 
+  relocate(`Mean Respiration (mg/L)`, .after= treat) %>% 
   summarise(
-    across(`Mean Respiration (mg/kg)`:`Mean LostGrav.Moi.`, diff), 
-    across(`% Fine Sand`:SSA, mean))%>% 
+    across(`Mean Respiration (mg/L)`:`Lost_Gravimetric_Water_mean`, diff), 
+    #across(`% Fine Sand`:SSA, mean))%>% 
+    across(Percent_Fine_Sand_mean:average_ssa_mean, mean))%>% 
   column_to_rownames("kit") %>% 
-  rename(`Effect Size` = `Mean Respiration (mg/kg)`) %>% 
-  rename(`Fe (mg/kg) Diff.` = `Mean Fe (mg/kg)`) %>% 
-  rename(`SpC Diff.` = `Mean SpC`) %>% 
-  rename(`Temp Diff.` = `Mean Temp`) %>% 
-  rename(`pH Diff.` = `Mean pH`) %>% 
-  rename(`In.Grav.Moi. Diff.` = `Mean In.Grav.Moi.`) %>% 
-  rename(`Fin.Grav.Moi. Diff.` = `Mean Fin.Grav.Moi.`) %>%
-  rename(`LostGrav.Moi. Diff.` = `Mean LostGrav.Moi.`)
+  rename(`Effect Size` = `Mean Respiration (mg/L)`) %>% 
+  rename(Fe_mg_per_L_diff = Fe_mg_per_L_mean) %>% 
+  rename(`SpC Diff.` = SpC_mean) %>% 
+  rename(`Temp Diff.` = Temp_mean) %>% 
+  rename(`pH Diff.` = pH_mean) %>% 
+  rename(`In.Grav.Moi. Diff.` =Initial_Gravimetric_Water_mean) %>% 
+  rename(`Fin.Grav.Moi. Diff.` = Final_Gravimetric_Water_mean) %>%
+  rename(`LostGrav.Moi. Diff.` = Lost_Gravimetric_Water_mean)
 
 #effect_corr <- cor(effect, method = "spearman")
 
@@ -582,25 +601,23 @@ pairs(effect, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0,
 
 dev.off()
 
-log_effect <- log_means %>% 
-  rownames_to_column("kit_treat") %>% 
-  separate(kit_treat, c("kit", "treat")) %>% 
-  group_by(kit) %>%   filter(n() >= 2) %>% 
-  ungroup() %>% 
-  group_by(kit) %>% 
-  relocate(c(`Log % Fine Sand`:`Log SSA`), .after = `Log Mean LostGrav.Moi.`) %>% 
-  summarise(
-    across(`Log Mean Respiration (mg/kg)`:`Log Mean LostGrav.Moi.`, diff), 
-    across(`Log % Fine Sand`:`Log SSA`, mean))%>% 
-  column_to_rownames("kit") %>% 
-  rename(`Log Effect Size` = `Log Mean Respiration (mg/kg)`) %>% 
-  rename(`Log Fe (mg/kg) Diff.` = `Log Mean Fe (mg/kg)`) %>% 
-  rename(`Log SpC Diff.` = `Log Mean SpC`) %>% 
-  rename(`Log Temp Diff.` = `Log Mean Temp`) %>% 
-  rename(`Log pH Diff.` = `Log Mean pH`) %>% 
-  rename(`Log In.Grav.Moi. Diff.` = `Log Mean In.Grav.Moi.`) %>% 
-  rename(`Log Fin.Grav.Moi. Diff.` = `Log Mean Fin.Grav.Moi.`) %>%
-  dplyr::select(-c(`Log Mean LostGrav.Moi.`))
+## Trying to deal with negative values by adding minimum + 1 to all columns 
+
+neg_cols <- c("Effect Size", "Fe_mg_per_L_diff", "SpC Diff.", "Temp Diff.", "pH Diff.", "ATP_picomol_per_g_mean")
+
+silt <- "Percent_Silt_mean"
+
+all_others <- c("Effect Size", "Fe_mg_per_L_diff", "SpC Diff.", "Temp Diff.", "pH Diff.", "ATP_picomol_per_g_mean","Percent_Fine_Sand_mean", "Percent_Med_Sand_mean", "Percent_Coarse_Sand_mean", "Percent_Clay_mean", "average_ssa_mean", "In.Grav.Moi. Diff.", "Fin.Grav.Moi. Diff.")
+  
+  #c("Effect Size", "Fe_mg_per_L_diff", "SpC Diff.", "Temp Diff.", "pH Diff.", "ATP_picomol_per_g_mean","% Fine Sand", "% Med. Sand", "% Coarse Sand", "% Clay", "SSA", "In.Grav.Moi. Diff.", "Fin.Grav.Moi. Diff.")
+
+log_effect <- effect %>% 
+  mutate(across(all_of(neg_cols), ~. + (abs((min(.))))+ 1)) %>% 
+  mutate(`% Silt` = log10(`Percent_Silt_mean` + 0.5*min(`Percent_Silt_mean`[`Percent_Silt_mean` != min(`Percent_Silt_mean`)]))) %>% 
+  mutate(across(all_of(all_others), ~log10(.))) %>% 
+  select(-c(`LostGrav.Moi. Diff.`)) %>% 
+  rename_with(~paste0("log_", .), everything())
+  
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_Effect_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
@@ -717,34 +734,32 @@ rsq
 
 ## Log LASSO
 
-lasso <- all_data %>% 
-  drop_na(Fe_mg_per_L) %>% 
-  drop_na(average_ssa) %>% 
-  drop_na(Initial_Gravimetric_Water) %>% 
-  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H))
+# lasso <- all_data %>% 
+#   drop_na(Fe_mg_per_L) %>% 
+#   drop_na(average_ssa) %>% 
+#   drop_na(Initial_Gravimetric_Water) %>% 
+#   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H))
 
-log_lasso <- lasso %>% 
-  mutate(log_resp_mg_l = log10(Respiration_Rate_mg_DO_per_L_per_H + 0.5*min(Respiration_Rate_mg_DO_per_L_per_H[Respiration_Rate_mg_DO_per_L_per_H != min(Respiration_Rate_mg_DO_per_L_per_H)]))) %>% 
-  mutate(log_fe_mg_l = log10(Fe_mg_per_L + 0.5*min(Fe_mg_per_L[Fe_mg_per_L != min(Fe_mg_per_L)]))) %>% 
-  mutate(log_fine_sand = log10(Percent_Fine_Sand + 0.5*min(Percent_Fine_Sand))) %>% 
-  mutate(log_med_sand = log10(Percent_Med_Sand + 0.5*min(Percent_Med_Sand))) %>% 
-  mutate(log_coarse_sand = log10(Percent_Coarse_Sand + 0.5*min(Percent_Coarse_Sand))) %>% 
-  mutate(log_clay = log10(Percent_Clay + 0.5*min(Percent_Clay[Percent_Clay != min(Percent_Clay)]))) %>% 
-  mutate(log_silt = log10(Percent_Silt + 0.5*min(Percent_Silt[Percent_Silt != min(Percent_Silt)]))) %>% 
-  mutate(log_ssa = log10(average_ssa + 0.5*min(average_ssa))) %>% 
-  mutate(log_spc = log10(`SpC` + 0.5*min(`SpC`))) %>% 
-  mutate(log_temp = log10(`Temp` + 0.5*min(`Temp`))) %>%
-  mutate(log_ph = log10(`pH` + 0.5*min(`pH`))) %>% 
-  mutate(log_initial_grav = log10(Initial_Gravimetric_Water + 0.5*min(Initial_Gravimetric_Water))) %>% 
-  mutate(log_fin_grav = log10(Final_Gravimetric_Water + 0.5*min(Final_Gravimetric_Water))) %>% 
-  mutate(log_lost_grav = log10(Lost_Gravimetric_Water + 0.5*min(Lost_Gravimetric_Water))) %>% 
-  dplyr::select(c(log_resp_mg_l, log_fe_mg_l, log_fine_sand, log_med_sand, log_coarse_sand, log_clay, log_silt, log_ssa, log_spc, log_temp, log_ph, log_initial_grav, log_fin_grav))
+log_lasso <- log_corr_samples %>% 
+  rename(log_fe = `Log Fe (mg/L)`) %>% 
+  rename(log_atp = `Log ATP (pmol/g)`) %>% 
+  rename(log_fine_sand = `Log % Fine Sand`) %>% 
+  rename(log_med_sand = `Log % Med. Sand`) %>% 
+  rename(log_coarse_sand = `Log % Coarse Sand`) %>% 
+  rename(log_clay = `Log % Clay`) %>% 
+  rename(log_silt = `Log % Silt`) %>% 
+  rename(log_ssa = `Log SSA`) %>% 
+  rename(log_spc = `Log SpC`) %>% 
+  rename(log_temp = `Log Temp`) %>% 
+  rename(log_ph = `Log pH`) %>% 
+  rename(log_in_grav_moi = `Log In.Grav.Moi.`) %>% 
+  rename(log_fin_grav_moi = `Log Fin.Grav.Moi.`)
 
-log_resp <- log_lasso$log_resp_mg_l
+log_resp <- log_lasso$`Log Respiration (mg/L)`
 
 #log_resp <- scale(log_resp)
 
-log_pred <- data.matrix(log_lasso[, c('log_fe_mg_l', 'log_fine_sand', 'log_med_sand', 'log_coarse_sand', 'log_clay','log_silt', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_initial_grav', 'log_fin_grav')])
+log_pred <- data.matrix(log_lasso[, c("log_fe", "log_atp",  "log_fine_sand", "log_med_sand", "log_coarse_sand", "log_clay","log_silt", "log_ssa", "log_spc", "log_temp", "log_ph","log_in_grav_moi", "log_fin_grav_moi")])
 
 #log_pred <- scale(log_pred)
 
@@ -769,7 +784,7 @@ log_rsq
 
 ## Log FS, SSA, Fe, Resp, Moi
 
-log_pred_co <- data.matrix(log_lasso[, c('log_fe_mg_l', 'log_fine_sand', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_fin_grav')])
+log_pred_co <- data.matrix(log_lasso[, c("log_fe", "log_atp",  "log_fine_sand", "log_ssa", "log_spc", "log_temp", "log_ph", "log_fin_grav_moi")])
 
 #log_pred <- scale(log_pred)
 
@@ -794,24 +809,14 @@ log_rsq_co
 
 ## Log LASSO Dry Samples
 
-log_lasso_dry <- lasso %>% 
+log_lasso_dry <- log_lasso %>% 
+  rownames_to_column("Sample_Name") %>% 
   filter(grepl("D", Sample_Name)) %>%
-  filter(Lost_Gravimetric_Water > 0) %>% 
-  mutate(log_resp_mg_l = log10(Respiration_Rate_mg_DO_per_L_per_H + 0.5*min(Respiration_Rate_mg_DO_per_L_per_H[Respiration_Rate_mg_DO_per_L_per_H != min(Respiration_Rate_mg_DO_per_L_per_H)]))) %>% 
-  mutate(log_fe_mg_l = log10(Fe_mg_per_L + 0.5*min(Fe_mg_per_L[Fe_mg_per_L != min(Fe_mg_per_L)]))) %>% 
-  mutate(log_fine_sand = log10(Percent_Fine_Sand + 0.5*min(Percent_Fine_Sand))) %>% 
-  mutate(log_ssa = log10(average_ssa + 0.5*min(average_ssa))) %>% 
-  mutate(log_spc = log10(`SpC` + 0.5*min(`SpC`))) %>% 
-  mutate(log_temp = log10(`Temp` + 0.5*min(`Temp`))) %>%
-  mutate(log_ph = log10(`pH` + 0.5*min(`pH`))) %>% 
-  #mutate(log_initial_grav = log10(Initial_Gravimetric_Water + 0.5*min(Initial_Gravimetric_Water))) %>% 
-  mutate(log_fin_grav = log10(Final_Gravimetric_Water + 0.5*min(Final_Gravimetric_Water))) %>% 
-  mutate(log_lost_grav = log10(Lost_Gravimetric_Water + 0.5*min(Lost_Gravimetric_Water))) %>% 
-  dplyr::select(c(log_resp_mg_l, log_fe_mg_l, log_fine_sand, log_ssa, log_spc, log_temp, log_ph, log_fin_grav, log_lost_grav))
+  dplyr::select(c(`Log Respiration (mg/L)`, log_fe, log_atp, log_fine_sand, log_ssa, log_spc, log_temp, log_ph, log_fin_grav_moi))
 
-log_resp_dry <- log_lasso_dry$log_resp_mg_l
+log_resp_dry <- log_lasso_dry$`Log Respiration (mg/L)`
 
-log_pred_dry <- data.matrix(log_lasso_dry[, c('log_fe_mg_l', 'log_fine_sand', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_fin_grav', 'log_lost_grav')])
+log_pred_dry <- data.matrix(log_lasso_dry[, c('log_fe', 'log_atp', 'log_fine_sand', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_fin_grav_moi')])
 
 #log_pred <- scale(log_pred)
 
@@ -835,24 +840,14 @@ log_rsq_dry = 1 - log_sse_dry/log_sst_dry
 log_rsq_dry
 
 ## Log Wet LASSO
-log_lasso_wet <- lasso %>% 
+log_lasso_wet <- log_lasso %>% 
+  rownames_to_column("Sample_Name") %>% 
   filter(grepl("W", Sample_Name)) %>%
-  filter(Lost_Gravimetric_Water > 0) %>% 
-  mutate(log_resp_mg_l = log10(Respiration_Rate_mg_DO_per_L_per_H + 0.5*min(Respiration_Rate_mg_DO_per_L_per_H[Respiration_Rate_mg_DO_per_L_per_H != min(Respiration_Rate_mg_DO_per_L_per_H)]))) %>% 
-  mutate(log_fe_mg_l = log10(Fe_mg_per_L + 0.5*min(Fe_mg_per_L[Fe_mg_per_L != min(Fe_mg_per_L)]))) %>% 
-  mutate(log_fine_sand = log10(Percent_Fine_Sand + 0.5*min(Percent_Fine_Sand))) %>% 
-  mutate(log_ssa = log10(average_ssa + 0.5*min(average_ssa))) %>% 
-  mutate(log_spc = log10(`SpC` + 0.5*min(`SpC`))) %>% 
-  mutate(log_temp = log10(`Temp` + 0.5*min(`Temp`))) %>%
-  mutate(log_ph = log10(`pH` + 0.5*min(`pH`))) %>% 
-  mutate(log_initial_grav = log10(Initial_Gravimetric_Water + 0.5*min(Initial_Gravimetric_Water))) %>% 
- # mutate(log_fin_grav = log10(Final_Gravimetric_Water + 0.5*min(Final_Gravimetric_Water))) %>% 
- # mutate(log_lost_grav = log10(Lost_Gravimetric_Water + 0.5*min(Lost_Gravimetric_Water))) %>% 
-  dplyr::select(c(log_resp_mg_l, log_fe_mg_l, log_fine_sand, log_ssa, log_spc, log_temp, log_ph, log_initial_grav))
+  dplyr::select(c(`Log Respiration (mg/L)`, log_fe, log_atp, log_fine_sand, log_ssa, log_spc, log_temp, log_ph, log_fin_grav_moi))
 
-log_resp_wet <- log_lasso_wet$log_resp_mg_l
+log_resp_wet <- log_lasso_wet$`Log Respiration (mg/L)`
 
-log_pred_wet <- data.matrix(log_lasso_wet[, c('log_fe_mg_l', 'log_fine_sand', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_initial_grav')])
+log_pred_wet <- data.matrix(log_lasso_wet[, c('log_fe', 'log_atp', 'log_fine_sand', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_fin_grav_moi')])
 
 #log_pred <- scale(log_pred)
 
@@ -877,16 +872,15 @@ log_rsq_wet
 
 
 ## Effect LASSO 
-effect_lasso <- effect_data 
+effect_lasso <- log_effect
 
-eff <- effect_lasso$`Effect Size`
+eff <- effect_lasso$`log_Effect Size`
 
-eff <- scale(eff)
+#eff <- scale(eff)
 
-pred <- data.matrix(effect_lasso[, c("In.Grav.Moi. Diff.", "Fin.Grav.Moi. Diff.", "% Fine Sand", "% Med. Sand", "% Coarse Sand" , "% Clay", "% Silt", "SSA")]) #effect_lasso$`Fe (mg/kg) Diff.`, effect_lasso$`SpC Diff.`, effect_lasso$`Temp Diff.`, effect_lasso$`pH Diff.`, 
+pred <- data.matrix(effect_lasso[, c("log_Fe_mg_per_L_diff", "log_ATP_picomol_per_g_mean", "log_SpC Diff.", "log_Temp Diff.", "log_pH Diff.", "log_Fin.Grav.Moi. Diff.", "log_Percent_Fine_Sand_mean", "log_Percent_Med_Sand_mean", "log_Percent_Coarse_Sand_mean", "log_Percent_Clay_mean", "log_% Silt", "log_average_ssa_mean")]) 
   
-
-pred <- scale(pred)
+#pred <- scale(pred)
 
 cv_model <- cv.glmnet(pred, eff, alpha = 1)
 
@@ -907,4 +901,65 @@ rsq = 1 - sse/sst
 
 rsq
 
+eff <- effect_lasso$`log_Effect Size`
+
+#eff <- scale(eff)
+
+pred <- data.matrix(effect_lasso[, c("log_Fe_mg_per_L_diff", "log_ATP_picomol_per_g_mean", "log_SpC Diff.", "log_Temp Diff.", "log_pH Diff.", "log_Fin.Grav.Moi. Diff.", "log_Percent_Fine_Sand_mean", "log_average_ssa_mean")]) 
+
+#pred <- scale(pred)
+
+cv_model <- cv.glmnet(pred, eff, alpha = 1)
+
+best_lambda <- cv_model$lambda.min
+best_lambda
+
+plot(cv_model)
+
+best_model <- glmnet(pred, eff, alpha = 1, lambda = best_lambda)
+coef(best_model)
+
+eff_predict <- predict(best_model, s = best_lambda, newx = pred)
+
+sst <- sum((eff - mean(eff))^2)
+sse <- sum((eff_predict - eff)^2)
+
+rsq = 1 - sse/sst
+
+rsq
+
+
+corr_samples_treat_real <- corr_samples %>%
+  rownames_to_column("Sample_Name") %>% 
+  mutate(Treat = case_when(grepl("W",Sample_Name)~"Wet",
+                           grepl("D", Sample_Name) ~"Dry")) %>% 
+  filter(`Respiration (mg/L)` < 90)
+
+ggplot(corr_samples_treat_real, aes(x = `Respiration (mg/L)`, y = ATP_picomol_per_g, color = Treat)) + 
+  geom_point()
+
+ggplot(corr_samples_treat_real, aes(x = `Respiration (mg/L)`, y = Fe_mg_per_L, color = Treat)) + 
+  geom_point()
+
+ggplot(corr_samples_treat, aes(x = `Respiration (mg/L)`, y = Fe_mg_per_L, color = Treat)) + 
+  geom_point()
+
+dry_samples = corr_samples_treat %>% 
+  filter()
+
+ggplot(effect, aes(x = `Effect Size`, y = ATP_picomol_per_g_mean)) + 
+  geom_point() + 
+  ylab("ATP Diff.")
+
+ggplot(effect, aes(x = `Effect Size`, y = Percent_Fine_Sand_mean)) + 
+  geom_point() + 
+  ylab("% Fine Sand")
+
+ggplot(effect, aes(x = `Effect Size`, y = Fe_mg_per_L_diff)) + 
+  geom_point() + 
+  ylab("Fe Diff.")
+
+ggplot(effect, aes(x = `Effect Size`, y = `Fin.Grav.Moi. Diff.`)) + 
+  geom_point() + 
+  ylab("Final Grav Moi. Diff.")
 
