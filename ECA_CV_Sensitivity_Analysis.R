@@ -21,14 +21,6 @@ atp <- read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team -
 
 all_data <- left_join(all_data, atp, by = "Sample_Name")
 
-#Summary Data 
-
-sum_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Summary_ECA_Data.csv",header = TRUE) %>% 
-  dplyr::select(-c(X))
-
-#Effect Size Data
-effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_ECA_Data.csv",header = TRUE) %>% 
-  dplyr::select(-c(X))
 
 effect_scale <- effect_data %>% 
   column_to_rownames(var = "Sample_Name") %>% 
@@ -617,7 +609,42 @@ log_effect <- effect %>%
   mutate(across(all_of(all_others), ~log10(.))) %>% 
   select(-c(`LostGrav.Moi. Diff.`)) %>% 
   rename_with(~paste0("log_", .), everything())
+
+cube_root <- function(x) sign(x) * (abs(x))^(1/3)
   
+cube_root_effect = effect %>% 
+  mutate_all(cube_root) %>% 
+  rename_all(~ paste0(., "_cube")) 
+
+ggplot(gather(cube_root_effect, cols, value), aes(x = value)) + 
+  geom_histogram() + 
+  facet_wrap(.~cols, scales = 'free_x')
+
+ggplot(gather(effect, cols, value), aes(x = value)) + 
+  geom_histogram() + 
+  facet_wrap(.~cols, scales = 'free_x')
+
+cube_root_comp = cube_root_effect %>% 
+  rownames_to_column("Sample_Name") %>% 
+  left_join(effect_comp, by = "Sample_Name")
+
+log_effect_only = effect %>% 
+  mutate(log_effect = log10(`Effect Size`))
+
+ggplot(log_effect_only, aes(x = `Effect Size`, y = log_effect)) +
+  geom_point()
+
+ggplot(cube_root_comp, aes(x = `Effect Size`, y = `Effect Size_cube`)) + 
+  geom_point()
+
+ggplot(cube_root_comp, aes(x = `Effect Size_cube`))+
+  geom_histogram()
+
+cube_root_hist = cube_root_comp %>% 
+  column_to_rownames("Sample_Name")
+
+
+
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_Effect_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
