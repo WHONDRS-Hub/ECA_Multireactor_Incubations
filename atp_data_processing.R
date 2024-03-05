@@ -1,5 +1,4 @@
 library(tidyverse)
-library(dplyr)
 library(readxl)
 library(ggpmisc)
 
@@ -207,12 +206,13 @@ blanks <- qa %>%
   filter(randomized_id == "0_std") %>% 
   group_by(source) %>% 
   mutate(day_lod = mean(actual_nM)) %>% 
+  mutate(day_lod_sd = mean(actual_nM) + 3*sd(actual_nM)) %>% 
   mutate(range = max(actual_nM) - min(actual_nM)) %>% 
   ungroup() %>% 
   mutate(all_lod = mean(actual_nM)) 
 
 lod <-  blanks %>% 
-  select(c(source,day_lod)) %>% 
+  select(c(source,day_lod, day_lod_sd)) %>% 
   distinct(source, .keep_all = TRUE) %>% 
   mutate(day_lod = round(day_lod, 3))
 
@@ -326,3 +326,35 @@ samples_final <- samples_lod %>%
 
 
 write.csv(samples_final, paste0(processed.data,"/EC_ATP_ReadyForBoye_01-26-2024.csv"), row.names = F) 
+
+### ATP Summary File ####
+
+cv <- function(x) {
+  cv_value <- (sd(x) / mean(x)) * 100
+  return(cv_value)
+}
+
+atp_summary = samples_final %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = -1) %>% 
+  filter(ATP_nanomol_per_L != -9999) %>% 
+  select(c(Sample_ID, ATP_nanomol_per_L, ATP_picomol_per_g)) %>% 
+  mutate(ATP_nanomol_per_L = as.numeric(ATP_nanomol_per_L)) %>% 
+  mutate(ATP_picomol_per_g = as.numeric(ATP_picomol_per_g)) %>% 
+  group_by(Sample_ID) %>% 
+  summarise(across(where(is.numeric), list(mean = mean, sd = sd, cv = cv))) %>% 
+  ungroup() %>% 
+  mutate(round(across(where(is.numeric)),3)) %>% 
+  rename(Mean_ATP_nanomol_per_L = ATP_nanomol_per_L_mean) %>% 
+  rename(Mean_ATP_picomol_per_g = ATP_picomol_per_g_mean) %>% 
+  rename(SD_ATP_nanomol_per_L = ATP_nanomol_per_L_sd) %>% 
+  rename(SD_ATP_picomol_per_g = ATP_picomol_per_g_sd) %>% 
+  rename(Sample_Name = Sample_ID)
+
+ggplot(atp_summary, aes(x = ATP_picomol_per_g_cv)) +
+  geom_histogram()
+
+atp_summary_file = atp_summary %>% 
+  mutate(Material = "Sediment") %>% 
+  select(c(Sample_Name, Material, Mean_ATP_nanomol_per_L, SD_ATP_nanomol_per_L, Mean_ATP_picomol_per_g, SD_ATP_picomol_per_g)) 
+
+write.csv(atp_summary_file, paste0(processed.data,"/EC_ATP_Summary_ReadyForBoye_03-05-2024.csv"), row.names = F) 
