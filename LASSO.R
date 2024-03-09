@@ -23,9 +23,12 @@ all_data_mg_L = all_data %>%
   mutate(Fe_mg_per_L = as.numeric(Fe_mg_per_L)) %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H))
 
-### LASSO REGRESSION
-#Log transform all data
+ggplot(all_data_mg_L, aes(x = Respiration_Rate_mg_DO_per_L_per_H)) + 
+  geom_histogram()
 
+### TRANSFORM DATA
+
+# Write functions for log/cube transformations 
 half_min_values = function(x) {
   min_val <- min(x)
   if (min_val == 0) {
@@ -36,293 +39,348 @@ half_min_values = function(x) {
 
 cube_root <- function(x) sign(x) * (abs(x))^(1/3)
 
+#Log transform all data
 log_lasso = all_data_mg_L %>% 
   select(-c(Lost_Gravimetric_Water)) %>% 
   mutate(across(where(is.numeric), ~. + half_min_values(.))) %>% 
   mutate(across(where(is.numeric), ~log10(.))) %>% 
   column_to_rownames("Sample_Name")
 
+z_log_lasso = log_lasso %>% 
+  mutate(across(where(is.numeric), function(x) (x - mean(x)) / sd(x)))
+
+z_log_resp <- z_log_lasso$Respiration_Rate_mg_DO_per_L_per_H
+
+#Try all data
+#z_log_pred <- data.matrix(z_log_lasso[, c('Fe_mg_per_L', 'Percent_Fine_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'mean_ssa', 'SpC', 'Temp', 'pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water')])
+
+## Log FS, SSA, Fe, Resp, Moi
+
+z_log_pred <- data.matrix(z_log_lasso[, c("Fe_mg_per_L", "ATP_nanomol_per_L",  "Percent_Fine_Sand", "mean_ssa", "SpC", "Temp", "pH",  "Final_Gravimetric_Water")])
+
+cv_model <- cv.glmnet(z_log_pred, z_log_resp, alpha = 1)
+
+best_lambda <- cv_model$lambda.min
+best_lambda
+
+plot(cv_model)
+
+best_model <- glmnet(z_log_pred, z_log_resp, alpha = 1, lambda = best_lambda)
+coef(best_model)
+
+resp_predict <- predict(best_model, s = best_lambda, newx = z_log_pred)
+
+sst <- sum((z_log_resp - mean(z_log_resp))^2)
+sse <- sum((resp_predict - z_log_resp)^2)
+
+rsq = 1 - sse/sst
+
+#rsq. 0.63
+rsq
+
+# Wet Log Lasso
+wet_log_lasso = log_lasso %>% 
+  rownames_to_column("Sample_Name") %>% 
+  filter(grepl("W", Sample_Name))%>% 
+  mutate(across(where(is.numeric), function(x) (x - mean(x)) / sd(x)))
+
+z_log_resp_wet <- wet_log_lasso$Respiration_Rate_mg_DO_per_L_per_H
+
+#Try all data
+#z_log_pred <- data.matrix(z_log_lasso[, c('Fe_mg_per_L', 'Percent_Fine_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'mean_ssa', 'SpC', 'Temp', 'pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water')])
+
+## Log FS, SSA, Fe, Resp, Moi
+
+z_log_pred_wet <- data.matrix(wet_log_lasso[, c("Fe_mg_per_L", "ATP_nanomol_per_L",  "Percent_Fine_Sand", "mean_ssa", "SpC", "Temp", "pH",  "Final_Gravimetric_Water")])
+
+cv_model <- cv.glmnet(z_log_pred_wet, z_log_resp_wet, alpha = 1)
+
+best_lambda <- cv_model$lambda.min
+best_lambda
+
+plot(cv_model)
+
+best_model <- glmnet(z_log_pred_wet, z_log_resp_wet, alpha = 1, lambda = best_lambda)
+coef(best_model)
+
+resp_predict <- predict(best_model, s = best_lambda, newx = z_log_pred_wet)
+
+sst <- sum((z_log_resp_wet - mean(z_log_resp_wet))^2)
+sse <- sum((resp_predict - z_log_resp_wet)^2)
+
+rsq = 1 - sse/sst
+
+#rsq. 0.62
+rsq
+
+## Dry log lasso
+dry_log_lasso = log_lasso %>% 
+  rownames_to_column("Sample_Name") %>% 
+  filter(grepl("D", Sample_Name))%>% 
+  mutate(across(where(is.numeric), function(x) (x - mean(x)) / sd(x)))
+
+z_log_resp_dry <- dry_log_lasso$Respiration_Rate_mg_DO_per_L_per_H
+
+#Try all data
+#z_log_pred <- data.matrix(z_log_lasso[, c('Fe_mg_per_L', 'Percent_Fine_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'mean_ssa', 'SpC', 'Temp', 'pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water')])
+
+## Log FS, SSA, Fe, Resp, Moi
+
+z_log_pred_dry <- data.matrix(dry_log_lasso[, c("Fe_mg_per_L", "ATP_nanomol_per_L",  "Percent_Fine_Sand", "mean_ssa", "SpC", "Temp", "pH",  "Final_Gravimetric_Water")])
+
+cv_model <- cv.glmnet(z_log_pred_dry, z_log_resp_dry, alpha = 1)
+
+best_lambda <- cv_model$lambda.min
+best_lambda
+
+plot(cv_model)
+
+best_model <- glmnet(z_log_pred_dry, z_log_resp_dry, alpha = 1, lambda = best_lambda)
+coef(best_model)
+
+resp_predict <- predict(best_model, s = best_lambda, newx = z_log_pred_dry)
+
+sst <- sum((z_log_resp_dry - mean(z_log_resp_dry))^2)
+sse <- sum((resp_predict - z_log_resp_dry)^2)
+
+rsq = 1 - sse/sst
+
+#rsq. 0.56
+rsq
+
+## Cube Root LASSO
 cube_lasso = all_data_mg_L %>% 
   mutate(across(where(is.numeric), cube_root))%>% 
   column_to_rownames("Sample_Name")
 
-cube_rows = cube_lasso %>% 
-  rownames_to_column("Sample_Name")
+z_cube_lasso = cube_lasso %>% 
+  mutate(across(where(is.numeric), function(x) ((x - mean(x)) / sd(x))))
 
-cube_pivot = left_join(cube_rows, all_data_mg_L, by = "Sample_Name")
+z_cube_resp <- z_cube_lasso$Respiration_Rate_mg_DO_per_L_per_H
 
-ggplot(cube_pivot, aes(y = Lost_Gravimetric_Water.x, x = Lost_Gravimetric_Water.y)) + 
-  geom_point() + 
-  ylab("cube")
-
-## Plot all log transformations vs. non log transformed
-
-ggplot(gather(all_data_mg_L, cols, value), aes(x = value)) + 
-  geom_histogram() + 
-  facet_wrap(.~cols, scales = 'free_x')
-
-ggplot(gather(log_lasso, cols, value), aes(x = value)) + 
-  geom_histogram() + 
-  facet_wrap(.~cols, scales = 'free_x')
-
-ggplot(gather(cube_lasso, cols, value), aes(x = value)) + 
-  geom_histogram() + 
-  facet_wrap(.~cols, scales = 'free_x')
-
-
-
-resp <- log_lasso$Respiration_Rate_mg_DO_per_L_per_H
-
-pred <- data.matrix(log_lasso[, c('Fe_mg_per_L', 'Percent_Fine_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'mean_ssa', 'SpC', 'Temp', 'pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water')])
-
-cv_model <- cv.glmnet(pred, resp, alpha = 1)
-
-best_lambda <- cv_model$lambda.min
-best_lambda
-
-plot(cv_model)
-
-best_model <- glmnet(pred, resp, alpha = 1, lambda = best_lambda)
-coef(best_model)
-
-resp_predict <- predict(best_model, s = best_lambda, newx = pred)
-
-sst <- sum((resp - mean(resp))^2)
-sse <- sum((resp_predict - resp)^2)
-
-rsq = 1 - sse/sst
-
-rsq
-
-## LASSO ####
-
-## Log LASSO
-
-# lasso <- all_data %>% 
-#   drop_na(Fe_mg_per_L) %>% 
-#   drop_na(average_ssa) %>% 
-#   drop_na(Initial_Gravimetric_Water) %>% 
-#   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H))
-
-log_lasso <- log_corr_samples %>% 
-  rename(log_fe = `Log Fe (mg/L)`) %>% 
-  rename(log_atp = `Log ATP (pmol/g)`) %>% 
-  rename(log_fine_sand = `Log % Fine Sand`) %>% 
-  rename(log_med_sand = `Log % Med. Sand`) %>% 
-  rename(log_coarse_sand = `Log % Coarse Sand`) %>% 
-  rename(log_clay = `Log % Clay`) %>% 
-  rename(log_silt = `Log % Silt`) %>% 
-  rename(log_ssa = `Log SSA`) %>% 
-  rename(log_spc = `Log SpC`) %>% 
-  rename(log_temp = `Log Temp`) %>% 
-  rename(log_ph = `Log pH`) %>% 
-  rename(log_in_grav_moi = `Log In.Grav.Moi.`) %>% 
-  rename(log_fin_grav_moi = `Log Fin.Grav.Moi.`)
-
-log_resp <- log_lasso$`Log Respiration (mg/L)`
-
-#log_resp <- scale(log_resp)
-
-log_pred <- data.matrix(log_lasso[, c("log_fe", "log_atp",  "log_fine_sand", "log_med_sand", "log_coarse_sand", "log_clay","log_silt", "log_ssa", "log_spc", "log_temp", "log_ph","log_in_grav_moi", "log_fin_grav_moi")])
-
-#log_pred <- scale(log_pred)
-
-log_cv_model <- cv.glmnet(log_pred, log_resp, alpha = 1)
-
-log_best_lambda <- log_cv_model$lambda.min
-log_best_lambda
-
-plot(log_cv_model)
-
-log_best_model <- glmnet(log_pred, log_resp, alpha = 1, lambda = log_best_lambda)
-coef(log_best_model)
-
-log_resp_predict <- predict(log_best_model, s = log_best_lambda, newx = log_pred)
-
-log_sst <- sum((log_resp - mean(log_resp))^2)
-log_sse <- sum((log_resp_predict - log_resp)^2)
-
-log_rsq = 1 - log_sse/log_sst
-
-log_rsq
+#Try all data
+z_cube_pred <- data.matrix(z_cube_lasso[, c('Fe_mg_per_L', 'Percent_Fine_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'mean_ssa', 'SpC', 'Temp', 'pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water')])
 
 ## Log FS, SSA, Fe, Resp, Moi
 
-log_pred_co <- data.matrix(log_lasso[, c("log_fe", "log_atp",  "log_fine_sand", "log_ssa", "log_spc", "log_temp", "log_ph", "log_fin_grav_moi")])
+#z_log_pred <- data.matrix(z_log_lasso[, c("Fe_mg_per_L", "ATP_nanomol_per_L",  "Percent_Fine_Sand", "mean_ssa", "SpC", "Temp", "pH",  "Final_Gravimetric_Water")])
 
-#log_pred <- scale(log_pred)
+cv_model <- cv.glmnet(z_cube_pred, z_cube_resp, alpha = 1)
 
-log_cv_model_co <- cv.glmnet(log_pred_co, log_resp, alpha = 1)
+best_lambda <- cv_model$lambda.min
+best_lambda
 
-log_best_lambda_co <- log_cv_model_co$lambda.min
-log_best_lambda_co
+plot(cv_model)
 
-plot(log_cv_model_co)
+best_model <- glmnet(z_cube_pred, z_cube_resp, alpha = 1, lambda = best_lambda)
+coef(best_model)
 
-log_best_model_co <- glmnet(log_pred_co, log_resp, alpha = 1, lambda = log_best_lambda_co)
-coef(log_best_model_co)
+resp_predict <- predict(best_model, s = best_lambda, newx = z_cube_pred)
 
-log_resp_predict_co <- predict(log_best_model_co, s = log_best_lambda_co, newx = log_pred_co)
+sst <- sum((z_cube_resp - mean(z_cube_resp))^2)
+sse <- sum((resp_predict - z_cube_resp)^2)
 
-log_sst_co <- sum((log_resp - mean(log_resp))^2)
-log_sse_co <- sum((log_resp_predict_co - log_resp)^2)
+rsq = 1 - sse/sst
 
-log_rsq_co = 1 - log_sse_co/log_sst_co
+#rsq. 0.63
+rsq
 
-log_rsq_co
-
-## Log LASSO Dry Samples
-
-log_lasso_dry <- log_lasso %>% 
+# Wet Cube Lasso
+wet_cube_lasso = cube_lasso %>% 
   rownames_to_column("Sample_Name") %>% 
-  filter(grepl("D", Sample_Name)) %>%
-  dplyr::select(c(`Log Respiration (mg/L)`, log_fe, log_atp, log_fine_sand, log_ssa, log_spc, log_temp, log_ph, log_fin_grav_moi))
+  filter(grepl("W", Sample_Name))%>% 
+  mutate(across(where(is.numeric), function(x) (x - mean(x)) / sd(x)))
 
-log_resp_dry <- log_lasso_dry$`Log Respiration (mg/L)`
+z_cube_resp_wet <- wet_cube_lasso$Respiration_Rate_mg_DO_per_L_per_H
 
-log_pred_dry <- data.matrix(log_lasso_dry[, c('log_fe', 'log_atp', 'log_fine_sand', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_fin_grav_moi')])
+#Try all data
+#z_log_pred <- data.matrix(z_log_lasso[, c('Fe_mg_per_L', 'Percent_Fine_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'mean_ssa', 'SpC', 'Temp', 'pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water')])
 
-#log_pred <- scale(log_pred)
+## Log FS, SSA, Fe, Resp, Moi
 
-log_cv_model_dry <- cv.glmnet(log_pred_dry, log_resp_dry, alpha = 1)
+z_cube_pred_wet <- data.matrix(wet_cube_lasso[, c("Fe_mg_per_L", "ATP_nanomol_per_L",  "Percent_Fine_Sand", "mean_ssa", "SpC", "Temp", "pH",  "Final_Gravimetric_Water")])
 
-log_best_lambda_dry <- log_cv_model_dry$lambda.min
-log_best_lambda_dry
+cv_model <- cv.glmnet(z_cube_pred_wet, z_cube_resp_wet, alpha = 1)
 
-plot(log_cv_model_dry)
+best_lambda <- cv_model$lambda.min
+best_lambda
 
-log_best_model_dry <- glmnet(log_pred_dry, log_resp_dry, alpha = 1, lambda = log_best_lambda_dry)
-coef(log_best_model_dry)
+plot(cv_model)
 
-log_resp_predict_dry <- predict(log_best_model_dry, s = log_best_lambda_dry, newx = log_pred_dry)
+best_model <- glmnet(z_cube_pred_wet, z_cube_resp_wet, alpha = 1, lambda = best_lambda)
+coef(best_model)
 
-log_sst_dry <- sum((log_resp_dry - mean(log_resp_dry))^2)
-log_sse_dry <- sum((log_resp_predict_dry - log_resp_dry)^2)
+resp_predict <- predict(best_model, s = best_lambda, newx = z_cube_pred_wet)
 
-log_rsq_dry = 1 - log_sse_dry/log_sst_dry
+sst <- sum((z_cube_resp_wet - mean(z_cube_resp_wet))^2)
+sse <- sum((resp_predict - z_cube_resp_wet)^2)
 
-log_rsq_dry
+rsq = 1 - sse/sst
 
-## Log Wet LASSO
-log_lasso_wet <- log_lasso %>% 
+#rsq. 0.65
+rsq
+
+## Dry log lasso
+dry_cube_lasso = cube_lasso %>% 
   rownames_to_column("Sample_Name") %>% 
-  filter(grepl("W", Sample_Name)) %>%
-  dplyr::select(c(`Log Respiration (mg/L)`, log_fe, log_atp, log_fine_sand, log_ssa, log_spc, log_temp, log_ph, log_fin_grav_moi))
+  filter(grepl("D", Sample_Name))%>% 
+  mutate(across(where(is.numeric), function(x) (x - mean(x)) / sd(x)))
 
-log_resp_wet <- log_lasso_wet$`Log Respiration (mg/L)`
+z_cube_resp_dry <- dry_cube_lasso$Respiration_Rate_mg_DO_per_L_per_H
 
-log_pred_wet <- data.matrix(log_lasso_wet[, c('log_fe', 'log_atp', 'log_fine_sand', 'log_ssa', 'log_spc', 'log_temp', 'log_ph', 'log_fin_grav_moi')])
+#Try all data
+#z_log_pred <- data.matrix(z_log_lasso[, c('Fe_mg_per_L', 'Percent_Fine_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'mean_ssa', 'SpC', 'Temp', 'pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water')])
 
-#log_pred <- scale(log_pred)
+## Log FS, SSA, Fe, Resp, Moi
 
-log_cv_model_wet <- cv.glmnet(log_pred_wet, log_resp_wet, alpha = 1)
+z_cube_pred_dry <- data.matrix(dry_cube_lasso[, c("Fe_mg_per_L", "ATP_nanomol_per_L",  "Percent_Fine_Sand", "mean_ssa", "SpC", "Temp", "pH",  "Final_Gravimetric_Water")])
 
-log_best_lambda_wet <- log_cv_model_wet$lambda.min
-log_best_lambda_wet
+cv_model <- cv.glmnet(z_cube_pred_dry, z_cube_resp_dry, alpha = 1)
 
-plot(log_cv_model_wet)
+best_lambda <- cv_model$lambda.min
+best_lambda
 
-log_best_model_wet <- glmnet(log_pred_wet, log_resp_wet, alpha = 1, lambda = log_best_lambda_wet)
-coef(log_best_model_wet)
+plot(cv_model)
 
-log_resp_predict_wet <- predict(log_best_model_wet, s = log_best_lambda_wet, newx = log_pred_wet)
+best_model <- glmnet(z_cube_pred_dry, z_cube_resp_dry, alpha = 1, lambda = best_lambda)
+coef(best_model)
 
-log_sst_wet <- sum((log_resp_wet - mean(log_resp_wet))^2)
-log_sse_wet <- sum((log_resp_predict_wet - log_resp_wet)^2)
+resp_predict <- predict(best_model, s = best_lambda, newx = z_cube_pred_dry)
 
-log_rsq_wet = 1 - log_sse_wet/log_sst_wet
+sst <- sum((z_cube_resp_dry - mean(z_cube_resp_dry))^2)
+sse <- sum((resp_predict - z_cube_resp_dry)^2)
 
-log_rsq_wet
+rsq = 1 - sse/sst
+
+#rsq. 0.58
+rsq
+
+## Plot all log transformations vs. non log transformed
+# 
+# ggplot(gather(all_data_mg_L, cols, value), aes(x = value)) + 
+#   geom_histogram() + 
+#   facet_wrap(.~cols, scales = 'free_x')
+# 
+# ggplot(gather(log_lasso, cols, value), aes(x = value)) + 
+#   geom_histogram() + 
+#   facet_wrap(.~cols, scales = 'free_x')
+# 
+# ggplot(gather(cube_lasso, cols, value), aes(x = value)) + 
+#   geom_histogram() + 
+#   facet_wrap(.~cols, scales = 'free_x')
+
+
+
+## Read in means for effect size
+
+atp_means = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/ATP/03_ProcessedData/EC_ATP_Summary_ReadyForBoye_03-05-2024.csv") %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "ATP", "INC"))
+
+fe_means = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Fe/03_ProcessedData/EC_SFE_Summary_ReadyForBoye_03-05-2024.csv") %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC"))
+
+resp_means = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_2024-03-05.csv")
+
+moi_means = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_ReadyForBoye_01-29-2024.csv") %>% 
+  separate(Sample_Name, c("Sample_Name", "Rep"), sep = -1) %>% 
+  mutate(Initial_Gravimetric_Water = Initial_Water_Mass_g/Dry_Sediment_Mass_g) %>% 
+  mutate(Final_Gravimetric_Water = Final_Water_Mass_g/Dry_Sediment_Mass_g) %>% 
+  mutate(Lost_Gravimetric_Water = Initial_Gravimetric_Water - Final_Gravimetric_Water) %>% 
+  group_by(Sample_Name) %>% 
+  summarise(across(c(Initial_Gravimetric_Water:Lost_Gravimetric_Water), mean))
+
+grain <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/v3_CM_SSS_Sediment_Grain_Size.csv", skip = 2, header = TRUE)
+
+grain_all <- grain %>% 
+  filter(!row_number() %in% c(1:11)) %>% 
+  dplyr::select(-c(Field_Name, Material)) %>% 
+  filter(!grepl("SSS", Sample_Name)) %>% 
+  filter(Sample_Name != "") %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "CM", "EC")) %>% 
+  mutate(Sample_ID = str_remove(Sample_Name, "_GRN")) %>% 
+  mutate_at(c("Percent_Fine_Sand", "Percent_Med_Sand", "Percent_Coarse_Sand", "Percent_Tot_Sand", "Percent_Silt", "Percent_Clay"), as.numeric) %>% 
+  select(-c(IGSN, Methods_Deviation, Sample_Name))
+
+ssa <- read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/CM_SSS_Sediment_Specific_Surface_Area.csv", skip = 2, header = TRUE)
+
+ssa_clean = ssa %>% 
+  filter(!row_number() %in% c(1:11)) %>% 
+  dplyr::select(-c(Field_Name, Material, IGSN)) %>% 
+  filter(!grepl("SSS", Sample_Name)) %>% 
+  filter(Sample_Name != "") %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "CM", "EC")) %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = -6)
+
+mean_ssa <- ssa_clean %>% 
+  filter(Specific_Surface_Area_m2_per_g != -9999) %>% 
+  filter(!grepl("Negative", Specific_Surface_Area_m2_per_g)) %>%
+  mutate(Specific_Surface_Area_m2_per_g = as.numeric(Specific_Surface_Area_m2_per_g)) %>%
+  group_by(Sample_ID) %>%
+  summarise(mean_ssa = mean(Specific_Surface_Area_m2_per_g, na.rm = TRUE))
+
+means = left_join(resp_means, moi_means, by = "Sample_Name") %>% 
+  left_join(atp_means) %>% 
+  left_join(fe_means) %>% 
+  select(-contains("SD")) %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = -6, remove = FALSE) %>% 
+  separate(Rep, c("INC", "Treat"), sep = -1) %>% 
+  left_join(grain_all, by = "Sample_ID") %>% 
+  left_join(mean_ssa, by = "Sample_ID") %>% 
+  filter(!grepl("052", Sample_ID)) %>% 
+  filter(!grepl("053", Sample_ID)) %>% 
+  filter(!grepl("057", Sample_ID))
+
+best_means = means %>% 
+  select(-contains("WithOutliers")) %>% 
+  select(-c(Material, INC, Sample_Name)) %>% 
+  select(-contains("kg")) %>% 
+  mutate(Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H = abs(Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H))
+
+best_effect = best_means %>% 
+  filter(!grepl("011", Sample_ID)) %>% 
+  filter(!grepl("012", Sample_ID)) %>% 
+group_by(Sample_ID) %>% 
+  mutate(across(c(Mean_SpC:Mean_Fe_mg_per_L), ~. [Treat == "W"] - .[Treat  == "D"])) %>% 
+  distinct(Sample_ID, .keep_all = TRUE) 
+ 
+cube_best_effect = best_effect %>% 
+  mutate(across(where(is.numeric), cube_root)) %>% 
+  select(-c(Treat)) %>% 
+  column_to_rownames("Sample_ID")
+
+z_cube_best_effect = cube_best_effect %>% 
+  mutate(across(where(is.numeric), function(x) ((x - mean(x)) / sd(x))))
 
 
 ## Effect LASSO 
-effect_lasso <- log_effect
+eff <- z_cube_best_effect$Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H
 
-eff <- effect_lasso$`log_Effect Size`
+#Try all data
+#z_cube_effect_pred <- data.matrix(z_cube_best_effect[, c('Mean_Fe_mg_per_L', 'Percent_Fine_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'mean_ssa', 'Mean_SpC', 'Mean_Temp', 'Mean_pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water')])
 
-#eff <- scale(eff)
+## Log FS, SSA, Fe, Resp, Moi
 
-pred <- data.matrix(effect_lasso[, c("log_Fe_mg_per_L_diff", "log_ATP_picomol_per_g_mean", "log_SpC Diff.", "log_Temp Diff.", "log_pH Diff.", "log_Fin.Grav.Moi. Diff.", "log_Percent_Fine_Sand_mean", "log_Percent_Med_Sand_mean", "log_Percent_Coarse_Sand_mean", "log_Percent_Clay_mean", "log_% Silt", "log_average_ssa_mean")]) 
+z_cube_effect_pred <- data.matrix(z_cube_best_effect[, c("Mean_Fe_mg_per_L", "Mean_ATP_nanomol_per_L",  "Percent_Fine_Sand", "mean_ssa", "Mean_SpC", "Mean_Temp", "Mean_pH",  "Final_Gravimetric_Water")])
 
-#pred <- scale(pred)
-
-cv_model <- cv.glmnet(pred, eff, alpha = 1)
-
-best_lambda <- cv_model$lambda.min
-best_lambda
-
-plot(cv_model)
-
-best_model <- glmnet(pred, eff, alpha = 1, lambda = best_lambda)
-coef(best_model)
-
-eff_predict <- predict(best_model, s = best_lambda, newx = pred)
-
-sst <- sum((eff - mean(eff))^2)
-sse <- sum((eff_predict - eff)^2)
-
-rsq = 1 - sse/sst
-
-rsq
-
-eff <- effect_lasso$`log_Effect Size`
-
-#eff <- scale(eff)
-
-pred <- data.matrix(effect_lasso[, c("log_Fe_mg_per_L_diff", "log_ATP_picomol_per_g_mean", "log_SpC Diff.", "log_Temp Diff.", "log_pH Diff.", "log_Fin.Grav.Moi. Diff.", "log_Percent_Fine_Sand_mean", "log_average_ssa_mean")]) 
-
-#pred <- scale(pred)
-
-cv_model <- cv.glmnet(pred, eff, alpha = 1)
+cv_model <- cv.glmnet(z_cube_effect_pred, eff, alpha = 1)
 
 best_lambda <- cv_model$lambda.min
 best_lambda
 
 plot(cv_model)
 
-best_model <- glmnet(pred, eff, alpha = 1, lambda = best_lambda)
+best_model <- glmnet(z_cube_effect_pred, eff, alpha = 1, lambda = best_lambda)
 coef(best_model)
 
-eff_predict <- predict(best_model, s = best_lambda, newx = pred)
+eff_predict <- predict(best_model, s = best_lambda, newx = z_cube_effect_pred)
 
 sst <- sum((eff - mean(eff))^2)
 sse <- sum((eff_predict - eff)^2)
 
 rsq = 1 - sse/sst
 
+#RSq 0.54
 rsq
 
 
-corr_samples_treat_real <- corr_samples %>%
-  rownames_to_column("Sample_Name") %>% 
-  mutate(Treat = case_when(grepl("W",Sample_Name)~"Wet",
-                           grepl("D", Sample_Name) ~"Dry")) %>% 
-  filter(`Respiration (mg/L)` < 90)
 
-ggplot(corr_samples_treat_real, aes(x = `Respiration (mg/L)`, y = ATP_picomol_per_g, color = Treat)) + 
-  geom_point()
-
-ggplot(corr_samples_treat_real, aes(x = `Respiration (mg/L)`, y = Fe_mg_per_L, color = Treat)) + 
-  geom_point()
-
-ggplot(corr_samples_treat, aes(x = `Respiration (mg/L)`, y = Fe_mg_per_L, color = Treat)) + 
-  geom_point()
-
-dry_samples = corr_samples_treat %>% 
-  filter()
-
-ggplot(effect, aes(x = `Effect Size`, y = ATP_picomol_per_g_mean)) + 
-  geom_point() + 
-  ylab("ATP Diff.")
-
-ggplot(effect, aes(x = `Effect Size`, y = Percent_Fine_Sand_mean)) + 
-  geom_point() + 
-  ylab("% Fine Sand")
-
-ggplot(effect, aes(x = `Effect Size`, y = Fe_mg_per_L_diff)) + 
-  geom_point() + 
-  ylab("Fe Diff.")
-
-ggplot(effect, aes(x = `Effect Size`, y = `Fin.Grav.Moi. Diff.`)) + 
-  geom_point() + 
-  ylab("Final Grav Moi. Diff.")
