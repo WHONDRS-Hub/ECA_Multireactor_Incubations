@@ -3,6 +3,7 @@ library(glmnet)
 library(factoextra)
 library(janitor)
 library(corrplot)
+library(patchwork)
 
 rm(list=ls());graphics.off()
 
@@ -99,8 +100,31 @@ means = left_join(resp_means, moi_means, by = "Sample_Name") %>%
   mutate(Mean_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H = abs(Mean_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H))%>% 
   mutate(Mean_WithOutliers_Respiration_Rate_mg_DO_per_kg_per_H = abs(Mean_WithOutliers_Respiration_Rate_mg_DO_per_kg_per_H))
 
+#write.csv(means,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/ECA_Means_ESS_PI.csv", row.names = FALSE )
+
+
+cm_atp = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ICON_ModEx_SSS/11_ATP/03_ProcessedData/CM_ATP_ReadyForBoye_04-05-2024.csv") %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "_ATP-") %>% 
+  group_by(Sample_ID) %>% 
+  summarise(mean_atp_pico = mean(ATP_picomol_per_g), mean_atp_nm = mean(ATP_nanomol_per_L)) %>% 
+  mutate(Sample_ID = str_replace(Sample_ID, "CM", "EC"))
+
+
+atp_comp = atp_means %>% 
+  separate(Sample_Name, c("Sample_ID", "Treat"), sep = "_INC-") %>% 
+    left_join(cm_atp) %>% 
+  filter(mean_atp_pico != -9999)
+
+ggplot(atp_comp, aes(x = mean_atp_pico, y = Mean_ATP_picomol_per_g)) +
+  geom_point(aes(color = Treat)) + 
+  xlab("ICON ATP") + 
+  ylab("ECA ATP") +
+  geom_abline(intercept = 0, slope = 1)
+
 ggplot(means, aes(x = Mean_Fe_mg_per_kg, y = Mean_ATP_picomol_per_g)) + 
-  geom_point(aes(color = Treat))
+  geom_point(aes(color = Treat)) 
+
+ggplot(means, aes(x = ))
 
 ## EFFECT SIZE CLEANING ####
 
@@ -130,13 +154,98 @@ eff_all = best_effect %>%
   rename(`Mean SSA` = mean_ssa) %>% 
   relocate(`Effect Size`, .before = `Final Grav. Water Diff.`)
 
+
+eff_all$rank_atp = rank(eff_all$`ATP Diff.`)
+
+eff_all$rank_effect = rank(eff_all$`Effect Size`)
+
+cor_matrix <- cor.test(x = eff_all$`ATP Diff.`, y = eff_all$`Effect Size`, method = "spearman")
+
+print(cor_matrix)
+
+ggplot(eff_all, aes(x = rank_atp, y = rank_effect)) +
+  geom_point() + 
+  annotate("text", 
+           x = max(eff_all$rank_atp), 
+           y = max(eff_all$rank_effect), 
+      label = expression(paste(rho, " = -0.46, p = 0.008")), hjust = 1, vjust = 1)
+
+
 cor_matrix <- cor(eff_all, method = "spearman")
 
 corrplot(cor_matrix, method = "circle", type = "upper", tl.cex = 0.6, number.cex = 0.4, diag = FALSE, tl.col = "black")
 
+wet = means[means$Treat == "W", ]
 
-ggplot(eff_all, aes(x = `ATP Diff.`, y = `Effect Size`)) + 
+dry = means[means$Treat == "D", ]
+
+means$rank_atp = rank(means$Mean_ATP_picomol_per_g)
+
+means$rank_resp = rank(means$Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H)
+
+
+cor_atp <- cor(x = means$rank_atp, y = means$rank_resp, method = "spearman")
+
+dry = means[means$Treat == "D", ]
+
+cor_dry = cor(x = dry$rank_atp, y = dry$rank_resp, method = "spearman") 
+
+ggplot(eff_all, aes(x = `% Fine Sand`, y = `Effect Size`)) + 
   geom_point()
 
 ggplot(means, aes(x = Mean_ATP_picomol_per_g, fill = Treat)) +
   geom_histogram()
+
+## Cube Effect Size ####
+cube_root <- function(x) sign(x) * (abs(x))^(1/3)
+
+cube_effect = eff_all %>% 
+  mutate(across(where(is.numeric), cube_root))
+
+cube_matrix <- cor(cube_effect, method = "pearson")
+
+corrplot(cube_matrix, method = "circle", type = "upper", tl.cex = 0.6, number.cex = 0.4, diag = FALSE, tl.col = "black")
+
+fs_p = ggplot(cube_effect, aes(x = `% Fine Sand`, y = `Effect Size`)) + 
+  geom_point() +
+  theme_minimal() +
+  xlab("Cube Root %Fine Sand") +
+  ylab("Cube Root Effect Size")
+
+atp_p = ggplot(cube_effect, aes(x = `ATP Diff.`, y = `Effect Size`)) +
+  geom_point() +
+  theme_minimal() +
+  xlab("Cube Root ATP (pmol/g) Difference") +
+  ylab("Cube Root Effect Size")
+
+fe_p = ggplot(cube_effect, aes(x = `Fe Diff.`, y = `Effect Size`)) +
+  geom_point() +
+  theme_minimal() +
+  xlab("Cube Root Fe (mg/kg) Difference") +
+  ylab("Cube Root Effect Size")
+
+merged_p = fe_p + atp_p + fs_p
+
+layout <- plot_layout(
+  ncol = 3,  # Number of columns in the layout
+  widths = c(2,2)  # Width ratio for each column
+)
+
+# Display the merged plot with custom layout
+merged_p + layout
+
+time_zero_do = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-04-05.csv") %>% 
+  select(c(Sample_Name, DO_Concentration_At_Incubation_Time_Zero)) %>% 
+  filter(DO_Concentration_At_Incubation_Time_Zero != -9999)
+
+atp_all = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/ATP/03_ProcessedData/EC_ATP_ReadyForBoye_01-26-2024.csv") %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "ATP", "INC")) %>% 
+  filter(ATP_picomol_per_g != -9999)
+
+do_atp = left_join(time_zero_do, atp_all, by = "Sample_Name") %>% 
+  mutate(Treat = case_when(grepl("W", Sample_Name) ~ "W", 
+                           grepl("D", Sample_Name) ~ "D"))
+
+
+ggplot(do_atp, aes(x = ATP_picomol_per_g, y = DO_Concentration_At_Incubation_Time_Zero)) +
+  geom_point(aes(color = Treat))
