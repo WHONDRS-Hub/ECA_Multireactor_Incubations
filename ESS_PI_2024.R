@@ -124,7 +124,6 @@ ggplot(atp_comp, aes(x = mean_atp_pico, y = Mean_ATP_picomol_per_g)) +
 ggplot(means, aes(x = Mean_Fe_mg_per_kg, y = Mean_ATP_picomol_per_g)) + 
   geom_point(aes(color = Treat)) 
 
-ggplot(means, aes(x = ))
 
 ## EFFECT SIZE CLEANING ####
 
@@ -151,13 +150,16 @@ eff_all = best_effect %>%
   rename(`NPOC Diff.` = diff_mean_npoc) %>% 
   rename(`TN Diff.` = diff_mean_tn) %>% 
   rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
-  rename(`Mean SSA` = mean_ssa) %>% 
+  rename(`Mean SSA` = mean_ssa) %>%
+  rename(`Gibbs per C Ratio` = Gibbs_per_C_Ratio) %>% 
+  rename(`Gibbs per Compound Ratio` = Gibbs_per_compound_Ratio) %>% 
+  rename(`Lambda Ratio` = Lambda_Ratio) %>% 
   relocate(`Effect Size`, .before = `Final Grav. Water Diff.`)
 
 
-eff_all$rank_atp = rank(eff_all$`ATP Diff.`)
+#eff_all$rank_atp = rank(eff_all$`ATP Diff.`)
 
-eff_all$rank_effect = rank(eff_all$`Effect Size`)
+#eff_all$rank_effect = rank(eff_all$`Effect Size`)
 
 cor_matrix <- cor.test(x = eff_all$`ATP Diff.`, y = eff_all$`Effect Size`, method = "spearman")
 
@@ -173,15 +175,23 @@ ggplot(eff_all, aes(x = rank_atp, y = rank_effect)) +
 
 cor_matrix <- cor(eff_all, method = "spearman")
 
+png(file = "C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/ECA_ESS_PI_Corr_Plot.png",   # The directory you want to save the file in
+    width = 5, # The width of the plot in inches
+    height = 5, 
+    units = "in", 
+    res = 400)
+
 corrplot(cor_matrix, method = "circle", type = "upper", tl.cex = 0.6, number.cex = 0.4, diag = FALSE, tl.col = "black")
 
-wet = means[means$Treat == "W", ]
+dev.off()
+
+et = means[means$Treat == "W", ]
 
 dry = means[means$Treat == "D", ]
 
-means$rank_atp = rank(means$Mean_ATP_picomol_per_g)
+#means$rank_atp = rank(means$Mean_ATP_picomol_per_g)
 
-means$rank_resp = rank(means$Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H)
+#means$rank_resp = rank(means$Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H)
 
 
 cor_atp <- cor(x = means$rank_atp, y = means$rank_resp, method = "spearman")
@@ -202,37 +212,43 @@ cube_root <- function(x) sign(x) * (abs(x))^(1/3)
 cube_effect = eff_all %>% 
   mutate(across(where(is.numeric), cube_root))
 
-cube_matrix <- cor(cube_effect, method = "pearson")
+cube_matrix <- cor(cube_effect, method = "spearman")
 
 corrplot(cube_matrix, method = "circle", type = "upper", tl.cex = 0.6, number.cex = 0.4, diag = FALSE, tl.col = "black")
 
 fs_p = ggplot(cube_effect, aes(x = `% Fine Sand`, y = `Effect Size`)) + 
   geom_point() +
-  theme_minimal() +
+  theme_bw() +
   xlab("Cube Root %Fine Sand") +
   ylab("Cube Root Effect Size")
 
 atp_p = ggplot(cube_effect, aes(x = `ATP Diff.`, y = `Effect Size`)) +
   geom_point() +
-  theme_minimal() +
+  theme_bw() +
   xlab("Cube Root ATP (pmol/g) Difference") +
   ylab("Cube Root Effect Size")
 
 fe_p = ggplot(cube_effect, aes(x = `Fe Diff.`, y = `Effect Size`)) +
   geom_point() +
-  theme_minimal() +
+  theme_bw() +
   xlab("Cube Root Fe (mg/kg) Difference") +
   ylab("Cube Root Effect Size")
 
-merged_p = fe_p + atp_p + fs_p
+merged_p = corr + fe_p + atp_p + fs_p 
 
 layout <- plot_layout(
-  ncol = 3,  # Number of columns in the layout
-  widths = c(2,2)  # Width ratio for each column
+  ncol = 4,  # Number of columns in the layout
+  widths = c(3,3)  # Width ratio for each column
 )
 
 # Display the merged plot with custom layout
+pdf(file = "C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/ECA_ESS_PI.pdf",   # The directory you want to save the file in
+    width = 9, # The width of the plot in inches
+    height = 3)
+
 merged_p + layout
+
+dev.off()
 
 time_zero_do = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-04-05.csv") %>% 
   select(c(Sample_Name, DO_Concentration_At_Incubation_Time_Zero)) %>% 
