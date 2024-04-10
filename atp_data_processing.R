@@ -234,7 +234,7 @@ reference =
   ungroup() %>% 
   select(c(sample_id, dilution_factor, rlu, med_ppm_calculate, pmol_per_g, cv_all, cv_day, source))
 
-mean = mean(reference$pmol_per_g)
+mean_ref = mean(reference$pmol_per_g)
 
 # png(file = paste0(processed.data,"ref_standards_med_g.png"), width = 15, height = 15, units = "in", res = 300) 
 # 
@@ -325,7 +325,7 @@ samples_final <- samples_lod %>%
   dplyr::select(c(Sample_Name, ATP_nanomol_per_L, ATP_picomol_per_g, Methods_Deviation))
 
 
-write.csv(samples_final, paste0(processed.data,"/EC_ATP_ReadyForBoye_01-26-2024.csv"), row.names = F) 
+write.csv(samples_final, paste0(processed.data,"/CM_ATP_ReadyForBoye_04-09-2024.csv"), row.names = F) 
 
 ### ATP Summary File ####
 
@@ -333,6 +333,12 @@ cv <- function(x) {
   cv_value <- (sd(x) / mean(x)) * 100
   return(cv_value)
 }
+
+missing = samples_final %>% 
+  filter(ATP_nanomol_per_L == -9999) %>% 
+  separate(Sample_Name, c("Sample_Name", "Rep"), sep = -1) %>% 
+  group_by(Sample_Name) %>% 
+  summarise(Sample_Name, count = n())
 
 atp_summary = samples_final %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = -1) %>% 
@@ -355,6 +361,7 @@ ggplot(atp_summary, aes(x = ATP_picomol_per_g_cv)) +
 
 atp_summary_file = atp_summary %>% 
   mutate(Material = "Sediment") %>% 
-  select(c(Sample_Name, Material, Mean_ATP_nanomol_per_L, SD_ATP_nanomol_per_L, Mean_ATP_picomol_per_g, SD_ATP_picomol_per_g)) 
+  select(c(Sample_Name, Material, Mean_ATP_nanomol_per_L, SD_ATP_nanomol_per_L, Mean_ATP_picomol_per_g, SD_ATP_picomol_per_g)) %>% 
+  left_join(missing, by = "Sample_Name")
 
-write.csv(atp_summary_file, paste0(processed.data,"/EC_ATP_Summary_ReadyForBoye_03-05-2024.csv"), row.names = F) 
+write.csv(atp_summary_file, paste0(processed.data,"/EC_ATP_Summary_ReadyForBoye_04-10-2024.csv"), row.names = F) 

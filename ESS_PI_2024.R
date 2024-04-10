@@ -8,10 +8,12 @@ library(patchwork)
 rm(list=ls());graphics.off()
 
 atp_means = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/ATP/03_ProcessedData/EC_ATP_Summary_ReadyForBoye_03-05-2024.csv") %>% 
-  mutate(Sample_Name = str_replace(Sample_Name, "ATP", "INC"))
+  mutate(Sample_Name = str_replace(Sample_Name, "ATP", "INC"))%>% 
+  select(-c("count"))
 
 fe_means = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Fe/03_ProcessedData/EC_SFE_Summary_ReadyForBoye_03-05-2024.csv") %>% 
-  mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC"))
+  mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC")) %>% 
+  select(-c("count"))
 
 resp_means = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_2024-03-05.csv")
 
@@ -145,12 +147,12 @@ eff_all = best_effect %>%
   #rename(`Temp. Diff.` = diff_Mean_Temp) %>% 
   rename(`Effect Size` = diff_Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H) %>% 
   rename(`Final Grav. Water Diff.` = diff_Final_Gravimetric_Water) %>% 
-  rename(`ATP Diff.` = diff_Mean_ATP_picomol_per_g) %>% 
-  rename(`Fe Diff.` = diff_Mean_Fe_mg_per_kg) %>% 
-  rename(`NPOC Diff.` = diff_mean_npoc) %>% 
-  rename(`TN Diff.` = diff_mean_tn) %>% 
+  rename(`ATP (pmol/g) Diff.` = diff_Mean_ATP_picomol_per_g) %>% 
+  rename(`Fe (mg/kg) Diff.` = diff_Mean_Fe_mg_per_kg) %>% 
+  rename(`NPOC (mg/L) Diff.` = diff_mean_npoc) %>% 
+  rename(`TN (mg/L) Diff.` = diff_mean_tn) %>% 
   rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
-  rename(`Mean SSA` = mean_ssa) %>%
+  rename(`Specific Surface Area` = mean_ssa) %>%
   rename(`Gibbs per C Ratio` = Gibbs_per_C_Ratio) %>% 
   rename(`Gibbs per Compound Ratio` = Gibbs_per_compound_Ratio) %>% 
   rename(`Lambda Ratio` = Lambda_Ratio) %>% 
@@ -175,17 +177,15 @@ ggplot(eff_all, aes(x = rank_atp, y = rank_effect)) +
 
 cor_matrix <- cor(eff_all, method = "spearman")
 
-png(file = "C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/ECA_ESS_PI_Corr_Plot.png",   # The directory you want to save the file in
+pdf(file = "C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/ECA_ESS_PI_Corr_Plot.pdf",   # The directory you want to save the file in
     width = 5, # The width of the plot in inches
-    height = 5, 
-    units = "in", 
-    res = 400)
+    height = 5)
 
 corrplot(cor_matrix, method = "circle", type = "upper", tl.cex = 0.6, number.cex = 0.4, diag = FALSE, tl.col = "black")
 
 dev.off()
 
-et = means[means$Treat == "W", ]
+wet = means[means$Treat == "W", ]
 
 dry = means[means$Treat == "D", ]
 
@@ -219,30 +219,44 @@ corrplot(cube_matrix, method = "circle", type = "upper", tl.cex = 0.6, number.ce
 fs_p = ggplot(cube_effect, aes(x = `% Fine Sand`, y = `Effect Size`)) + 
   geom_point() +
   theme_bw() +
+  #stat_regline_equation()+
+  stat_cor(digits = 1, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+  #stat_regline_equation(use_label(c("adj.rr.label", "p.value.label"), sep = "*\"; \"*")) +
+  stat_poly_line(se = FALSE)+
   xlab("Cube Root %Fine Sand") +
-  ylab("Cube Root Effect Size")
+  ylab("Cube Root Effect Size (Wet - Dry)") + 
+  theme(text = element_text(size = 9)) 
 
 atp_p = ggplot(cube_effect, aes(x = `ATP Diff.`, y = `Effect Size`)) +
   geom_point() +
   theme_bw() +
-  xlab("Cube Root ATP (pmol/g) Difference") +
-  ylab("Cube Root Effect Size")
+  stat_cor(digits = 1, label.x = -3.5, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+  stat_poly_line(se = FALSE)+
+  xlab("Cube Root ATP (pmol/g) Difference (Wet - Dry)") +
+  ylab("Cube Root Effect Size (Wet - Dry)")+ 
+  theme(text = element_text(size = 9)) 
+
+fe_out = cube_effect %>% 
+  filter(`Fe Diff.` >-1)
 
 fe_p = ggplot(cube_effect, aes(x = `Fe Diff.`, y = `Effect Size`)) +
   geom_point() +
   theme_bw() +
-  xlab("Cube Root Fe (mg/kg) Difference") +
-  ylab("Cube Root Effect Size")
+  stat_cor(data = fe_out, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+  stat_poly_line(data = fe_out, se = FALSE)+
+  xlab("Cube Root Fe (mg/kg) Difference (Wet - Dry)") +
+  ylab("Cube Root Effect Size (Wet - Dry)")+ 
+  theme(text = element_text(size = 9)) 
 
-merged_p = corr + fe_p + atp_p + fs_p 
+merged_p =  fe_p + fs_p + atp_p 
 
 layout <- plot_layout(
-  ncol = 4,  # Number of columns in the layout
+  ncol = 3,  # Number of columns in the layout
   widths = c(3,3)  # Width ratio for each column
 )
 
 # Display the merged plot with custom layout
-pdf(file = "C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/ECA_ESS_PI.pdf",   # The directory you want to save the file in
+pdf(file = "C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/ECA_ESS_PI_reg.pdf",   # The directory you want to save the file in
     width = 9, # The width of the plot in inches
     height = 3)
 
