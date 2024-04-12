@@ -41,7 +41,7 @@ all_data_mg_L = all_data %>%
     mutate(Fe_mg_per_kg = as.numeric(Fe_mg_per_kg)) %>% 
     mutate(Respiration_Rate_mg_DO_per_kg_per_H = abs(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   rename(ICON_resp = Mean_Normalized_Respiration_Rate_mg_DO_per_H_per_L_sediment) %>% 
-  mutate(treat = ifelse(grepl("W", Sample_Name), "wet", "dry")) #%>% 
+  mutate(Treat = ifelse(grepl("W", Sample_Name), "wet", "dry")) #%>% 
   #mutate(type = ifelse(Respiration_Rate_mg_DO_per_L_per_H > 90, "theoretical", "real"))
 
 ggplot(all_data_mg_L, aes(x = ATP_picomol_per_g, y = Respiration_Rate_mg_DO_per_kg_per_H)) + 
@@ -90,6 +90,12 @@ cube_lasso = all_data_mg_L %>%
 ggplot(cube_lasso, aes(x = Final_Gravimetric_Water, y = Respiration_Rate_mg_DO_per_kg_per_H)) +
   geom_point(aes(color = Treat))+
   geom_smooth()
+
+ggplot(all_data_mg_L, aes(x = Final_Gravimetric_Water, y = Respiration_Rate_mg_DO_per_kg_per_H)) +
+  geom_point(aes(color = Treat))+
+  geom_smooth()
+
+
 
 
 ## Scale cube root values 
