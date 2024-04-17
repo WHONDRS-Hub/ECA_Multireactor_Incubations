@@ -710,7 +710,7 @@ for (i in 1:length(unique.samples)) {
   slope.temp.mean <- mean(slope.temp)
   CV = abs((slope.temp.sd/slope.temp.mean)*100)
   
-  #looping to get 4 out of 5 best samples
+  #looping to get 3 out of 5 best samples
   for (sample.reduction in 1:5)  {
     
     if (slope.temp.mean == 0) {
