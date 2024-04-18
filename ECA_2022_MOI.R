@@ -19,7 +19,7 @@ data.out.path <- file.path("/Users/delg580/Library/CloudStorage/OneDrive-SharedL
 data.out.path <- file.path("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData")
 
 # Load Data
-moisture <- read_excel(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/01_RawData/2022_Data_Raw_MOI_ECA_EC.xlsx")) %>% janitor::clean_names()
+moisture <- read_excel(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/01_RawData/2023_Data_Raw_MOI_EV.xlsx")) %>% janitor::clean_names()
 
 #Remove data from Jars experiment
 moisture_clean <- moisture #%>% filter(!grepl("Jars", moisture$from_jars_or_40_m_l_vials))
@@ -99,20 +99,40 @@ merged_weights_average = merged_weights %>%
   mutate(average = mean(percent_water_content_dry)) %>% 
   mutate(cv = sd(percent_water_content_dry)/mean(percent_water_content_dry))
 
-# Export data
-write.csv(merged_weights, file.path(data.out.path,"EC_Moisture_Content_2022.csv"), quote = F, row.names = F) #removes "" from data and no need for row names here, puts csv into the data file
+# Export data for ECA, then move into ECA Moisture Outliers.R code
+
+#write.csv(merged_weights, file.path(data.out.path,"EC_Moisture_Content_2022.csv"), quote = F, row.names = F) #removes "" from data and no need for row names here, puts csv into the data file
+
+### Export EV data - doesn't need outliers removed like ECA did
+
+eca_grav <- merged_weights %>% 
+  filter(!grepl("EV_003|EV_004|EV_020_MOI-3", Sample_Name)) %>% 
+  separate(Sample_Name, c("Sample_Site", "Rep"), sep = "-", remove = FALSE) %>% 
+  separate(Sample_Site, c("EC", "Site", "MOI"), sep = "_") %>% 
+  mutate(grav_eca = ((wet_weight_g - true_dry_weight_g)/true_dry_weight_g)*100) %>% 
+  group_by(Site) %>% 
+  mutate(average_eca = mean(grav_eca)) %>% 
+  mutate(cv_eca = (sd(grav_eca)/mean(grav_eca))*100) %>%   dplyr::select(c("Sample_Name", "Site", "Rep", "grav_eca", "average_eca", "cv_eca"))
+
+eca_cv <- eca_grav %>% 
+  distinct(Site, .keep_all = TRUE)
+
+ggplot(eca_cv, aes(x = cv_eca)) +
+  geom_histogram()
 
 
-#Ploting wet vs dry percent water content
-pdf(file.path(data.out.path,"wet_vs_dry_percent_water_content.pdf"))  
-plot(merged_weights$percent_water_content_wet ~ merged_weights$percent_water_content_dry)
-dev.off()
+clean_eca <- merged_weights %>% 
+  filter(!grepl("EV_003|EV_004|EV_020_MOI-3", Sample_Name)) %>% 
+  mutate(Gravimetric_Moisture = ((wet_weight_g - true_dry_weight_g)/true_dry_weight_g)*100) %>% 
+  dplyr::select(c(Sample_Name, wet_weight_g, true_dry_weight_g, percent_water_content_dry, percent_water_content_wet, Gravimetric_Moisture, flag)) %>% 
+  rename(Wet_Sediment_Mass_g = wet_weight_g) %>% 
+  rename(Dry_Sediment_Mass_g = true_dry_weight_g) %>% 
+  mutate(Water_Mass_g = Wet_Sediment_Mass_g - Dry_Sediment_Mass_g) %>% 
+  mutate(Gravimetric_Moisture = round(Gravimetric_Moisture, 2)) %>% 
+  mutate(Methods_Deviation = "N/A") %>% 
+ # mutate(Sample_Name = str_replace(Sample_Name, "EC", "CM")) %>% 
+  dplyr::select(c(Sample_Name, Wet_Sediment_Mass_g, Dry_Sediment_Mass_g, Water_Mass_g, Gravimetric_Moisture, flag, Methods_Deviation))
 
-pdf(file.path(data.out.path,"percent_water_content_dry.pdf"))
-hist(merged_weights$percent_water_content_dry)
-dev.off()
+write.csv(clean_eca, paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/EV_MOI_ReadyForBoye_04-18-2024.csv"), row.names = F)
 
 
-pdf(file.path(data.out.path,"percent_water_content_wet.pdf")) 
-hist(merged_weights$percent_water_content_wet)
-dev.off()
