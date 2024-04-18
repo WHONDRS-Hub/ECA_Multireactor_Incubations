@@ -11,6 +11,27 @@ rm(list=ls());graphics.off()
 # remove samples with no respiration rate
 # Total: 512 samples
 
+##Functions for Correlation Matrices ####
+panel.cor.spear <- function(x, y, digits=2, prefix="", cex.cor)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r = (cor(x, y, method = c("spearman")))
+  txt <- format(c(r, 0.123456789), digits=digits)[1]
+  txt <- paste(prefix, txt, sep="")
+  if(missing(cex.cor)) {cex.cor <- 0.8/strwidth(txt)} else {cex = cex.cor}
+  text(0.5, 0.5, txt, cex = cex.cor * (1 + r)/1)
+  
+  # if(missing(cex.cor)) {cex <- 1.2/strwidth(txt)} else {cex = cex.cor}
+  # text(0.5, 0.5, txt, cex = cex * sin(sqrt(abs(r))))
+  
+  test <- cor.test(x,y)
+  Signif <- symnum(test$p.value, corr = FALSE, na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1), symbols = c("***", "**", "*", " "))
+  #text(0.5, 0.5, txt, cex = cex * r)
+  text(.5, .8, Signif, cex=cex, col=2)
+  
+}
+
 # icon_resp = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/v2_CM_SSS_Sediment_Sample_Data_Summary.csv") %>% 
 #   filter(!row_number() %in% c(1, 3:13)) %>% 
 #   janitor::row_to_names(row_number = 1) %>% 
@@ -27,8 +48,7 @@ all_data = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Al
   filter(!grepl("052", Sample_Name)) %>% 
   filter(!grepl("053", Sample_Name)) %>% 
   filter(!grepl("057", Sample_Name)) %>% 
-  filter(Respiration_Rate_mg_DO_per_L_per_H != -9999) %>% 
-  left_join(icon_resp, by = "Sample_ID")
+  filter(Respiration_Rate_mg_DO_per_L_per_H != -9999) 
 
 #remove site 023 because no moisture data
 all_data_mg_L = all_data %>% 
@@ -39,28 +59,127 @@ all_data_mg_L = all_data %>%
   mutate(Fe_mg_per_L = as.numeric(Fe_mg_per_L)) %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   mutate(Fe_mg_per_kg = as.numeric(Fe_mg_per_kg)) %>% 
-  mutate(Respiration_Rate_mg_DO_per_kg_per_H = abs(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  rename(ICON_resp = Mean_Normalized_Respiration_Rate_mg_DO_per_H_per_L_sediment) %>% 
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = abs(Respiration_Rate_mg_DO_per_kg_per_H)) %>%  
   mutate(Treat = ifelse(grepl("W", Sample_Name), "wet", "dry")) #%>% 
 #mutate(type = ifelse(Respiration_Rate_mg_DO_per_L_per_H > 90, "theoretical", "real"))
 
 
-## Keep all means
+## Keep all data ####
+all_data_long = all_data_mg_L %>% 
+  pivot_longer(cols = -c(Sample_Name, Sample_ID, Treat), names_to = "Variable", values_to = "Value")
+
+ggplot(all_data_long, aes(x = Value)) +
+  geom_histogram() +
+  facet_wrap(~Variable, scales = "free")
+
+all_data_corr = all_data_mg_L %>% 
+  column_to_rownames("Sample_Name") %>% 
+  select(-c(Sample_ID, Treat, Respiration_Rate_mg_DO_per_L_per_H, Fe_mg_per_L, Initial_Water_Mass_g, Initial_Gravimetric_Water, Lost_Gravimetric_Water, ATP_nanomol_per_L, Final_Water_Mass_g, Dry_Sediment_Mass_g, Incubation_Water_Mass_g)) %>% 
+  relocate(Respiration_Rate_mg_DO_per_kg_per_H, .before = SpC)
+
+pairs(all_data_corr, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
+
+## No Removals Means
 all_data_means = all_data_mg_L %>% 
   select(c(Sample_Name, Sample_ID, Treat, SpC, pH, Temp, Respiration_Rate_mg_DO_per_kg_per_H, Respiration_Rate_mg_DO_per_L_per_H, Fe_mg_per_kg, Fe_mg_per_L, ATP_nanomol_per_L, ATP_picomol_per_g, Percent_Clay, Percent_Silt, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Tot_Sand, mean_ssa, Initial_Gravimetric_Water, Final_Gravimetric_Water, Lost_Gravimetric_Water)) %>%
   group_by(Sample_ID, Treat) %>% 
   summarise(across(where(is.numeric), mean)) %>% 
-  mutate(across(where(is.numeric), round, 3))
+  mutate(across(where(is.numeric), round, 3)) %>% 
+  relocate(c(Initial_Gravimetric_Water:Lost_Gravimetric_Water), .after = ATP_picomol_per_g) %>% 
+  rename_with(.cols = c(SpC:Lost_Gravimetric_Water), .fn = ~ paste0("Mean_", .x)) 
+
+all_means_long = all_data_means %>% 
+  pivot_longer(cols = -c(Sample_ID, Treat), names_to = "Variable", values_to = "Value")
+
+ggplot(all_means_long, aes(x = Value)) +
+  geom_histogram() +
+  facet_wrap(~Variable, scales = "free") +
+  theme(strip.text = element_text(size = 6.5))
+
+all_means_corr = all_data_means %>% 
+  unite(kit_treat, c("Sample_ID", "Treat")) %>% 
+  column_to_rownames("kit_treat") %>% 
+  select(-c(Mean_Respiration_Rate_mg_DO_per_L_per_H, Mean_Fe_mg_per_L,  Mean_Initial_Gravimetric_Water, Mean_Lost_Gravimetric_Water, Mean_ATP_nanomol_per_L)) %>% 
+  relocate(Mean_Respiration_Rate_mg_DO_per_kg_per_H, .before = Mean_SpC)
+
+pairs(all_means_corr, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
+
+## No Removals Effect
+
+all_effect = all_means_corr %>% 
+  rownames_to_column("Sample_ID") %>% 
+  separate(Sample_ID, c("Sample_ID", "Treat"), sep = -4) %>% 
+  filter(!grepl("EC_011|EC_012", Sample_ID)) %>% 
+  group_by(Sample_ID) %>% 
+mutate(across(c(Mean_Respiration_Rate_mg_DO_per_kg_per_H:Mean_Final_Gravimetric_Water), ~. [Treat == "_wet"] - .[Treat  == "_dry"])) %>% 
+  rename_with(.cols = c(Mean_Respiration_Rate_mg_DO_per_kg_per_H:Mean_Final_Gravimetric_Water), .fn = ~ paste0("diff_", .x)) %>% 
+  distinct(Sample_ID, .keep_all = TRUE) %>% 
+  select(-c(Treat))
+
+all_effect_long = all_effect %>% 
+  pivot_longer(cols = -c(Sample_ID), names_to = "Variable", values_to = "Value")
+
+ggplot(all_effect_long, aes(x = Value)) +
+  geom_histogram() +
+  facet_wrap(~Variable, scales = "free") +
+  theme(strip.text = element_text(size = 6.5))
+
+all_effect_corr = all_effect %>% 
+  column_to_rownames("Sample_ID") 
+
+pairs(all_effect_corr, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
  
-## Keep all medians 
+## Keep all medians ####
 all_data_medians = all_data_mg_L %>% 
 select(c(Sample_Name, Sample_ID, Treat, SpC, pH, Temp, Respiration_Rate_mg_DO_per_kg_per_H, Respiration_Rate_mg_DO_per_L_per_H, Fe_mg_per_kg, Fe_mg_per_L, ATP_nanomol_per_L, ATP_picomol_per_g, Percent_Clay, Percent_Silt, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Tot_Sand, mean_ssa, Initial_Gravimetric_Water, Final_Gravimetric_Water, Lost_Gravimetric_Water)) %>%
   group_by(Sample_ID, Treat) %>% 
   summarise(across(where(is.numeric), median)) %>% 
-  mutate(across(where(is.numeric), round, 3))
+  mutate(across(where(is.numeric), round, 3))%>% 
+  rename_with(.cols = c(SpC:Lost_Gravimetric_Water), .fn = ~ paste0("Median_", .x)) 
+
+all_medians_long = all_data_medians %>% 
+  pivot_longer(cols = -c(Sample_ID, Treat), names_to = "Variable", values_to = "Value")
+
+ggplot(all_medians_long, aes(x = Value)) +
+  geom_histogram() +
+  facet_wrap(~Variable, scales = "free")
+
+medians_corr = all_data_medians %>% 
+  unite(kit_treat, c("Sample_ID", "Treat")) %>% 
+  column_to_rownames("kit_treat") %>% 
+  select(-c(Median_ATP_nanomol_per_L, Median_Fe_mg_per_L, Median_Initial_Gravimetric_Water, Median_Lost_Gravimetric_Water, Median_Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  relocate(Median_Respiration_Rate_mg_DO_per_kg_per_H, .before = Median_SpC)
+
+pairs(medians_corr, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
 
 
-## Remove same outliers as respiration 
+## Medians Effect
+
+median_effect = medians_corr %>% 
+  rownames_to_column("Sample_ID") %>% 
+  separate(Sample_ID, c("Sample_ID", "Treat"), sep = -4) %>% 
+  filter(!grepl("EC_011|EC_012", Sample_ID)) %>%
+  relocate(Median_Final_Gravimetric_Water, .after = Median_ATP_picomol_per_g) %>% 
+  group_by(Sample_ID) %>% 
+  mutate(across(c(Median_Respiration_Rate_mg_DO_per_kg_per_H:Median_Final_Gravimetric_Water), ~. [Treat == "_wet"] - .[Treat  == "_dry"])) %>% 
+  rename_with(.cols = c(Median_Respiration_Rate_mg_DO_per_kg_per_H:Median_Final_Gravimetric_Water), .fn = ~ paste0("diff_", .x)) %>% 
+  distinct(Sample_ID, .keep_all = TRUE) %>% 
+  select(-c(Treat))
+
+median_effect_long = median_effect %>% 
+  pivot_longer(cols = -c(Sample_ID), names_to = "Variable", values_to = "Value")
+
+ggplot(median_effect_long, aes(x = Value)) +
+  geom_histogram() +
+  facet_wrap(~Variable, scales = "free") +
+  theme(strip.text = element_text(size = 6.5))
+
+median_effect_corr = median_effect %>% 
+  column_to_rownames("Sample_ID") 
+
+pairs(median_effect_corr, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
+
+## Remove same outliers as respiration ####
 
 resp_out = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-04-05.csv") %>% 
   left_join(all_data) %>% 
@@ -78,7 +197,50 @@ resp_out_means = resp_out %>%
   select(c(Sample_Name, Sample_ID, Treat, SpC, pH, Temp, Respiration_Rate_mg_DO_per_kg_per_H, Respiration_Rate_mg_DO_per_L_per_H, Fe_mg_per_kg, Fe_mg_per_L, ATP_nanomol_per_L, ATP_picomol_per_g, Percent_Clay, Percent_Silt, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Tot_Sand, mean_ssa, Initial_Gravimetric_Water, Final_Gravimetric_Water, Lost_Gravimetric_Water)) %>%
   group_by(Sample_ID, Treat) %>% 
   summarise(across(where(is.numeric), mean)) %>% 
-  mutate(across(where(is.numeric), round, 3))
+  mutate(across(where(is.numeric), round, 3)) %>% 
+  rename_with(.cols = c(SpC:Lost_Gravimetric_Water), .fn = ~ paste0("Best_Effect_Mean_", .x)) 
+
+resp_out_long = resp_out_means %>% 
+  pivot_longer(cols = -c(Sample_ID, Treat), names_to = "Variable", values_to = "Value")
+
+ggplot(resp_out_long, aes(x = Value)) +
+  geom_histogram() +
+  facet_wrap(~Variable, scales = "free") +
+  theme(strip.text = element_text(size = 6.5))
+
+resp_out_corr = resp_out_means %>% 
+  unite(kit_treat, c("Sample_ID", "Treat")) %>% 
+  column_to_rownames("kit_treat") %>% 
+  select(-c(Best_Effect_Mean_ATP_nanomol_per_L, Best_Effect_Mean_Fe_mg_per_L, Best_Effect_Mean_Initial_Gravimetric_Water, Best_Effect_Mean_Lost_Gravimetric_Water, Best_Effect_Mean_Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  relocate(Best_Effect_Mean_Respiration_Rate_mg_DO_per_kg_per_H, .before = Best_Effect_Mean_SpC)
+
+pairs(resp_out_corr, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
+
+## Best Means Effect
+
+resp_out_effect = resp_out_corr %>% 
+  rownames_to_column("Sample_ID") %>% 
+  separate(Sample_ID, c("Sample_ID", "Treat"), sep = -4) %>% 
+  filter(!grepl("EC_011|EC_012", Sample_ID)) %>%
+  relocate(Best_Effect_Mean_Final_Gravimetric_Water, .after = Best_Effect_Mean_ATP_picomol_per_g) %>% 
+  group_by(Sample_ID) %>% 
+  mutate(across(c(Best_Effect_Mean_Respiration_Rate_mg_DO_per_kg_per_H:Best_Effect_Mean_Final_Gravimetric_Water), ~. [Treat == "_wet"] - .[Treat  == "_dry"])) %>% 
+  rename_with(.cols = c(Best_Effect_Mean_Respiration_Rate_mg_DO_per_kg_per_H:Best_Effect_Mean_Final_Gravimetric_Water), .fn = ~ paste0("diff_", .x)) %>% 
+  distinct(Sample_ID, .keep_all = TRUE) %>% 
+  select(-c(Treat))
+
+resp_out_effect_long = resp_out_effect %>% 
+  pivot_longer(cols = -c(Sample_ID), names_to = "Variable", values_to = "Value")
+
+ggplot(resp_out_effect_long, aes(x = Value)) +
+  geom_histogram() +
+  facet_wrap(~Variable, scales = "free") +
+  theme(strip.text = element_text(size = 6.5))
+
+resp_out_effect_corr = resp_out_effect %>% 
+  column_to_rownames("Sample_ID") 
+
+pairs(resp_out_effect_corr, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
 
 ##Remove outliers independently
 
@@ -86,7 +248,6 @@ cv <- function(x) {
   cv_value <- (sd(x) / mean(x)) * 100
   return(cv_value)
 }
-
 
 
 eca_summary_all = all_data_mg_L %>% 
@@ -97,8 +258,9 @@ eca_summary_all = all_data_mg_L %>%
   mutate(round(across(where(is.numeric)), 3)) %>% 
   select(-c(Percent_Clay_sd, Percent_Clay_cv, Percent_Silt_sd, Percent_Silt_cv, Percent_Fine_Sand_sd, Percent_Fine_Sand_cv, Percent_Med_Sand_sd, Percent_Med_Sand_cv, Percent_Coarse_Sand_sd, Percent_Coarse_Sand_cv, Percent_Tot_Sand_sd, Percent_Tot_Sand_cv, mean_ssa_sd, mean_ssa_cv))
 
-ggplot(eca_summary_all, aes(x = Final_Gravimetric_Water_cv)) +
-  geom_histogram()
+ggplot(eca_summary_all, aes(x = ATP_picomol_per_g_cv)) +
+  geom_histogram()+
+  geom_vline(xintercept = 30)
 
 cv_outliers = all_data_mg_L %>% 
   select(c(Sample_Name, Sample_ID, Treat, SpC, Temp, pH, Fe_mg_per_kg, ATP_picomol_per_g, Final_Gravimetric_Water)) %>% 
@@ -410,3 +572,55 @@ removal_flag <- removal_final %>%
   mutate(flag = ifelse(is.na(fe.temp) & flag == "N/A", "Fe_OUT", ifelse(is.na(fe.temp) & flag != "N/A", paste0(flag, "; Fe_OUT"), flag))) %>% 
   mutate(flag = ifelse(is.na(atp.temp) & flag == "N/A", "ATP_OUT", ifelse(is.na(atp.temp) & flag != "N/A", paste0(flag, "; ATP_OUT"), flag))) %>% 
   mutate(flag = ifelse(is.na(grav.temp) & flag == "N/A", "Grav_OUT", ifelse(is.na(grav.temp) & flag != "N/A", paste0(flag, "; Grav_OUT"), flag))) 
+
+resp_means = resp_out_corr %>% 
+  rownames_to_column("kit_treat") %>% 
+  select(c(kit_treat, Best_Effect_Mean_Respiration_Rate_mg_DO_per_kg_per_H, Best_Effect_Mean_mean_ssa, Best_Effect_Mean_Percent_Clay, Best_Effect_Mean_Percent_Silt, Best_Effect_Mean_Percent_Fine_Sand, Best_Effect_Mean_Percent_Med_Sand, Best_Effect_Mean_Percent_Coarse_Sand, Best_Effect_Mean_Percent_Tot_Sand)) %>% 
+  mutate(kit_treat = str_replace(kit_treat, "_d", "-d")) %>% 
+  mutate(kit_treat = str_replace(kit_treat, "_w", "-w"))
+
+removals_means = removal_final %>% 
+  select(c(kit_treat, Mean_SpC_Removed, Mean_pH_Removed, Mean_Fe_Removed, Mean_ATP_Removed, Mean_Final_Grav_Removed)) %>% 
+  drop_na() %>% 
+  distinct(kit_treat, .keep_all = TRUE) %>% 
+  left_join(resp_means, by = "kit_treat")
+
+removals_long = removals_means %>% 
+  pivot_longer(cols = -c(kit_treat), names_to = "Variable", values_to = "Value")
+
+ggplot(removals_long, aes(x = Value)) +
+  geom_histogram() +
+  facet_wrap(~Variable, scales = "free")
+
+
+removals_corr = removals_means %>% 
+  column_to_rownames("kit_treat") %>% 
+  relocate(Best_Effect_Mean_Respiration_Rate_mg_DO_per_kg_per_H, .before = Mean_SpC_Removed)
+
+pairs(removals_corr, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
+
+## Best Analyte Effect
+
+removals_effect = removals_corr %>% 
+  rownames_to_column("Sample_ID") %>% 
+  separate(Sample_ID, c("Sample_ID", "Treat"), sep = -4) %>% 
+  filter(!grepl("EC_011|EC_012", Sample_ID)) %>% 
+  group_by(Sample_ID) %>% 
+  mutate(across(c(Best_Effect_Mean_Respiration_Rate_mg_DO_per_kg_per_H:Mean_Final_Grav_Removed), ~. [Treat == "-wet"] - .[Treat  == "-dry"])) %>% 
+  rename_with(.cols = c(Best_Effect_Mean_Respiration_Rate_mg_DO_per_kg_per_H:Mean_Final_Grav_Removed), .fn = ~ paste0("diff_", .x)) %>% 
+  distinct(Sample_ID, .keep_all = TRUE) %>% 
+  select(-c(Treat))
+
+removals_effect_long = removals_effect %>% 
+  pivot_longer(cols = -c(Sample_ID), names_to = "Variable", values_to = "Value")
+
+ggplot(removals_effect_long, aes(x = Value)) +
+  geom_histogram() +
+  facet_wrap(~Variable, scales = "free") +
+  theme(strip.text = element_text(size = 6.5))
+
+removals_effect_corr = removals_effect %>% 
+  column_to_rownames("Sample_ID") 
+
+pairs(removals_effect_corr, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
+
