@@ -5,21 +5,20 @@ rm(list=ls());graphics.off()
 pnnl.user = 'laan208'
 
 ## ECA Dry Weights ####
-dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/CM_MOI_ReadyForBoye_01-19-2024.csv"))
-#EV_Moisture_Content_2023.csv
+dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/EV_MOI_ReadyForBoye_04-18-2024.csv"))
 
 dry_wt_averages <- dry_wt %>% 
-  filter(is.na(flag)) %>% 
+ # filter(is.na(flag)) %>% 
   separate(Sample_Name, c("EC", "Site", "Rep"), sep = "_", remove = FALSE) %>% 
   unite(Sample_ID, c("EC", "Site")) %>% 
   group_by(Sample_ID) %>% 
   mutate(average_grav = mean(Gravimetric_Moisture)) %>% 
   mutate(cv = (sd(Gravimetric_Moisture)/mean(Gravimetric_Moisture))*100)%>% 
   distinct(Sample_ID, .keep_all = TRUE) %>% 
-  select(c(Sample_ID, average_grav)) %>% mutate(average_wet_g_by_dry_g = 1 + (average_grav/100)) %>% 
-  mutate(Sample_ID = str_replace(Sample_ID, "CM", "EC"))
+  select(c(Sample_ID, average_grav)) %>% mutate(average_wet_g_by_dry_g = 1 + (average_grav/100)) #%>% 
+ # mutate(Sample_ID = str_replace(Sample_ID, "CM", "EC"))
   
-moisture <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/01_RawData/2022_Data_Raw_INC_ECA_EC.xlsx")
+moisture <- paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/01_RawData/2023_Data_Raw_INC_EV.xlsx")
 #2022_Data_Raw_INC_ECA_EC.xlsx
 #2023_Data_Raw_INC_EV
 
@@ -32,13 +31,13 @@ all_moisture$Sample_weight_Fill_g <- as.numeric(all_moisture$Sample_weight_Fill_
 # For ECA: 37,38 was incubated on 11/23 so needs to be removed from sheet, 72-5 were not incubated (not enough sediment), 12-D5 didn't have 20 g of sediment, 21 and 33 incubated on 9/28
 
 all_moisture <- all_moisture %>% 
-  filter(`Jars or 40 mL vials` != "Jars") %>% 
-  filter(!(Date == "2022-11-23" & grepl("EC_37", Sample_Name))) %>% 
-  filter(!(Date == "2022-11-23" & grepl("EC_38", Sample_Name))) %>% 
-  filter(!(Date == "2022-09-28" & grepl("EC_21", Sample_Name))) %>% 
-  filter(!(Date == "2022-09-28" & grepl("EC_33", Sample_Name))) %>% 
-  filter(Sample_Name != "EC_72_INC-D5") %>% 
-  filter(Sample_Name != "EC_72_INC-W5")  %>% 
+  #filter(`Jars or 40 mL vials` != "Jars") %>% 
+  #filter(!(Date == "2022-11-23" & grepl("EC_37", Sample_Name))) %>% 
+ # filter(!(Date == "2022-11-23" & grepl("EC_38", Sample_Name))) %>% 
+  #filter(!(Date == "2022-09-28" & grepl("EC_21", Sample_Name))) %>% 
+ # filter(!(Date == "2022-09-28" & grepl("EC_33", Sample_Name))) %>% 
+ # filter(Sample_Name != "EC_72_INC-D5") %>% 
+ # filter(Sample_Name != "EC_72_INC-W5")  %>% 
   separate(Sample_Name, into = c("EC", "Site", "INC"), sep = "_", remove = FALSE)
 
 #add "0" to start of sample kit names that don't have it
@@ -64,7 +63,7 @@ all_moisture <- all_moisture %>%
 
 
 merged <- left_join(all_moisture, dry_wt_averages, by = "Sample_ID") %>% 
-  dplyr::select(-c(Notes, ...8, ...9, ...10)) %>% 
+  dplyr::select(-c(Notes, ...7, ...8, ...9, ...10, ...11, ...12, ...13, ...14, ...15, ...16)) %>% 
   distinct(Sample_Name, Date, .keep_all = TRUE)
   # dplyr::select(-c(Notes, `Jars or 40 mL vials`, ...8, ...9, ...10, `Study Code`, percent_water_content_wet, percent_water_content_dry, true_dry_weight_g, wet_weight_g))
 
@@ -202,7 +201,7 @@ final_wet_dry <- wet_dry %>%
   mutate(Total_Water_Mass_g = if_else(is.na(Total_Water_Mass_g), -9999, Total_Water_Mass_g)) 
 
 
-write.csv(final_wet_dry,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)  
+write.csv(final_wet_dry,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)  
 
 ggplot(final_wet_dry, aes(x = Dry_Sediment_Mass_g))+
   geom_histogram()
