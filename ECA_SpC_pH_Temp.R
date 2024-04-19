@@ -28,7 +28,7 @@ import_data = function(chemistry){
   
   map.file <-  list.files(chemistry, recursive = T, pattern = "\\.xlsx$",full.names = T)
   
-  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC|QA|real|EV|Theoretical", map.file)]
+  map.file <- map.file[grepl("EV", map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
   
@@ -41,7 +41,7 @@ import_data = function(chemistry){
 map = import_data(chemistry)
 
 all_chem <- map %>% 
-  select(c(Sample_ID, SpC, Temp, pH, Notes)) %>% 
+  dplyr::select(c(Sample_ID, SpC, Temp, pH, Notes)) %>% 
   filter(!grepl("Blank", Sample_ID)) %>% 
   tidyr::separate(Sample_ID, into = c("EC", "kit", "rep"), sep = "_", remove = FALSE)
 
@@ -78,8 +78,8 @@ all_chem_corr <- all_chem %>%
   ungroup()
 
 chem_final <- all_chem_corr %>% 
-  select(c(Sample_Name, Material, SpC, Temp, pH, Methods_Deviation))
+  dplyr::select(c(Sample_Name, Material, SpC, Temp, pH, Methods_Deviation))
 
-write.csv(chem_final, file.path(chemistry, "SpC_pH_Temp_Processed_Data/EC_SpC_pH_Temp_ReadyForBoye_10-03-2023.csv"), row.names = F)
+write.csv(chem_final, file.path(chemistry, "SpC_pH_Temp_Processed_Data/EV_SpC_pH_Temp_ReadyForBoye_04-19-2024.csv"), row.names = F)
 
 
