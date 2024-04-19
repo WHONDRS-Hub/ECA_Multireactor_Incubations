@@ -242,6 +242,9 @@ resp_out_effect_corr = resp_out_effect %>%
 
 pairs(resp_out_effect_corr, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
 
+ggplot(resp_out_effect_corr, aes(y = diff_Best_Effect_Mean_Respiration_Rate_mg_DO_per_kg_per_H, x = diff_Best_Effect_Mean_Fe_mg_per_kg)) + 
+  geom_point()
+
 ##Remove outliers independently
 
 cv <- function(x) {
@@ -623,4 +626,104 @@ removals_effect_corr = removals_effect %>%
   column_to_rownames("Sample_ID") 
 
 pairs(removals_effect_corr, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0, cex.labels = 0.5, cex = .75)
+
+
+ggplot(removals_effect_corr, aes(y = diff_Best_Effect_Mean_Respiration_Rate_mg_DO_per_kg_per_H, x = diff_Mean_Fe_Removed)) + 
+  geom_point()
+
+## LASSO for SA ####
+
+# all_effect_corr
+# median_effect_corr
+# resp_out_effect_corr
+# removals_effect_corr
+
+## Cube Effect Size
+
+cube_root <- function(x) sign(x) * (abs(x))^(1/3)
+
+# To get theoretical, effect size > 3.5
+cube_best_effect = removals_effect_corr %>% 
+  mutate(across(where(is.numeric), cube_root)) %>% 
+  rename_with( ~ paste0("cube_", .), everything())# %>% 
+  #select(-c(Treat)) %>% 
+  #filter(Mean_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H < 3.5) %>% 
+  #column_to_rownames("Sample_ID") #%>% 
+#mutate(Th = ifelse(Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H > 3.5, "theoretical", "real"))
+
+## Scale cube effect size
+z_cube_best_effect = cube_best_effect %>% 
+  mutate(across(where(is.numeric), function(x) ((x - mean(x)) / sd(x))))
+
+## EFFECT SIZE LASSO ####
+## Set response variable
+eff <- z_cube_best_effect$cube_diff_Best_Effect_Mean_Respiration_Rate_mg_DO_per_kg_per_H
+
+## Set predictor variables
+#Try all data
+#z_cube_effect_pred <- data.matrix(z_cube_best_effect[, c('Mean_Fe_mg_per_L', 'Mean_ATP_nanomol_per_L', 'Percent_Fine_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'mean_ssa', 'Mean_SpC', 'Mean_Temp', 'Mean_pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water')])
+
+## Chosen variables: FS, SSA, Fe, Moi, ATP, SpC, Temp, pH
+z_cube_effect_pred <- data.matrix(z_cube_best_effect[, c("cube_diff_Mean_Fe_Removed", "cube_diff_Mean_ATP_Removed",  "cube_Best_Effect_Mean_Percent_Fine_Sand", "cube_Best_Effect_Mean_mean_ssa", "cube_diff_Mean_SpC_Removed", "cube_diff_Mean_pH_Removed",  "cube_diff_Mean_Final_Grav_Removed")])
+
+## Start LASSO
+#alpha = 1 is for LASSO regression
+cv_model <- cv.glmnet(z_cube_effect_pred, eff, alpha = 1)
+
+#Find lambda for lowest MSE using k-fold cross-validation
+best_lambda <- cv_model$lambda.min
+best_lambda
+
+plot(cv_model)
+
+# Rerun LASSO with best lambda and get coefficients
+best_model <- glmnet(z_cube_effect_pred, eff, alpha = 1, lambda = best_lambda)
+coef(best_model)
+
+## Get R Sq. of best model
+eff_predict <- predict(best_model, s = best_lambda, newx = z_cube_effect_pred)
+
+sst <- sum((eff - mean(eff))^2)
+sse <- sum((eff_predict - eff)^2)
+
+rsq = 1 - sse/sst
+rsq
+
+# Get model residuals
+residuals = eff - eff_predict
+
+par(mfrow=c(2,2)) # Set up a 2x2 grid of plots
+hist(residuals, main="Histogram of Residuals")
+qqnorm(residuals, main="QQ Plot of Residuals")
+qqline(residuals)
+plot(density(residuals), main="Density Plot of Residuals")
+plot(residuals ~ eff_predict)
+
+dev.off()
+
+## Plots of individual vs. final water content
+
+cube_root <- function(x) sign(x) * (abs(x))^(1/3)
+
+cube_data = all_data_mg_L %>% 
+  mutate(across(where(is.numeric), cube_root))
+
+final_th = cube_data %>% 
+  filter(Respiration_Rate_mg_DO_per_L_per_H > 4.5)
+
+final_real = cube_data %>% 
+  filter(Respiration_Rate_mg_DO_per_L_per_H < 4.5)
+
+grav_p = ggplot(cube_data, aes(x = Final_Gravimetric_Water, y = Respiration_Rate_mg_DO_per_L_per_H)) +
+  geom_point(aes(color = Treat)) +
+  theme_bw() +
+  stat_cor(data = final_th, label.y = 6.5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+  stat_poly_line(data = final_real, se = FALSE)+
+  stat_cor(data = final_real, digits = 2, label.y = 4, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+  stat_poly_line(data = final_th, se = FALSE)+
+  xlab("Cube Root Final Grav. Water") +
+  ylab("Cube Root Respiration")+ 
+  theme(text = element_text(size = 9)) 
+
+grav_p
 
