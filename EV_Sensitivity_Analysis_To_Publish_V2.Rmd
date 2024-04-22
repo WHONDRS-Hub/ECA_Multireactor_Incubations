@@ -106,7 +106,7 @@ high.slope.thresh = -0.04
 time.same = 7
 break.toggle = 1.4
 conc.range = 1.4
-plot.toggle = TRUE
+plot.toggle = FALSE
 
 ```
 ## Fit a linear model to data with chosen rules
@@ -554,7 +554,7 @@ for (i in 1:length(location)){
 
 respiration = respiration[-1,]
 
-write.csv(respiration,paste0(output.path,"EV_Sediment_Incubations_Respiration_Rates_",Sys.Date(),".csv"), row.names = F)
+#write.csv(respiration,paste0(output.path,"EV_Sediment_Incubations_Respiration_Rates_",Sys.Date(),".csv"), row.names = F)
 
 ```
 
@@ -563,10 +563,10 @@ write.csv(respiration,paste0(output.path,"EV_Sediment_Incubations_Respiration_Ra
 ```{r Boye Format for Respiration Rates}
 
 ## Pull in solid:solution ratio data for mg/kg calculations
-solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_merged_by_laan208_on_2023-10-23.csv"))
+solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_merged_by_laan208_on_2024-04-19.csv"))
 
 ## Pull in SpC, Temp, pH for these samples
-chem <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/SpC_pH_Temp_Processed_Data/EC_SpC_pH_Temp_ReadyForBoye_10-03-2023.csv"))
+chem <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/SpC_pH_Temp_Processed_Data/EV_SpC_pH_Temp_ReadyForBoye_04-19-2024.csv"))
 
 ## Pull out Method Deviations from Raw Data, removing RATE_004
 removed <- data %>% 

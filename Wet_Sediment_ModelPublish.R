@@ -5,13 +5,12 @@
 #### To update upon publishing: 
 #Boye Ready for Drying Masses on Github
 #Change working directory, remove PNNL user
-#Update Typical Code to havve Incubation Water Mass
+#Update Typical Code to have Incubation Water Mass
 
 
 # Read in Libraries
 library(ggplot2)
 library(tidyverse)
-library(dplyr)
 
 rm(list=ls());graphics.off()
 
@@ -141,6 +140,48 @@ mutate(Incubation_Water_Mass_g = round(Incubation_Water_Mass_g, 2)) %>%
   select(c(Sample_Name, Initial_Water_Mass_g, Final_Water_Mass_g, Dry_Sediment_Mass_g, Incubation_Water_Mass_g,Methods_Deviation))
 
 #write.csv(solid,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_ReadyForBoye_01-29-2024.csv"), row.names = F)  
+
+## EV Incubation Water Masses ####
+
+inc <- read_xlsx(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/01_RawData/2022_Data_Raw_INC_Tube_Weight_ECA_EC.xlsx")) %>% 
+  filter(grepl("EV", SampleID)) 
+
+mean_tube_g = inc %>%
+  filter(INC_tube_50ml_empty_g != -9999) %>% 
+  mutate(mean_tube_g = mean(INC_tube_50ml_empty_g)) %>% 
+  right_join(inc, by = "SampleID") %>% 
+  fill(mean_tube_g, .direction = c("updown")) %>% 
+  mutate(INC_tube_50ml_empty_g = ifelse(is.na(INC_tube_50ml_empty_g.x), mean_tube_g, INC_tube_50ml_empty_g.x)) %>% 
+  select(c(SampleID, INC_tube_50ml_empty_g, `INC_tube_50mL_wet_Sediment_with_Water_g (After Subsampling for SFE + SpC).y`))
+
+#calculate mass_sed_water (Mass of sediment + water) by subtracting the empty 50 mL tube weight from the total weight. Add 6 g (Mass of slurry removed for pH, SpC, Fe measurements) 
+
+inc_clean <- mean_tube_g %>% 
+  mutate(mass_sed_water = (`INC_tube_50mL_wet_Sediment_with_Water_g (After Subsampling for SFE + SpC).y` - INC_tube_50ml_empty_g) + 6) %>% 
+  mutate(Sample_Name = SampleID) %>% 
+  dplyr::select(-c(SampleID)) %>% 
+  #na.omit(mass_sed_water) %>% 
+  relocate(Sample_Name, .before = INC_tube_50ml_empty_g) %>% 
+  rename(`INC_tube_50mL_wet_Sediment_with_Water_g (After Subsampling for SFE + SpC)` = `INC_tube_50mL_wet_Sediment_with_Water_g (After Subsampling for SFE + SpC).y`)
+
+og_inc <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_merged_by_laan208_on_2024-04-19.csv"))
+
+## MERGE DATA ####
+
+## Incubation weights
+
+# calculate mass water in final samples by subtracting Mass of sediment + water - dry sediment mass 
+
+#dropping NA's in mass water removes samples that we don't have final incubation weights for (110 total masses)
+
+inc_data <- left_join(og_inc, inc_clean, by = c("Sample_Name")) %>% 
+  mutate(Incubation_Water_Mass_g = mass_sed_water - Dry_Sediment_Mass_g) %>% 
+  mutate(Incubation_Water_Mass_g = if_else(Incubation_Water_Mass_g < 0, -9999, Incubation_Water_Mass_g)) %>% 
+  mutate(Incubation_Water_Mass_g = if_else(is.na(Incubation_Water_Mass_g), -9999, Incubation_Water_Mass_g)) %>% 
+  mutate(Incubation_Water_Mass_g = round(Incubation_Water_Mass_g, 2)) %>% 
+  select(c(Sample_Name, Initial_Water_Mass_g, Final_Water_Mass_g, Dry_Sediment_Mass_g, Incubation_Water_Mass_g))
+
+
 
 
 ## Other Models Tried ####
