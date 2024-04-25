@@ -19,8 +19,6 @@ fast.rates.in = 'ev_fast_rate_calculations.xlsx'
 
 study.code = 'EV'
 
-#input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation")
-
 ## For .txt files for image times
 input.path = ("Y:/Optode_multi_reactor/Optode_multi_reactor_incubation/")
 
@@ -113,19 +111,20 @@ all.samples <- merge(data_long, all.map.clean)
 
 # Fill in samples, remove last two columns for cleaner data frame
 bind <- merge(all.samples, fast.sat, all = TRUE) %>% 
-  filter(!grepl("Blank", Sample_ID)) %>% 
-  separate(Sample_ID, into = c("EC", "Kit", "Rep"), sep = "_")
+  filter(!grepl("Blank", Sample_ID)) #%>% 
+ # separate(Sample_ID, into = c("EC", "Kit", "Rep"), sep = "_")
 
 cleaned_data <- bind %>% 
-  unite(Sample_Name, c("EC", "Kit", "Rep"), sep = "_") %>% 
-  relocate(Sample_Name, .before = elapsed_min) %>% 
+ # unite(Sample_Name, c("EC", "Kit", "Rep"), sep = "_") %>% 
+  #relocate(Sample_Name, .before = elapsed_min) %>% 
   relocate(DO_mg_L, .before = elapsed_min) %>% 
   mutate(DO_mg_per_L = DO_mg_L) %>% 
-  dplyr::select(c(Sample_Name, DO_mg_per_L, elapsed_min, `Time on`)) %>% 
-  arrange(Sample_Name) %>% 
+  dplyr::select(c(Sample_ID, DO_mg_per_L, elapsed_min, `Time on`)) %>% 
+  arrange(Sample_ID) %>% 
   mutate(Methods_Deviation = "N/A") %>% 
   mutate(Methods_Deviation = ifelse(elapsed_min == 0, "RATE_004", "N/A")) %>% 
-  rename(Elapsed_Minute = elapsed_min)
+  rename(Elapsed_Minute = elapsed_min) %>% 
+  rename(Sample_Name = Sample_ID)
 
 
 # Pull in .txt files with picture times and combine
@@ -174,57 +173,48 @@ img_time$Time_HM <- format(as.POSIXct(img_time$Time_Corr), format = "%H:%M")
 
 img_time$Time_S <- format(as.POSIXct(img_time$Time_Corr), format = "%S")
 
-all.samples <- merge(img_time, cleaned_data) 
+all.times <- merge(img_time, all.map.clean) %>% 
+  drop_na(`Time on`)
 
-all.samples$min_bef <- format(strptime(all.samples$Time_HM, format = "%H:%M") - 60, "%H:%M")
+all.times$min_bef <- format(strptime(all.times$Time_HM, format = "%H:%M") - 60, "%H:%M")
 
-all.samples$time_same <- NA
+all.times$time_same <- NA
 
-for (i in 1:nrow(all.samples)) {
+for (i in 1:nrow(all.times)) {
   
-  if (all.samples$Time_HM[i] == all.samples$`Time on`[i]) {
+  if (all.times$Time_HM[i] == all.times$`Time on`[i]) {
     
-    all.samples$time_same[i] <- "yes"
+    all.times$time_same[i] <- "yes"
     
   }
   
-  else if (all.samples$Time_S[i] <= 20 & all.samples$`Time on`[i] == all.samples$min_bef[i]) {
+  else if (all.times$Time_S[i] <= 20 & all.times$`Time on`[i] == all.times$min_bef[i]) {
     
-    all.samples$time_same[i] <- "maybe"
+    all.times$time_same[i] <- "maybe"
     
   }
   
   else { 
     
-    all.samples$time_same[i] <- "no"
+    all.times$time_same[i] <- "no"
     
   }
   
 }
 
-corr.time <- all.samples %>% 
+corr.time <- all.times %>% 
   dplyr::select(c(source_file, Sample_ID, disc_number, Time_HMS, Time_HM, `Time on`, time_same)) %>% 
   filter(!grepl("Blank", Sample_ID)) %>% 
   group_by(Sample_ID) %>% 
   filter(Time_HM >= `Time on`) %>% 
   arrange(Time_HM) %>% 
   filter(row_number() == 1) %>% 
-  rename(Sample_Name = Sample_ID)
+  rename(Sample_Name = Sample_ID) %>% 
+  mutate(Elapsed_Minute = 2)
 
-samples <- merge(corr.time, cleaned_data, by = "Sample_Name", all = TRUE)
+samples <- merge(corr.time, cleaned_data, by = c("Sample_Name", "Elapsed_Minute"), all = TRUE) %>% 
+  mutate(Methods_Deviation = if_else(is.na(time_same), Methods_Deviation, if_else(time_same == "no", Methods_Deviation, if_else(Methods_Deviation == "N/A", "RATE_006", paste0(Methods_Deviation, "; RATE_006"))))) %>% 
+  dplyr::select(-c(source_file, Time_HMS, Time_HM, disc_number, `Time on.x`, `Time on.y`, time_same)) 
 
-time_samples <- samples %>% 
-  dplyr::select(-c(Time_HMS, Time_HM, `Time on`)) %>% 
-  separate(Sample_Name, into = c("Study Code", "Kit", "Rep"), sep = "_", remove = FALSE) 
-
-
-else if ((data_site_subset_beg$time_same[k] == "yes" | data_site_subset_beg$time_same[k] == "maybe") & ((data_site_subset_beg$DO_mg_L[k] > time.same & data_site_subset_beg$elapsed_min[k] == 2))) {
-  
-  data_site_subset_beg = data_site_subset_beg[-k,]
-  
-
-
-
-
-#write.csv(cleaned_data, file.path(output.path,"EV_INC_Raw_DO_By_Min_ReadyForBoye_04-17-2024.csv"), quote = F, row.names = F) 
+write.csv(cleaned_data, file.path(output.path,"EV_INC_Raw_DO_By_Min_ReadyForBoye_04-25-2024.csv"), quote = F, row.names = F) 
 
