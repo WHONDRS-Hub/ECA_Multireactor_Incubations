@@ -1,8 +1,12 @@
 library(dplyr); library(tidyverse); library(lubridate);library(readxl);library(readr);library(hms)
 
+
+rm(list=ls());graphics.off()
+
 pnnl.user = 'laan208'
 
-input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/")
+input.path = paste0("Y:/Optode_multi_reactor/Optode_multi_reactor_incubation/")
+
 
 setwd(input.path)
 
@@ -14,7 +18,9 @@ import_data = function(input.path){
   
   map.file <-  list.files(input.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
   
-  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC|QAQC", map.file)]
+  #map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08|fast|combined|SPC|IC|QAQC", map.file)]
+  
+  map.file <- map.file[grepl("EV", map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
   
