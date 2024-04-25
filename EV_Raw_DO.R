@@ -15,9 +15,13 @@ rm(list=ls());graphics.off()
 ## INPUTS ####
 pnnl.user = 'laan208'
 
-fast.rates.in = 'ev_fast_rate_calculations.xlsx'
+fast.rates.in = 'ec_fast_rate_calculations.xlsx'
+  #EC: ec_fast_rate_calculations.xlsx
+  #EV: ev_fast_rate_calculations.xlsx
 
-study.code = 'EV'
+study.code = 'EC_'
+  #EC_
+  #EV_
 
 ## For .txt files for image times
 input.path = ("Y:/Optode_multi_reactor/Optode_multi_reactor_incubation/")
@@ -45,7 +49,9 @@ import_data = function(map.path){
   
   filePaths <- filePaths[grepl("results", filePaths)]
   
-   # dat <- 
+  filePaths <- filePaths[!grepl("EC_01|EC_02|EC_03|EC_04_08|EC_06_07|EC_10_15", filePaths)]
+  
+    # dat <- 
   do.call(rbind, lapply(filePaths, function(map.path){
     # then add a new column `source` to denote the file name
     df <- read.csv(map.path, skip = 4)
@@ -84,6 +90,9 @@ import_data = function(map.path){
   map.file <-  list.files(map.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
   
   map.file <- map.file[grepl(study.code, map.file)]
+  
+  # Remove samples incubated in jars
+  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08", map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
   
@@ -148,8 +157,8 @@ all.txt = import_data(input.path)
 
 img_all <- all.txt %>% 
   mutate(`filePaths[i]` = str_remove_all(`filePaths[i]`, paste0(input.path, "/"))) %>% 
-  separate(col = `filePaths[i]`, into = c("source_file", "photo"), sep = "/") %>% 
-  mutate(source_file = str_replace(source_file,"EC", "results")) 
+  separate(col = `filePaths[i]`, into = c("source_file", "photo"), sep = "/")# %>% 
+ # mutate(source_file = str_replace(source_file,"EC", "results")) 
 
 img_time <- img_all[!grepl("Custom|type|.tif|----", img_all$TIFF.image.set.saved.with.Look.RGB.v0.1),]
 

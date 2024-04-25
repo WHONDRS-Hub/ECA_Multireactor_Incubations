@@ -245,7 +245,7 @@ pairs(resp_out_effect_corr, lower.panel = panel.smooth,upper.panel = panel.cor.s
 ggplot(resp_out_effect_corr, aes(y = diff_Best_Effect_Mean_Respiration_Rate_mg_DO_per_kg_per_H, x = diff_Best_Effect_Mean_Fe_mg_per_kg)) + 
   geom_point()
 
-##Remove outliers independently
+##Remove outliers independently ####
 
 cv <- function(x) {
   cv_value <- (sd(x) / mean(x)) * 100
@@ -643,13 +643,22 @@ ggplot(removals_effect_corr, aes(y = diff_Best_Effect_Mean_Respiration_Rate_mg_D
 cube_root <- function(x) sign(x) * (abs(x))^(1/3)
 
 # To get theoretical, effect size > 3.5
-cube_best_effect = removals_effect_corr %>% 
+cube_best_effect = median_effect_corr %>% 
   mutate(across(where(is.numeric), cube_root)) %>% 
   rename_with( ~ paste0("cube_", .), everything())# %>% 
   #select(-c(Treat)) %>% 
   #filter(Mean_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H < 3.5) %>% 
   #column_to_rownames("Sample_ID") #%>% 
 #mutate(Th = ifelse(Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H > 3.5, "theoretical", "real"))
+
+cube_best_effect_long = cube_best_effect %>% 
+  rownames_to_column("Sample_ID") %>% 
+  pivot_longer(cols = -c(Sample_ID), names_to = "Variable", values_to = "Value")
+
+ggplot(cube_best_effect_long, aes(x = Value)) +
+  geom_histogram() +
+  facet_wrap(~Variable, scales = "free") +
+  theme(strip.text = element_text(size = 5))
 
 ## Scale cube effect size
 z_cube_best_effect = cube_best_effect %>% 
