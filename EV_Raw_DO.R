@@ -1,53 +1,57 @@
 ###### Load Library ######
 
-library(dplyr); library(ggplot2);library(ggsignif)
+library(tidyverse); library(ggplot2);library(ggsignif)
 library(ggpubr);library(reshape2);library(ggpmisc)
 library(segmented);library(broom);library(lmtest);library(car)
-library(ggpmisc);library(lubridate); library(readxl);
-library(tidyverse);library(patchwork)
+library(ggpmisc);library(lubridate); library(readxl);library(patchwork)
 library(readr)
-
+library(lubridate);library(readxl);library(hms)
 
 ##### Load data ######
 rm(list=ls());graphics.off()
 
 # Set working directory to data file
-#Example:
+
+## INPUTS ####
 pnnl.user = 'laan208'
 
-input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation")
+fast.rates.in = 'ev_fast_rate_calculations.xlsx'
 
+study.code = 'EV'
+
+#input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation")
+
+## For .txt files for image times
+input.path = ("Y:/Optode_multi_reactor/Optode_multi_reactor_incubation/")
+
+## For mapping files and result .csv's
 map.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/")
 
+## Where to put Final Raw DO file
 output.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/")
-
 #setwd(input.path)
 
-#path for reading in 100% saturation values for each kit based on pressure/temperature during disk calibration
-fast.sat <- paste0("C:/Users/", pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/ev_fast_rate_calculations.xlsx")
-
-fast.rates <- read_excel(fast.sat)  
-
-fast.rates.kits <- fast.rates %>% 
+# Read in 100% saturation values for each kit based on pressure/temperature during disk calibration
+fast.sat <- read_excel(paste0(map.path, "/rates/", fast.rates.in)) %>% 
   rename("DO_mg_L" = "DO_sat_mg_L") 
 
 #read in respiration data and clean
-import_data = function(input.path){
+import_data = function(map.path){
   
   # pull a list of file names in the target folder with the target pattern
   # then read all files and combine
   
-  filePaths <- list.files(path = input.path, recursive = T, pattern = "\\.csv$", full.names = TRUE)
+  filePaths <- list.files(path = map.path, recursive = T, pattern = "\\.csv$", full.names = TRUE)
   
-  filePaths <- filePaths[grepl("EV", filePaths)]
+  filePaths <- filePaths[grepl(study.code, filePaths)]
   
   filePaths <- filePaths[grepl("results", filePaths)]
   
    # dat <- 
-  do.call(rbind, lapply(filePaths, function(input.path){
+  do.call(rbind, lapply(filePaths, function(map.path){
     # then add a new column `source` to denote the file name
-    df <- read.csv(input.path, skip = 4)
-    df[["source_file"]] <- rep(input.path, nrow(df)) # add a column for the source file
+    df <- read.csv(map.path, skip = 4)
+    df[["source_file"]] <- rep(map.path, nrow(df)) # add a column for the source file
     
     df %>%
       na.omit () %>% 
@@ -59,20 +63,21 @@ import_data = function(input.path){
       # make longer, so all the data are in a single column
       pivot_longer(-c(elapsed_min,source_file), names_to = "disc_number", values_to = "DO_mg_L", values_transform = as.numeric) %>% 
       # remove unnecessary strings from the source_file name
-      mutate(source_file = str_remove_all(source_file, paste0(input.path, "/")))
+      mutate(source_file = str_remove_all(source_file, paste0(map.path, "/")))
   }
   ))
 }
-data = import_data(input.path)
+data = import_data(map.path)
 
 ##### Clean Data ####
 
 data_long = 
   data %>% 
   mutate(disc_number = str_remove_all(disc_number, "X")) %>%
-  mutate(source_file = str_remove_all(source_file, ".*Optode_multi_reactor_incubation/"),source_file = str_remove_all(source_file, "/results/results.csv")) %>%  
+  mutate(source_file = str_remove_all(source_file, ".*Optode_multi_reactor_incubation//"),source_file = str_remove_all(source_file, "/results/results.csv")) %>%  
   filter(elapsed_min > 0)
 
+## Pull in mapping sheets
 import_data = function(map.path){ 
   
   #pull a list of files in target folder with correct pattern
@@ -80,7 +85,7 @@ import_data = function(map.path){
   
   map.file <-  list.files(map.path, recursive = T, pattern = "\\.xlsx$",full.names = T)
   
-  map.file <- map.file[grepl("EV", map.file)]
+  map.file <- map.file[grepl(study.code, map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
   
@@ -92,20 +97,22 @@ import_data = function(map.path){
 
 all.map = import_data(map.path)
 
-all.map = all.map %>% 
+all.map$`Time on` <- as.POSIXct(all.map$`Time on`, format = "%Y/%m/%d %H:%M:%%S")
+
+all.map$`Time on` <- format(all.map$`Time on`, format = "%H:%M")
+
+all.map.clean = all.map %>% 
   rename("source_file" = "map.file[i]") %>% 
   rename("disc_number" = "Disk_ID") %>% 
   mutate(source_file = str_remove_all(source_file, ".*//")) %>% 
   separate(source_file, sep = "/", c("source_file", "file")) %>% 
-  mutate(source_file = str_replace(source_file, "EC", "results")) %>% 
-  dplyr::select(-`Disk Calibration date`, -Location, -`Time on`, -`Time off`, -SpC, -pH, -Temp, -Notes, -file)
+  #mutate(source_file = str_replace(source_file, "EC", "results")) %>% 
+  dplyr::select(-`Disk Calibration date`, -Location, -`Time off`, -SpC, -pH, -Temp, -Notes, -file)
 
-all.samples <- merge(data_long, all.map)
+all.samples <- merge(data_long, all.map.clean)
 
-
-bind <- merge(all.samples, fast.rates.kits, all = TRUE)
-
-bind <- bind %>% 
+# Fill in samples, remove last two columns for cleaner data frame
+bind <- merge(all.samples, fast.sat, all = TRUE) %>% 
   filter(!grepl("Blank", Sample_ID)) %>% 
   separate(Sample_ID, into = c("EC", "Kit", "Rep"), sep = "_")
 
@@ -114,72 +121,110 @@ cleaned_data <- bind %>%
   relocate(Sample_Name, .before = elapsed_min) %>% 
   relocate(DO_mg_L, .before = elapsed_min) %>% 
   mutate(DO_mg_per_L = DO_mg_L) %>% 
-  dplyr::select(c(Sample_Name, DO_mg_per_L, elapsed_min)) %>% 
+  dplyr::select(c(Sample_Name, DO_mg_per_L, elapsed_min, `Time on`)) %>% 
   arrange(Sample_Name) %>% 
   mutate(Methods_Deviation = "N/A") %>% 
   mutate(Methods_Deviation = ifelse(elapsed_min == 0, "RATE_004", "N/A")) %>% 
   rename(Elapsed_Minute = elapsed_min)
 
-write.csv(cleaned_data, file.path(output.path,"EV_INC_Raw_DO_By_Min_ReadyForBoye_04-17-2024.csv"), quote = F, row.names = F) 
 
-splits <- all.samples %>% 
-  #group_by(source_file) %>% 
-  group_split(source_file) %>% 
-  as.list() 
+# Pull in .txt files with picture times and combine
+import_data = function(input.path){ 
+  
+  filePaths <- list.files(path = input.path, recursive = T, pattern = "\\.txt$", full.names = TRUE)
+  
+  filePaths <- filePaths[grepl(study.code, filePaths)]
+  filePaths <- filePaths[!grepl("cal|images", filePaths)]
+  #filePaths <- filePaths[!grepl("images", filePaths)]
+  
+  mapping <- lapply(filePaths, read.delim)
+  
+  for (i in 1:length(mapping)){mapping[[i]] <- cbind(mapping[[i]], filePaths[i])}
+  
+  all.txt <- 
+    do.call(rbind,mapping)
+}
 
-for (i in 1:length(splits)) {
+all.txt = import_data(input.path)  
+
+img_all <- all.txt %>% 
+  mutate(`filePaths[i]` = str_remove_all(`filePaths[i]`, paste0(input.path, "/"))) %>% 
+  separate(col = `filePaths[i]`, into = c("source_file", "photo"), sep = "/") %>% 
+  mutate(source_file = str_replace(source_file,"EC", "results")) 
+
+img_time <- img_all[!grepl("Custom|type|.tif|----", img_all$TIFF.image.set.saved.with.Look.RGB.v0.1),]
+
+img_time <- rename(img_time, Time = TIFF.image.set.saved.with.Look.RGB.v0.1)
+
+img_time$Time <- gsub('[AMP]','', img_time$Time)
+
+img_time$Time <- as.POSIXct(img_time$Time, format = "%m/%d/%Y %H:%M:%S")
+
+img_time$Day <- format(img_time$Time, format = "%m/%d/%Y")
+
+img_time$Day <- as.Date(img_time$Day, format = "%m/%d/%Y")
+
+img_time$Time_Corr <- ifelse(img_time$Day < "2022-11-06" | img_time$Day > "2023-03-12", img_time$Time + 3600, img_time$Time)
+
+class(img_time$Time_Corr) <- c("POSIXct", "POSIXt")
+
+img_time$Time_HMS <- format(as.POSIXct(img_time$Time_Corr), format = "%H:%M:%S")
+
+img_time$Time_HM <- format(as.POSIXct(img_time$Time_Corr), format = "%H:%M")
+
+img_time$Time_S <- format(as.POSIXct(img_time$Time_Corr), format = "%S")
+
+all.samples <- merge(img_time, cleaned_data) 
+
+all.samples$min_bef <- format(strptime(all.samples$Time_HM, format = "%H:%M") - 60, "%H:%M")
+
+all.samples$time_same <- NA
+
+for (i in 1:nrow(all.samples)) {
   
-  results <- splits[[i]]
+  if (all.samples$Time_HM[i] == all.samples$`Time on`[i]) {
+    
+    all.samples$time_same[i] <- "yes"
+    
+  }
   
-  results <- results %>% 
-    separate(Sample_ID, sep = "_", c("EC", "Site", "Rep"), remove = FALSE)
+  else if (all.samples$Time_S[i] <= 20 & all.samples$`Time on`[i] == all.samples$min_bef[i]) {
+    
+    all.samples$time_same[i] <- "maybe"
+    
+  }
   
-  unique.sites = unique(results$Site)
-  unique.sites = na.omit(unique.sites) 
-  
-  
-  for (j in 1:length(unique.sites)) {
+  else { 
     
-    site_results <- subset(results, results$Site == unique.sites[j])
-    
-    for (k in 1:nrow(site_results)){
-      
-      if (str_count(site_results$Site[k], "[0-9]") <= 2){
-        
-        site_results$Site[k] = paste0("0", site_results$Site[k])
-        
-      }
-      
-      else {
-        
-        site_results$Site[k] = site_results$Site[k]
-      }
-      
-    }
-    
-    site_no <- site_results$Site[1] 
-    
-    site_results <- site_results %>% 
-      unite("Sample_ID",  c("EC", "Site", "Rep"), sep = "_") 
-    
-    site_results = site_results[order(site_results$elapsed_min, decreasing = FALSE),]
-    site_results$elapsed_min = as.numeric(site_results$elapsed_min)
-    
-    site_results <- site_results %>% 
-      dplyr::select(-c(disc_number, source_file)) %>% 
-      pivot_wider(names_from = Sample_ID, values_from = c(DO_mg_L))
-    
-    order = sort(colnames(site_results))
-    
-    site_results <- site_results[, order]
-    
-    site_results <- site_results[,c(ncol(site_results), 1:(ncol(site_results)-1))]
-    
-    
-    write.csv(site_results, paste0(output.path,"Raw_DO_by_Minute_EC_",site_no,".csv"), row.names = FALSE)
+    all.samples$time_same[i] <- "no"
     
   }
   
 }
 
+corr.time <- all.samples %>% 
+  dplyr::select(c(source_file, Sample_ID, disc_number, Time_HMS, Time_HM, `Time on`, time_same)) %>% 
+  filter(!grepl("Blank", Sample_ID)) %>% 
+  group_by(Sample_ID) %>% 
+  filter(Time_HM >= `Time on`) %>% 
+  arrange(Time_HM) %>% 
+  filter(row_number() == 1) %>% 
+  rename(Sample_Name = Sample_ID)
+
+samples <- merge(corr.time, cleaned_data, by = "Sample_Name", all = TRUE)
+
+time_samples <- samples %>% 
+  dplyr::select(-c(Time_HMS, Time_HM, `Time on`)) %>% 
+  separate(Sample_Name, into = c("Study Code", "Kit", "Rep"), sep = "_", remove = FALSE) 
+
+
+else if ((data_site_subset_beg$time_same[k] == "yes" | data_site_subset_beg$time_same[k] == "maybe") & ((data_site_subset_beg$DO_mg_L[k] > time.same & data_site_subset_beg$elapsed_min[k] == 2))) {
+  
+  data_site_subset_beg = data_site_subset_beg[-k,]
+  
+
+
+
+
+#write.csv(cleaned_data, file.path(output.path,"EV_INC_Raw_DO_By_Min_ReadyForBoye_04-17-2024.csv"), quote = F, row.names = F) 
 
