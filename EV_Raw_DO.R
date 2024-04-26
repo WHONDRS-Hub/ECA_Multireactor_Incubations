@@ -1,11 +1,6 @@
 ###### Load Library ######
 
-library(tidyverse); library(ggplot2);library(ggsignif)
-library(ggpubr);library(reshape2);library(ggpmisc)
-library(segmented);library(broom);library(lmtest);library(car)
-library(ggpmisc);library(lubridate); library(readxl);library(patchwork)
-library(readr)
-library(lubridate);library(readxl);library(hms)
+library(tidyverse); library(readxl)
 
 ##### Load data ######
 rm(list=ls());graphics.off()
@@ -15,11 +10,11 @@ rm(list=ls());graphics.off()
 ## INPUTS ####
 pnnl.user = 'laan208'
 
-fast.rates.in = 'ec_fast_rate_calculations.xlsx'
+fast.rates.in = 'ev_fast_rate_calculations.xlsx'
   #EC: ec_fast_rate_calculations.xlsx
   #EV: ev_fast_rate_calculations.xlsx
 
-study.code = 'EC_'
+study.code = 'EV_'
   #EC_
   #EV_
 
@@ -31,7 +26,7 @@ map.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Fiel
 
 ## Where to put Final Raw DO file
 output.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/")
-#setwd(input.path)
+
 
 # Read in 100% saturation values for each kit based on pressure/temperature during disk calibration
 fast.sat <- read_excel(paste0(map.path, "/rates/", fast.rates.in)) %>% 
@@ -49,6 +44,7 @@ import_data = function(map.path){
   
   filePaths <- filePaths[grepl("results", filePaths)]
   
+  # Remove ECA samples incubated in Jars
   filePaths <- filePaths[!grepl("EC_01|EC_02|EC_03|EC_04_08|EC_06_07|EC_10_15", filePaths)]
   
     # dat <- 
@@ -75,6 +71,7 @@ data = import_data(map.path)
 
 ##### Clean Data ####
 
+# Put in long form
 data_long = 
   data %>% 
   mutate(disc_number = str_remove_all(disc_number, "X")) %>%
@@ -91,7 +88,7 @@ import_data = function(map.path){
   
   map.file <- map.file[grepl(study.code, map.file)]
   
-  # Remove samples incubated in jars
+  # Remove samples incubated in jars for EC samples
   map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08", map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
@@ -113,19 +110,15 @@ all.map.clean = all.map %>%
   rename("disc_number" = "Disk_ID") %>% 
   mutate(source_file = str_remove_all(source_file, ".*//")) %>% 
   separate(source_file, sep = "/", c("source_file", "file")) %>% 
-  #mutate(source_file = str_replace(source_file, "EC", "results")) %>% 
   dplyr::select(-`Disk Calibration date`, -Location, -`Time off`, -SpC, -pH, -Temp, -Notes, -file)
 
 all.samples <- merge(data_long, all.map.clean)
 
 # Fill in samples, remove last two columns for cleaner data frame
 bind <- merge(all.samples, fast.sat, all = TRUE) %>% 
-  filter(!grepl("Blank", Sample_ID)) #%>% 
- # separate(Sample_ID, into = c("EC", "Kit", "Rep"), sep = "_")
+  filter(!grepl("Blank", Sample_ID)) 
 
 cleaned_data <- bind %>% 
- # unite(Sample_Name, c("EC", "Kit", "Rep"), sep = "_") %>% 
-  #relocate(Sample_Name, .before = elapsed_min) %>% 
   relocate(DO_mg_L, .before = elapsed_min) %>% 
   mutate(DO_mg_per_L = DO_mg_L) %>% 
   dplyr::select(c(Sample_ID, DO_mg_per_L, elapsed_min, `Time on`)) %>% 
@@ -157,8 +150,7 @@ all.txt = import_data(input.path)
 
 img_all <- all.txt %>% 
   mutate(`filePaths[i]` = str_remove_all(`filePaths[i]`, paste0(input.path, "/"))) %>% 
-  separate(col = `filePaths[i]`, into = c("source_file", "photo"), sep = "/")# %>% 
- # mutate(source_file = str_replace(source_file,"EC", "results")) 
+  separate(col = `filePaths[i]`, into = c("source_file", "photo"), sep = "/")
 
 img_time <- img_all[!grepl("Custom|type|.tif|----", img_all$TIFF.image.set.saved.with.Look.RGB.v0.1),]
 
@@ -189,6 +181,7 @@ all.times$min_bef <- format(strptime(all.times$Time_HM, format = "%H:%M") - 60, 
 
 all.times$time_same <- NA
 
+# Flag if samples are put on at same time a picture is taken
 for (i in 1:nrow(all.times)) {
   
   if (all.times$Time_HM[i] == all.times$`Time on`[i]) {
@@ -223,7 +216,31 @@ corr.time <- all.times %>%
 
 samples <- merge(corr.time, cleaned_data, by = c("Sample_Name", "Elapsed_Minute"), all = TRUE) %>% 
   mutate(Methods_Deviation = if_else(is.na(time_same), Methods_Deviation, if_else(time_same == "no", Methods_Deviation, if_else(Methods_Deviation == "N/A", "RATE_006", paste0(Methods_Deviation, "; RATE_006"))))) %>% 
-  dplyr::select(-c(source_file, Time_HMS, Time_HM, disc_number, `Time on.x`, `Time on.y`, time_same)) 
+  dplyr::select(-c(source_file, Time_HMS, Time_HM, disc_number, `Time on.x`, `Time on.y`, time_same)) %>% 
+  separate(Sample_Name, into = c("EC", "kit", "rep"), remove = FALSE, sep = "_")
 
-write.csv(cleaned_data, file.path(output.path,"EV_INC_Raw_DO_By_Min_ReadyForBoye_04-25-2024.csv"), quote = F, row.names = F) 
+# Add extra 0 in EC Sample Names
+for (i in 1:nrow(samples)){
+  
+  if (str_count(samples$kit[i], "[0-9]") <= 2){
+    
+    samples$kit[i] = paste0("0", samples$kit[i])
+    
+  }
+  
+  else {
+    
+    samples$kit[i] = samples$kit[i]
+  }
+  
+}
 
+samples_clean = samples %>% 
+  unite(Sample_Name, c("EC", "kit", "rep"), sep = "_") %>% 
+  arrange(Sample_Name) %>% 
+  mutate(DO_mg_per_L = round(DO_mg_per_L, 2)) %>% 
+  relocate(Sample_Name, .before = Elapsed_Minute)
+
+output.name = paste0(study.code,"INC_Raw_DO_By_Min_ReadyForBoye_",Sys.Date(),".csv")
+
+write.csv(samples_clean, file.path(output.path, output.name), quote = F, row.names = F) 
