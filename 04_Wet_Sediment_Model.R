@@ -11,6 +11,7 @@
 # Read in Libraries
 library(ggplot2)
 library(tidyverse)
+library(readxl)
 
 rm(list=ls());graphics.off()
 
@@ -182,7 +183,7 @@ inc_data <- left_join(og_inc, inc_clean, by = c("Sample_Name")) %>%
   select(c(Sample_Name, Initial_Water_Mass_g, Final_Water_Mass_g, Dry_Sediment_Mass_g, Incubation_Water_Mass_g))
 
 
-
+write.csv(inc_data,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_ReadyForBoye_04-24-2024.csv"), row.names = F) 
 
 ## Other Models Tried ####
 # model <- lm(mass_water ~ Dry_Sediment_Mass_g + Percent_Mud + Percent_Tot_Sand, data = all_data)
