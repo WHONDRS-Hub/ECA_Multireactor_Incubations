@@ -28,3 +28,15 @@
 5. Run 04_Wet_Sediment_Model
 
    a. **Script:** Gets amount of water from eca incubation and amends to ECA drying summary file. For ECA, this is an actual model built using grain size data and samples for which we could calculate actual incubation water masses. For EV, we have all weights, so no model needed. Just scroll to the bottom of the script. 
+
+6. Run 05_ECA_SpC_pH_Temp
+
+   a. **Script:** Gets SpC, pH, Temp values from ECA Mapping files.
+
+   b. **You:** Add other deviations to the .csv after it is exported
+
+7. Run 06a/06b_Sensitivity Analyses to Publish
+
+   a. **Script:** 06a for ECA. 06b for EV data. Includes descriptions of parameters used in rate fitting, and options used for CV cut offs for rates.
+
+   b. **You:** Check that Method Deviations are correct. 
