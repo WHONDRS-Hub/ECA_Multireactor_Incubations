@@ -12,9 +12,19 @@
 
    b. **You:** Add other deviations to the Raw DO .csv after it is exported
 
-4. Run 02a_ECA_MOI_Tins
+3. Run 02a_ECA_MOI_Tins
 
    a. **Script:** Calculates gravimetric moisture from individual moisture tins taken right before optode incubations. Checks CV of replicates. If CV is high, run 02b_ECA_MOI_outliers.
        Note: 02b_ECA_MOI_outliers was written for ECA_EC samples. You may need to manually change this script to fit your data.
    
-   b. **You:** Check for deviations manually (e.g. spills) to make sure that you are calculating correct gravimetric moisture. Add other deviations to the moisture tin .csv after it is exported 
+   b. **You:** Check for deviations manually (e.g. spills) to make sure that you are calculating correct gravimetric moisture. Add other deviations to the moisture tin .csv after it is exported
+
+4. Run 03_ECA_drying
+
+   a. **Script:** Calculates wet sediment mass, dry sediment mass, added water, total water, and gravimetric moisture for each day when samples were weighed over 21-day incubation. Also calculates summary file for initial water mass, final water mass, dry sediment mass, initial gravimetric moisture, and final gravimetric moisture for each sample.
+
+   b. **You:** Add other deviations to the drying .csv after it is exported
+
+5. Run 04_Wet_Sediment_Model
+
+   a. **Script:** Gets amount of water from eca incubation and amends to ECA drying summary file. For ECA, this is an actual model built using grain size data and samples for which we could calculate actual incubation water masses. For EV, we have all weights, so no model needed. Just scroll to the bottom of the script. 
