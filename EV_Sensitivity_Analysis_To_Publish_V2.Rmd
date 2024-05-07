@@ -22,12 +22,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r libraries, include = FALSE}
 
-library(dplyr); library(ggplot2);library(ggsignif)
+library(tidyverse)
+library(ggplot2);library(ggsignif)
 library(ggpubr);library(reshape2);library(ggpmisc)
 library(segmented);library(broom);library(lmtest);library(car); library(corrplot)
 library(ggpmisc);library(lubridate); library(readxl); library(glmnet)
-library(tidyverse);library(patchwork)
-library(readr)
+library(patchwork)
+
 
 ```
 
@@ -563,7 +564,7 @@ respiration = respiration[-1,]
 ```{r Boye Format for Respiration Rates}
 
 ## Pull in solid:solution ratio data for mg/kg calculations
-solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_merged_by_laan208_on_2024-04-19.csv"))
+solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_ReadyForBoye_04-24-2024.csv"))
 
 ## Pull in SpC, Temp, pH for these samples
 chem <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/SpC_pH_Temp_Processed_Data/EV_SpC_pH_Temp_ReadyForBoye_04-19-2024.csv"))
@@ -777,7 +778,7 @@ eca_respiration_all_final = outliers_flag %>%
   mutate(Methods_Deviation)
 
 
-write.csv(eca_respiration_all_final, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-03-05.csv", row.names = F)
+write.csv(eca_respiration_all_final, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-04-24.csv", row.names = F)
 
 ```
 
@@ -806,14 +807,14 @@ eca_summary_best = eca_respiration_all_final %>%
   mutate(round(across(where(is.numeric)), 3))
 
 eca_summary_join = left_join(eca_summary_all, eca_summary_best, by = "Sample") %>% 
-  rename(Mean_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_mean) %>% 
-  rename(SD_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_sd) %>% 
-  rename(Mean_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_mean) %>% 
-  rename(SD_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_sd) %>% 
-  rename(Best_Mean_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_best_mean) %>% 
-  rename(Best_SD_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_best_sd) %>% 
-  rename(Best_Mean_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_best_mean) %>% 
-  rename(Best_SD_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_best_sd) %>% 
+  rename(Mean_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_mean) %>% 
+  rename(SD_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_sd) %>% 
+  rename(Mean_WithOutliers_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_mean) %>% 
+  rename(SD_WithOutliers_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_sd) %>% 
+  rename(Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_best_mean) %>% 
+  rename(SD_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_best_sd) %>% 
+  rename(Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_best_mean) %>% 
+  rename(SD_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_best_sd) %>% 
   rename(Mean_SpC = SpC_mean) %>%
   rename(SD_SpC = SpC_sd) %>%
   rename(Mean_pH = pH_mean) %>% 
@@ -822,8 +823,8 @@ eca_summary_join = left_join(eca_summary_all, eca_summary_best, by = "Sample") %
   rename(SD_Temp = Temp_sd) %>% 
   rename(Sample_Name = Sample) %>% 
   mutate(Material = "Sediment") %>% 
-  dplyr::select(c(Sample_Name, Material, Mean_SpC, SD_SpC, Mean_pH, SD_pH, Mean_Temp, SD_Temp, Mean_Respiration_Rate_mg_DO_per_L_per_H, SD_Respiration_Rate_mg_DO_per_L_per_H, Mean_Respiration_Rate_mg_DO_per_kg_per_H, SD_Respiration_Rate_mg_DO_per_kg_per_H, Best_Mean_Respiration_Rate_mg_DO_per_L_per_H, Best_SD_Respiration_Rate_mg_DO_per_L_per_H, Best_Mean_Respiration_Rate_mg_DO_per_kg_per_H, Best_SD_Respiration_Rate_mg_DO_per_kg_per_H))
+  dplyr::select(c(Sample_Name, Material, Mean_SpC, SD_SpC, Mean_pH, SD_pH, Mean_Temp, SD_Temp, Mean_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H, SD_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H, Mean_WithOutliers_Respiration_Rate_mg_DO_per_kg_per_H, SD_WithOutliers_Respiration_Rate_mg_DO_per_kg_per_H, Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H, SD_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H, Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H, SD_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H))
 
-write.csv(eca_summary_join, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_2024-03-05.csv", row.names = F)
+write.csv(eca_summary_join, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_2024-04-24.csv", row.names = F)
 
 ```

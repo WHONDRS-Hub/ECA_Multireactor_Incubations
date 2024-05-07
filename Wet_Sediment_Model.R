@@ -1,6 +1,5 @@
 library(ggplot2)
 library(tidyverse)
-library(dplyr)
 library(readxl)
 
 rm(list=ls());graphics.off()
