@@ -9,7 +9,6 @@
 
 
 # Read in Libraries
-library(ggplot2)
 library(tidyverse)
 library(readxl)
 
@@ -153,7 +152,7 @@ mean_tube_g = inc %>%
   right_join(inc, by = "SampleID") %>% 
   fill(mean_tube_g, .direction = c("updown")) %>% 
   mutate(INC_tube_50ml_empty_g = ifelse(is.na(INC_tube_50ml_empty_g.x), mean_tube_g, INC_tube_50ml_empty_g.x)) %>% 
-  select(c(SampleID, INC_tube_50ml_empty_g, `INC_tube_50mL_wet_Sediment_with_Water_g (After Subsampling for SFE + SpC).y`))
+  dplyr::select(c(SampleID, INC_tube_50ml_empty_g, `INC_tube_50mL_wet_Sediment_with_Water_g (After Subsampling for SFE + SpC).y`))
 
 #calculate mass_sed_water (Mass of sediment + water) by subtracting the empty 50 mL tube weight from the total weight. Add 6 g (Mass of slurry removed for pH, SpC, Fe measurements) 
 
@@ -165,7 +164,7 @@ inc_clean <- mean_tube_g %>%
   relocate(Sample_Name, .before = INC_tube_50ml_empty_g) %>% 
   rename(`INC_tube_50mL_wet_Sediment_with_Water_g (After Subsampling for SFE + SpC)` = `INC_tube_50mL_wet_Sediment_with_Water_g (After Subsampling for SFE + SpC).y`)
 
-og_inc <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_merged_by_laan208_on_2024-04-19.csv"))
+og_inc <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_ReadyForBoye_2024-04-26.csv"))
 
 ## MERGE DATA ####
 
@@ -180,10 +179,12 @@ inc_data <- left_join(og_inc, inc_clean, by = c("Sample_Name")) %>%
   mutate(Incubation_Water_Mass_g = if_else(Incubation_Water_Mass_g < 0, -9999, Incubation_Water_Mass_g)) %>% 
   mutate(Incubation_Water_Mass_g = if_else(is.na(Incubation_Water_Mass_g), -9999, Incubation_Water_Mass_g)) %>% 
   mutate(Incubation_Water_Mass_g = round(Incubation_Water_Mass_g, 2)) %>% 
-  select(c(Sample_Name, Initial_Water_Mass_g, Final_Water_Mass_g, Dry_Sediment_Mass_g, Incubation_Water_Mass_g))
+  rename(Initial_Water_Mass_g = Initial_Water_mass_g) %>% 
+  rename(Final_Water_Mass_g = Final_Water_mass_g) %>% 
+  dplyr::select(c(Sample_Name, Initial_Water_Mass_g, Final_Water_Mass_g, Dry_Sediment_Mass_g, Initial_Gravimetric_Moisture, Final_Gravimetric_Moisture, Incubation_Water_Mass_g, Methods_Deviation))
 
 
-write.csv(inc_data,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_ReadyForBoye_04-24-2024.csv"), row.names = F) 
+write.csv(inc_data,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_ReadyForBoye_05-07-2024.csv"), row.names = F) 
 
 ## Other Models Tried ####
 # model <- lm(mass_water ~ Dry_Sediment_Mass_g + Percent_Mud + Percent_Tot_Sand, data = all_data)

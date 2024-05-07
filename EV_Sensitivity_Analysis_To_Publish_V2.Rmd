@@ -40,7 +40,7 @@ rm(list=ls());graphics.off()
 #Example:
 pnnl.user = 'laan208'
 
-input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EV_INC_Raw_DO_By_Min_ReadyForBoye_04-17-2024.csv")
+input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EV_INC_Raw_DO_By_Min_ReadyForBoye_2024-04-26.csv")
 
 output.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/")
 
@@ -564,7 +564,7 @@ respiration = respiration[-1,]
 ```{r Boye Format for Respiration Rates}
 
 ## Pull in solid:solution ratio data for mg/kg calculations
-solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_ReadyForBoye_04-24-2024.csv"))
+solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_ReadyForBoye_05-07-2024.csv"))
 
 ## Pull in SpC, Temp, pH for these samples
 chem <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/SpC_pH_Temp_Processed_Data/EV_SpC_pH_Temp_ReadyForBoye_04-19-2024.csv"))
@@ -641,8 +641,8 @@ boye_dev <- boye %>%
   mutate(MOI_1 = str_trim(MOI_1)) %>% 
   mutate(MOI_3 = if_else(MOI_1 == Methods_Deviation, MOI_1, if_else(MOI_1 == "N/A", Methods_Deviation, paste(MOI_1, Methods_Deviation, sep = "; ")))) %>% 
   mutate(Methods_Deviation.fin = if_else(Methods_Deviation.x ==  MOI_3, Methods_Deviation.x, if_else(Methods_Deviation.x == "N/A", MOI_3, if_else(MOI_3 == "N/A", Methods_Deviation.x, paste(Methods_Deviation.x, MOI_3, sep = "; "))))) %>% 
-  dplyr::select(-c(Methods_Deviation.x, Methods_Deviation, MOI_1, MOI_2, MOI_3)) %>% 
-  rename(Methods_Deviation = Methods_Deviation.fin)
+  mutate(Methods_Deviation = str_replace(Methods_Deviation.fin, "; N/A", "")) %>% 
+  dplyr::select(-c(Methods_Deviation.x, Methods_Deviation.fin, MOI_1, MOI_2, MOI_3, Initial_Gravimetric_Moisture, Final_Gravimetric_Moisture))
 
 ```
 ## Remove Outlier Samples 
