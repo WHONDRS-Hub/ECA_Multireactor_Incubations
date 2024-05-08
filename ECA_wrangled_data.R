@@ -21,14 +21,14 @@ pnnl.user = 'laan208'
 
 # choose file dates to read in 
 
-respiration.date = '2024-03-05'
-respiration.summary = '2024-03-05'
-grav.date = '2024-01-29'
-grav.summary = '01-29-2024'
-fe.date = '03-04-2024'
-fe.summary = '03-05-2024'
+respiration.date = '2024-04-05'
+#respiration.summary = '2024-03-05'
+grav.date = '2024-04-26'
+grav.summary = '2024-04-26'
+fe.date = '04-12-2024'
+#fe.summary = '03-05-2024'
 atp.date = '01-26-2024'
-atp.summary = '03-05-2024'
+#atp.summary = '03-05-2024'
 
 #Read in all data
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
@@ -36,19 +36,19 @@ setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Tea
 #All Respiration Rates
 # Remove NEON samples - 52, 53, 57
 all_respiration <- read.csv(paste0("INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",respiration.date,".csv")) %>% 
-  select(c(Sample_Name, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H)) 
+  select(c(Sample_Name, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) 
 
-mean_respiration <- read.csv(paste0("INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_",respiration.summary,".csv"))
+#mean_respiration <- read.csv(paste0("INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_",respiration.summary,".csv"))
 
 #ECA Iron
 all_iron <- read_csv(paste0("Fe/03_ProcessedData/EC_ReadyForBoye_",fe.date,".csv")) %>% 
-  mutate(Sample_Name = str_replace(Sample_ID, "SFE", "INC")) %>% 
-  select(-c(Methods_Deviation, Sample_ID))
+  mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC")) %>% 
+  select(-c(Methods_Deviation))
   
 
-mean_iron <- read_csv(paste0("Fe/03_ProcessedData/EC_SFE_Summary_ReadyForBoye_",fe.summary,".csv")) %>% 
-  select(-c(Material)) %>% 
-  mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC"))
+#mean_iron <- read_csv(paste0("Fe/03_ProcessedData/EC_SFE_Summary_ReadyForBoye_",fe.summary,".csv")) %>% 
+  #select(-c(Material)) %>% 
+  #mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC"))
 
 #ICON Grain Size
 grain <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/v3_CM_SSS_Sediment_Grain_Size.csv", skip = 2, header = TRUE)
@@ -82,7 +82,7 @@ mean_ssa <- ssa_clean %>%
 
 #Gravimetric Moisture
 
-grav_inc <- read.csv(paste0("INC/03_ProcessedData/ECA_Drying_Masses_Summary_ReadyForBoye_",grav.summary,".csv")) %>% 
+grav_inc <- read.csv(paste0("INC/03_ProcessedData/EC_Drying_Masses_Summary_ReadyForBoye_on_",grav.summary,".csv")) %>% 
   select(-c(Methods_Deviation)) 
 
 ## ECA ATP ####
@@ -90,7 +90,7 @@ atp_all = read.csv(paste0("ATP/03_ProcessedData/EC_ATP_ReadyForBoye_",atp.date,"
   select(-c(Material, Methods_Deviation)) %>% 
   mutate(Sample_Name  = str_replace(Sample_Name, "ATP", "INC"))
 
-atp_summary = read.csv(paste0("ATP/03_ProcessedData/EC_ATP_Summary_ReadyForBoye_",atp.summary,".csv"))
+#atp_summary = read.csv(paste0("ATP/03_ProcessedData/EC_ATP_Summary_ReadyForBoye_",atp.summary,".csv"))
 
 
 ##Start Merging Individual data
@@ -102,21 +102,28 @@ all_data <- left_join(all_respiration, all_iron, by = "Sample_Name") %>%
   unite(Sample_ID, c("EC", "kit")) %>% 
   left_join(grain_all, by = "Sample_ID") %>% 
   left_join(mean_ssa, by = "Sample_ID") %>% 
-  mutate(Initial_Gravimetric_Water = Initial_Water_Mass_g/Dry_Sediment_Mass_g) %>% 
-  mutate(Final_Gravimetric_Water = Final_Water_Mass_g/Dry_Sediment_Mass_g) %>% 
-  mutate(Lost_Gravimetric_Water = Initial_Gravimetric_Water - Final_Gravimetric_Water)
+  mutate(Lost_Gravimetric_Water = Initial_Gravimetric_Moisture - Final_Gravimetric_Moisture)
  
-write.csv(all_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_03-06-2024.csv", row.names = FALSE)  
+write.csv(all_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-08-2024.csv", row.names = FALSE)  
 
-summary_data <- all_data %>% 
-  separate(Sample_Name, c("Sample_Name", "Replicate"), sep = "-") %>% 
-  separate(Replicate, c("Treat", "Replicate"), sep = -1) %>% 
-  unite(Sample_Name, c("Sample_Name", "Treat"), sep = "-") %>% 
-  dplyr::select(-c(Replicate)) %>% 
-  drop_na() %>% 
-  filter(Respiration_Rate_mg_DO_per_L_per_H > -9999) %>% 
-  group_by(Sample_Name) %>% 
-  summarise_if(is.numeric, mean)
+# summary_data <- all_data %>% 
+#   separate(Sample_Name, c("Sample_Name", "Replicate"), sep = "-") %>% 
+#   separate(Replicate, c("Treat", "Replicate"), sep = -1) %>% 
+#   unite(Sample_Name, c("Sample_Name", "Treat"), sep = "-") %>% 
+#   dplyr::select(-c(Replicate)) %>% 
+#   drop_na() %>% 
+#   filter(Respiration_Rate_mg_DO_per_L_per_H > -9999) %>% 
+#   group_by(Sample_Name) %>% 
+#   summarise_if(is.numeric, mean)
+
+medians = all_data %>% 
+  filter(!grepl("INC_005|INC_Method_002", Methods_Deviation)) %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>% 
+  group_by(Sample_ID, Rep) %>%
+  summarise(across(where(is.numeric), Median = median))
+
+rename_with(.cols = c(Mean_SpC:Mean_Fe_mg_per_L), .fn = ~ paste0("diff_", .x)) %>% 
   
 write.csv(summary_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Summary_ECA_Data.csv") 
   
