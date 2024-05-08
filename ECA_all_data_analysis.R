@@ -1,65 +1,84 @@
 #### Sensitivity Analysis For ECA removals ####
+library(tidyverse)
+
 
 rm(list=ls());graphics.off()
 
 #### Read in Data
 
 #Individual samples 
-all_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data.csv",header = TRUE) %>% 
-  select(-c(X))
+all_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-08-2024.csv",header = TRUE) 
 
 #Summary Data 
 
-sum_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Summary_ECA_Data.csv",header = TRUE) %>% 
+sum_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Medians_ECA_Data.csv",header = TRUE) %>% 
   select(-c(X))
 
 #Effect Size Data
-effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_ECA_Data.csv",header = TRUE) %>% 
+effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_Median_ECA_Data.csv",header = TRUE) %>% 
   select(-c(X))
+
+## Functions ####
+
+cube_root <- function(x) sign(x) * (abs(x))^(1/3)
 
 #### Rates histograms ####
 
-respiration_sep <- all_respiration %>%
-  filter(Respiration_Rate_mg_DO_per_L_per_H != -9999) %>% 
-  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
-  separate(Sample_Name, into = c("Sample", "rep"), sep = "-", remove = FALSE) %>% 
-  mutate(Treat = case_when(grepl("W",rep)~"Wet",
-                           grepl("D", rep) ~"Dry")) %>% 
-  mutate(log_rate = (log10(Respiration_Rate_mg_DO_per_L_per_H + 1)))
+clean_all_data = all_data %>%
+  filter(Respiration_Rate_mg_DO_per_kg_per_H != -9999) %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>%
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = abs(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  mutate(Treat = case_when(grepl("W",INC)~"Wet",
+                           grepl("D", INC) ~"Dry")) 
 
-respiration_sep$Treat <- as.factor(respiration_sep$Treat)
+cube_all_data = clean_all_data %>% 
+  mutate(across(where(is.numeric), cube_root)) %>% 
+  rename_with(where(is.numeric), .fn = ~ paste0("cube_", .x))
 
 ## Respiration Histograms ####
 
 color_pallete <- colorRampPalette(colors = c("#D55E00", "#0072B2"))
 
-num_colors <- nlevels(a$Treat)
+num_colors <- nlevels(clean_all_data$Treat)
 
 samples_colors <- color_pallete(num_colors)
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Wet_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Wet_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
-ggplot(subset(respiration_sep, Treat %in% "Wet"), aes(x = Respiration_Rate_mg_DO_per_L_per_H)) +
+ggplot(subset(clean_all_data, Treat %in% "Wet"), aes(x = Respiration_Rate_mg_DO_per_kg_per_H)) +
   geom_histogram(fill = "#0072B2")+
   ggtitle("Wet Rates")+
-  xlab(expression("Respiration Rate (mg O"[2]*" L"^- 1*" H"^-1*")"))+
+  xlab(expression("Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
   theme(strip.text = element_text(
     size = 4))+
-  ylim(0, 215)+
+  ylim(0, 250)+
+  theme_bw()
+
+dev.off()
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Wet_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+
+ggplot(subset(cube_all_data, Treat %in% "Wet"), aes(x = cube_Respiration_Rate_mg_DO_per_kg_per_H)) +
+  geom_histogram(fill = "#0072B2")+
+  ggtitle("Wet Rates")+
+  xlab(expression("Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
+  theme(strip.text = element_text(
+    size = 4))+
+  ylim(0, 50)+
   theme_bw()
 
 dev.off()
 
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Dry_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Dry_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
-ggplot(subset(respiration_sep, Treat %in% "Dry"), aes(x = Respiration_Rate_mg_DO_per_L_per_H)) +
+ggplot(subset(clean_all_data, Treat %in% "Dry"), aes(x = Respiration_Rate_mg_DO_per_kg_per_H)) +
   geom_histogram(fill = "#D55E00")+
   ggtitle("Dry Rates")+
-  xlab(expression("Respiration Rate (mg O"[2]*" L"^- 1*" H"^-1*")"))+
+  xlab(expression("Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
   theme(strip.text = element_text(
     size = 4))+
-  ylim(0, 215) + 
+  ylim(0, 250) + 
   theme_bw()
 
 dev.off()
