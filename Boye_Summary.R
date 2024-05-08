@@ -38,18 +38,30 @@ NPOC_TN_file <- list.files(boye_dir, 'NPOC_TN_Boye', full.names = T, recursive =
 
 NPOC_TN_file <- NPOC_TN_file[!grepl('Archive',NPOC_TN_file)]
 
+qaqc_files <- list.files(boye_dir, 'CombinedQAQC', full.names = T, recursive = T)
+
+qaqc_files <- qaqc_files[!grepl('Archive',qaqc_files)]
+
+
 ## NPOC/TN ####
 
 if (length(NPOC_TN_file) > 0) {
- 
-    NPOC_TN_NPOC_qaqc <- read_csv(NPOC_TN_file) %>%
-    filter(NPOC_Outlier == T)
   
-  NPOC_TN_TN_qaqc <- read_csv(NPOC_TN_file) %>%
-    filter(TN_Outlier == T)
+  NPOC_TN_boye_headers <- read_csv(NPOC_TN_file, n_max = 11, skip = 2)%>%
+    select(-'Methods_Deviation')
+ 
+  npoc_tn <- read_csv(NPOC_TN_file, skip = 2)
+  
+ # NPOC_TN_NPOC_qaqc <- qaqc_files[grepl("NPOC_TN", qaqc_files)] %>%
+  #  read_csv() %>%
+  #  filter(NPOC_Outlier == T)
+  
+ # NPOC_TN_TN_qaqc <- qaqc_files[grepl("NPOC_TN", qaqc_files)] %>%
+  #  read_csv() %>%
+  #  filter(TN_Outlier == T)
   
   NPOC_TN_data <- read_csv(NPOC_TN_file,  na = '-9999') %>%
-    filter(!Sample_Name %in% c('N/A', '-9999', NA),
+    filter(!Sample_ID %in% c('N/A', '-9999', NA),
            Field_Name != '#End_Data') %>%
     mutate(Field_Name = 'N/A',
            `00681_NPOC_mg_per_L_as_C` = ifelse(Sample_Name %in% NPOC_TN_NPOC_qaqc$Sample_ID, NA, as.numeric(`00681_NPOC_mg_per_L_as_C`)),
@@ -117,5 +129,6 @@ inc <- read_csv(inc_file) %>%
   mutate(Sample_Name = str_remove(Sample_Name, "_INC"))   
 
 combine = left_join(inc, atp, by = c("Sample_Name", "Material")) %>% 
-  left_join(sfe, by = c("Sample_Name", "Material"))
+  left_join(sfe, by = c("Sample_Name", "Material")) %>% 
+  mutate(Missing_Reps = ifelse(!is.na(count.x ), TRUE, ifelse(!is.na(count.y), TRUE, FALSE)))
 
