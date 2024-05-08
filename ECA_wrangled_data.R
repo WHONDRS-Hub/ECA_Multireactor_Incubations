@@ -117,34 +117,33 @@ write.csv(all_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All
 #   summarise_if(is.numeric, mean)
 
 medians = all_data %>% 
-  filter(!grepl("INC_005|INC_Method_002", Methods_Deviation)) %>% 
+  filter(!grepl("INC_005|INC_Method_002|INC_008|INC_QA_004|INC_Method_001", Methods_Deviation)) %>% 
+  filter(ATP_nanomol_per_L != -9999) %>% 
+  filter(Respiration_Rate_mg_DO_per_kg_per_H != -9999) %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
   mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>% 
+  mutate(Fe_mg_per_L = if_else(grepl("SFE_Below", Fe_mg_per_L), "0.001", Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Below", Fe_mg_per_kg), "0.003", Fe_mg_per_kg)) %>%
+  mutate(Fe_mg_per_L = if_else(grepl("SFE_Above", Fe_mg_per_L), str_extract(Fe_mg_per_L, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Above", Fe_mg_per_kg), str_extract(Fe_mg_per_kg, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_kg)) %>% 
+  mutate(Fe_mg_per_L = as.numeric(Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_kg = as.numeric(Fe_mg_per_kg)) %>% 
   group_by(Sample_ID, Rep) %>%
-  summarise(across(where(is.numeric), Median = median))
-
-rename_with(.cols = c(Mean_SpC:Mean_Fe_mg_per_L), .fn = ~ paste0("diff_", .x)) %>% 
+  summarise(across(where(is.numeric), median)) %>% 
+  rename_with(.cols = c(SpC:Lost_Gravimetric_Water), .fn = ~ paste0("median_", .x))
   
-write.csv(summary_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Summary_ECA_Data.csv") 
+write.csv(medians,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Medians_ECA_Data.csv") 
   
 
-effect_data <- summary_data %>% 
-  separate(Sample_Name, c("Sample_Name", "Treat"), sep = "-") %>% 
-  filter(Sample_Name != "EC_011_INC") %>% 
-  filter(Sample_Name != "EC_012_INC") %>% 
-  filter(Sample_Name != "EC_021_INC") %>% 
-  group_by(Sample_Name) %>% 
-  mutate(Effect_Size_mg_per_L = (abs(Respiration_Rate_mg_DO_per_L_per_H[Treat == "W"]) - abs(Respiration_Rate_mg_DO_per_L_per_H[Treat == "D"]))) %>% 
-  mutate(Effect_Size_mg_per_kg = (abs(Respiration_Rate_mg_DO_per_kg_per_H[Treat == "W"]) - abs(Respiration_Rate_mg_DO_per_kg_per_H[Treat == "D"]))) %>% 
-  mutate(Fe_Difference_mg_per_L = Fe_mg_per_L[Treat == "W"] - Fe_mg_per_L[Treat == "D"]) %>% 
-  mutate(Fe_Difference_mg_per_kg = Fe_mg_per_kg[Treat == "W"] - Fe_mg_per_kg[Treat == "D"]) %>% 
-  mutate(SpC_Difference = SpC[Treat == "W"] - SpC[Treat == "D"]) %>% 
-  mutate(pH_Difference = pH[Treat == "W"] - pH[Treat == "D"]) %>% 
-  mutate(Temp_Difference = Temp[Treat == "W"] - Temp[Treat == "D"]) %>% 
-  mutate(Initial_Grav_Water_Difference = Initial_Gravimetric_Water[Treat == "W"] - Initial_Gravimetric_Water[Treat == "D"]) %>% 
-  mutate(Final_Grav_Water_Difference = Final_Gravimetric_Water[Treat == "W"] - Final_Gravimetric_Water[Treat == "D"]) %>% 
-  mutate(Final_Grav_Water_Difference = Final_Gravimetric_Water[Treat == "W"] - Final_Gravimetric_Water[Treat == "D"]) %>% 
-  distinct(Sample_Name, .keep_all = TRUE) %>% 
-  dplyr::select(c(Sample_Name, Effect_Size_mg_per_L, Effect_Size_mg_per_kg, Fe_Difference_mg_per_L, Fe_Difference_mg_per_kg, SpC_Difference, pH_Difference, Temp_Difference, Initial_Grav_Water_Difference, Final_Grav_Water_Difference))
+effect_data <- medians %>% 
+  #separate(Sample_Name, c("Sample_Name", "Treat"), sep = "-") %>% 
+  filter(Sample_ID != "EC_011_INC") %>% 
+  filter(Sample_ID != "EC_012_INC") %>% 
+  #filter(Sample_Name != "EC_021_INC") %>% 
+  group_by(Sample_ID) %>% 
+  mutate(across(c(median_SpC:median_Lost_Gravimetric_Water), ~. [Rep == "Wet"] - .[Rep  == "Dry"])) %>% 
+  rename_with(.cols = c(median_SpC:median_Lost_Gravimetric_Water), .fn = ~ paste0("diff_", .x)) %>% 
+  distinct(Sample_ID, .keep_all = TRUE) 
+  
 
-write.csv(effect_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_ECA_Data.csv") 
+write.csv(effect_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_Median_ECA_Data.csv") 
