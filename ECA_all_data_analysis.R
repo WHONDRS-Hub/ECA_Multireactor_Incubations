@@ -1,7 +1,6 @@
 #### Sensitivity Analysis For ECA removals ####
 library(tidyverse)
 
-
 rm(list=ls());graphics.off()
 
 #### Read in Data
@@ -22,12 +21,31 @@ effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Dat
 
 cube_root <- function(x) sign(x) * (abs(x))^(1/3)
 
+panel.cor <- function(x, y, digits=2, prefix="", cex.cor)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r = (cor(x, y, method = c("spearman")))
+  txt <- format(c(r, 0.123456789), digits=digits)[1]
+  txt <- paste(prefix, txt, sep="")
+  if(missing(cex.cor)) {cex.cor <- 0.8/strwidth(txt)} else {cex = cex.cor}
+  text(0.5, 0.5, txt, cex = cex.cor * (1 + r)/1)
+  
+  # if(missing(cex.cor)) {cex <- 1.2/strwidth(txt)} else {cex = cex.cor}
+  # text(0.5, 0.5, txt, cex = cex * sin(sqrt(abs(r))))
+  
+  test <- cor.test(x,y)
+  Signif <- symnum(test$p.value, corr = FALSE, na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1), symbols = c("***", "**", "*", " "))
+  #text(0.5, 0.5, txt, cex = cex * r)
+  text(.5, .8, Signif, cex=cex, col=2)
+  
+}
+
+
 #### Rates histograms ####
 
 clean_all_data = all_data %>%
-  filter(Respiration_Rate_mg_DO_per_kg_per_H != -9999) %>% 
-  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>%
-  mutate(Respiration_Rate_mg_DO_per_kg_per_H = abs(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  filter(Respiration_Rate_mg_DO_per_kg_per_H != 9999) %>% 
   mutate(Treat = case_when(grepl("W",INC)~"Wet",
                            grepl("D", INC) ~"Dry")) 
 
@@ -87,13 +105,13 @@ dev.off()
 
 ## Effect Size Histogram ####
 
-effect_limits = c(-300, 300)
+effect_limits = c(-1500, 1500)
 
-png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_effect_histogram.png"), width = 10, height = 10, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Median_Effect_Histogram.png"), width = 10, height = 10, units = "in", res = 300)
 
-ggplot(effect_all, aes(x = Effect_Size))+
+ggplot(effect_data, aes(x = diff_median_Respiration_Rate_mg_DO_per_kg_per_H))+
   # geom_histogram(binwidth = 0.15, fill = "#009E73")+
-  geom_histogram(binwidth = 15, aes(fill = after_stat(x))) +
+  geom_histogram(binwidth = 30, aes(fill = after_stat(x))) +
   scale_fill_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
                        high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2) +
   theme_bw()+
@@ -101,151 +119,51 @@ ggplot(effect_all, aes(x = Effect_Size))+
         axis.title.y = element_text(size = 24),
         axis.text.x = element_text(size = 18),
         axis.text.y = element_text(size =18))+
-  xlim(c(-300,300))+
+  xlim(c(-1500,1500))+
   ylab("Count\n")+
-  xlab(expression("\n Effect Size (Wet - Dry Rate; mg O"^2*" L"^-1*" H"^-1*")"))
+  xlab(expression("\n Effect Size (Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))
 
 
 dev.off()
 
-log_effect_limits <- c(-2.48, 2.48)
+cube_effect_data = effect_data %>% 
+  mutate(across(where(is.numeric), cube_root)) %>% 
+  rename_with(where(is.numeric), .fn = ~ paste0("cube_", .x))
 
-png(file = paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_log_effect_histogram.png"), width = 10, height = 10, units = "in", res = 300)
+cube_effect_limits <- c(-12, 12)
 
-ggplot(effect_all, aes(x = Log_Effect_Size))+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Histogram.png"), width = 10, height = 10, units = "in", res = 300)
+
+ggplot(cube_effect_data, aes(x = cube_diff_median_Respiration_Rate_mg_DO_per_kg_per_H))+
   # geom_histogram(binwidth = 0.15, fill = "#009E73")+
-  geom_histogram(binwidth = 0.15, aes(fill = after_stat(x))) +
-  scale_fill_gradient2(name = "Log Effect Size", limits = log_effect_limits, low = "firebrick2", mid = "goldenrod2",
-                       high = "dodgerblue2", midpoint = (max(log_effect_limits)+min(log_effect_limits))/2) +
+  geom_histogram(binwidth = 0.5, aes(fill = after_stat(x))) +
+  scale_fill_gradient2(name = "Cube Effect Size", limits = cube_effect_limits, low = "firebrick2", mid = "goldenrod2",
+                       high = "dodgerblue2", midpoint = (max(cube_effect_limits)+min(cube_effect_limits))/2) +
   theme_bw()+
   theme(axis.title.x = element_text(size = 24),
         axis.title.y = element_text(size = 24),
         axis.text.x = element_text(size = 18),
         axis.text.y = element_text(size =18))+
-  xlim(c(-2.48, 2.48))+
+  xlim(c(-12, 12))+
   ylab("Count\n")+
-  xlab(expression("\n Log Effect Size (Wet - Dry Rate; mg O"^2*" L"^-1*" H"^-1*")"))
+  xlab(expression("\n Cube Effect Size (Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))
 
 dev.off()
 
 ####
 
+# James Correlation Matrix ####
 
-##D50/RUSLE Calculations - Need to be updated ####
-grn_all <- grn %>% 
-  dplyr::select(-c(geom_rusle, geom, Percent_Tot_Sand, Percent_Mud)) %>% 
-  mutate(Percent_Coarse_Sand_Finer = Percent_Coarse_Sand + Percent_Med_Sand + Percent_Fine_Sand + Percent_Silt + Percent_Clay) %>% 
-  mutate(Percent_Med_Sand_Finer = Percent_Med_Sand + Percent_Fine_Sand + Percent_Silt + Percent_Clay) %>% 
-  mutate(Percent_Fine_Sand_Finer = Percent_Fine_Sand + Percent_Silt + Percent_Clay) %>% 
-  mutate(Percent_Silt_Finer = Percent_Silt + Percent_Clay) %>% 
-  mutate(Percent_Clay_Finer = Percent_Clay) %>% 
-  dplyr::select(-c(Percent_Coarse_Sand, Percent_Med_Sand, Percent_Fine_Sand, Percent_Silt, Percent_Clay)) %>% 
-  pivot_longer(cols = c("Percent_Coarse_Sand_Finer", "Percent_Med_Sand_Finer", "Percent_Fine_Sand_Finer", "Percent_Silt_Finer", "Percent_Clay_Finer"), names_to = "Category", values_to = "fraction") %>% 
-  mutate(size = case_when(
-    grepl("Coarse", Category) ~ 1.25,
-    grepl("Med", Category) ~ 0.375,
-    grepl("Fine_Sand", Category) ~ 0.1,
-    grepl("Silt", Category) ~ 0.026, 
-    grepl("Clay", Category) ~ 0.01)) %>% 
-  mutate(y_int = 50) %>% 
-  group_by(kit) %>% 
-  mutate(slope = if_else(fraction[Category == "Percent_Med_Sand_Finer"] < 50, ((fraction[Category == "Percent_Coarse_Sand_Finer"] - fraction[Category == "Percent_Med_Sand_Finer"]) / (size[Category == "Percent_Coarse_Sand_Finer"] - size[Category == "Percent_Med_Sand_Finer"])), 
-                if_else(fraction[Category == "Percent_Fine_Sand_Finer"] < 50, ((fraction[Category == "Percent_Med_Sand_Finer"] - fraction[Category == "Percent_Fine_Sand_Finer"]) / (size[Category == "Percent_Med_Sand_Finer"] - size[Category == "Percent_Fine_Sand_Finer"])), 
-                if_else(fraction[Category == "Percent_Silt_Finer"] < 50, ((fraction[Category == "Percent_Fine_Sand_Finer"] - fraction[Category == "Percent_Silt_Finer"]) / (size[Category == "Percent_Fine_Sand_Finer"] - size[Category == "Percent_Silt_Finer"])), ((fraction[Category == "Percent_Silt_Finer"] - fraction[Category == "Percent_Clay_Finer"]) / (size[Category == "Percent_Silt_Finer"] - size[Category == "Percent_Clay_Finer"]))
-    )))) %>% 
-  mutate(x_int = if_else(fraction[Category == "Percent_Med_Sand_Finer"] < 50, (((50 - fraction[Category == "Percent_Med_Sand_Finer"])/slope[Category == "Percent_Coarse_Sand_Finer"])+size[Category == "Percent_Med_Sand_Finer"]),
-                  if_else(fraction[Category == "Percent_Fine_Sand_Finer"] < 50, (((50 - fraction[Category == "Percent_Fine_Sand_Finer"])/slope[Category == "Percent_Med_Sand_Finer"])+size[Category == "Percent_Fine_Sand_Finer"]),
-                  if_else(fraction[Category == "Percent_Silt_Finer"] < 50,(((50 - fraction[Category == "Percent_Silt_Finer"])/slope[Category == "Percent_Fine_Sand_Finer"])+size[Category == "Percent_Silt_Finer"]), (((50 - fraction[Category == "Percent_Clay_Finer"])/slope[Category == "Percent_Silt_Finer"])+size[Category == "Percent_Clay_Finer"])))))
-  
+cube_effect_data_corr = cube_effect_data %>% 
+  column_to_rownames("Sample_ID")%>% 
+  select(-c(Rep, cube_diff_median_Respiration_Rate_mg_DO_per_L_per_H, cube_diff_median_Fe_mg_per_L, cube_diff_median_ATP_nanomol_per_L))
 
-d50 <- grn_all %>% 
-  distinct(kit, .keep_all = TRUE) %>% 
-  dplyr::select(c(kit, x_int)) %>% 
-  rename(d50 = x_int)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
 
-grn <- merge(d50, grn)
-
-grn <- grn %>% 
-  relocate(d50, .after = geom)
-
-# geom <- grn %>% 
-#   select(c(kit, geom_rusle,geom)) %>% 
-#   rename(log_geom_mean = geom_rusle) %>% 
-#   rename(geom_mean = geom)
-# 
-# all_geom <- left_join(d50, geom, by = c("kit"))
-# 
-# geom_vs_d50 <- ggplot(all_geom, aes(x = geom_mean, y = d50))+
-#   geom_point()+
-#   geom_smooth()
-# 
-# geom_vs_rusle <- ggplot(all_geom, aes(x = geom_mean, y = log_geom_mean))+
-#   geom_point()+
-#   geom_smooth()
-# 
-# d50_vs_rusle <- ggplot(all_geom, aes(x = d50, y = log_geom_mean))+
-#   geom_point()+
-#   geom_smooth()
-
-
-#Coarse sand = 0.5 - 2 mm (1.25 mm), med sand = 0.25 - 0.499 (0.375) , fine sand = 0.05 - 0.25 (0.1), silt = , clay =
-
-## Cleaned Data - Needs to be updated ####
-all_samples_clean <- all_samples_grn %>% 
-  na.omit()  %>% 
-  #filter(!is.na(Sample_ID)) %>% 
-  remove_rownames %>% 
-  column_to_rownames(var = "Sample_Name") %>% 
-  rename(`Rate (mg/L/H)` = Respiration_Rate_mg_DO_per_L_per_H) %>% 
-  rename(`Initial Gravimetric Water` = grav_initial) %>% 
-  rename(`Final Gravimetric Water` = grav_final) %>% 
-  rename(`Lost Gravimetric Water` = lost_grav_perc) %>% 
- # rename(`Fe (II) (mg/kg)`  = Mean_Rep_Fe_mg_kg) %>% 
-  rename(`Fe (II) (mg/L)` = Mean_Rep_Fe_mg_per_L) %>% 
-  rename(`Sp. Conducitivity` = SpC) %>% 
-  rename(`pH` = pH) %>% 
-  rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
-  rename(`% Med. Sand` = Percent_Med_Sand) %>% 
-  rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
-  rename(`% Mud` = Percent_Mud) %>% 
-  rename(`Geometric Mean` = geom) %>% 
-  rename(`RUSLE Geometric Mean` = geom_rusle) %>% 
-  rename(`D50` = d50)
-
-
-## Respiration vs. Mud ####
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Respiration_vs_Mud_lowess.png"), width = 8, height = 8, units = "in", res = 300)
-
-par(mar = c(5 ,6 , 6, 6), xpd = FALSE)
-
-plot(all_samples_clean$`% Mud`, all_samples_clean$`Rate (mg/L)`, cex= 1.8, cex.lab = 2.2, cex.axis = 1.8 ,xlab = "% Mud" , ylab = expression("Respiration Rate (mg O"[2]*" L"^- 1*" min"^-1*")"), lwd = 2, col = samples_colors[all_samples_clean$Treat], pch = c(16,17)[as.numeric(all_samples_clean$Treat)])
-
-#lines(lowess(all_samples_clean$`% Mud`[all_samples_clean$Treat=="Dry"], all_samples_clean$`Rate (mg/L)`[all_samples_clean$Treat=="Dry"]), col = "#D55E00", lwd = 3)
-
-
-#lines(lowess(all_samples_clean$`% Mud`[all_samples_clean$Treat=="Wet"], all_samples_clean$`Rate (mg/L)`[all_samples_clean$Treat=="Wet"]), col = "#0072B2", lwd = 3)
-
-par(xpd = TRUE)
-
-legend(x = "topright", inset = c(-0.15,0.45), legend = paste(levels(all_samples_clean$Treat)), col = samples_colors, pch = c(16,17), cex = 1)
+pairs(cube_effect_data_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 1, cex = 1)
 
 dev.off()
 
-## Fe (mg/kg) vs. Respiration ####
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/ESS-PI_EGU/", as.character(Sys.Date()),"_Respiration_vs_Fe_mg_kg_lowess.png"), width = 8, height = 8, units = "in", res = 300)
-
-par(mar = c(5 ,6 , 6, 6), xpd = FALSE)
-
-plot(all_samples_clean$`Fe (II) (mg/L)`, all_samples_clean$`Rate (mg/L)`, cex= 1.8, cex.lab = 2.2, cex.axis = 1.8 ,xlab = expression("Fe (II) (mg kg"^-1*")"), ylab = expression("Respiration Rate (mg O"[2]*" L"^- 1*" min"^-1*")"), lwd = 2, col = samples_colors[all_samples_clean$Treat], pch = c(16,17)[as.numeric(all_samples_clean$Treat)])
-
-#lines(lowess(all_samples_clean$`Mean_Fe_mg_per_L`, all_samples_clean$`Rate (mg/L)`), col = "blue", lwd = 3)
-
-par(xpd = TRUE)
-
-legend(x = "topright", inset = c(-0.15,0.45), legend = paste(levels(all_samples_clean$Treat)), col = samples_colors,  pch = c(16,17), cex = 1)
-
-dev.off()
 
 ## Correlation Ind ####
 
@@ -467,184 +385,6 @@ rcorr(cbind(effect_corr))
 
 
 
-## Fine Sand, Mud, Coarse Sand, Fe Difference vs. Effect Size ####
-
-fe <- ggplot(log_effect, aes(x = `Fe Difference (mg/L)`, y = `Effect Size`)) +
-  geom_point()+
-  geom_smooth()+
-  xlab("Log Fe Difference (mg/L)")+
-  ylab("Log Effect Size")
-
-fine <- ggplot(log_effect, aes(x = `% Fine Sand`, y = `Effect Size`)) +
-  geom_point()+
-  geom_smooth()+
-  xlab("Log % Fine Sand")+
-  ylab("Log Effect Size")+
-  ylim(0, 0.8)
-
-coarse <- ggplot(log_effect, aes(x = `% Coarse Sand`, y = `Effect Size`)) +
-  geom_point()+
-  geom_smooth()+
-  xlab("Log % Coarse Sand")+
-  ylab("Log Effect Size")
-
-mud <- ggplot(log_effect, aes(x = `% Mud`, y = `Effect Size`)) +
-  geom_point()+
-  geom_smooth()+
-  xlab("Log % Mud")+
-  ylab("Log Effect Size")+
-  ylim(0, 0.75)
-
-all <- plot_grid(fe, fine, coarse, mud)
-
-ggsave("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/all_regression.png", all, width = 8, height = 8)
-
-## Fine Sand vs. Effect Size ####
-
-fine_sand_hist <- ggplot(effect, aes(x = `% Fine Sand`))+
- geom_histogram()
-
-effect_hist <- ggplot(effect, aes(x = `Effect Size`))+
-  geom_histogram()
-
-mud_hist <- ggplot(effect, aes(x = `% Mud`))+
-  geom_histogram()
-
-all_hist <- plot_grid(fine_sand_hist, mud_hist, effect_hist)
-
-ggsave("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/2023-07-07_texture_hist.png", all_hist, width = 8, height = 8)
-
-##this constant (+1) not enough to correct SpC/Fe differences
-
-log_effect <- log10(effect +1)
-
-log_fine_sand_hist <- ggplot(log_effect, aes(x = `% Fine Sand`))+
-  geom_histogram()+
-  xlab("Log % Fine Sand")
-
-log_effect_hist <- ggplot(log_effect, aes(x = `Effect Size`))+
-  geom_histogram()+
-  xlab("Log Effect Size")
-
-log_mud_hist <- ggplot(log_effect, aes(x = `% Mud`))+
-  geom_histogram() + 
-  xlab("Log % Mud")
-
-all_log_hist <- plot_grid( log_fine_sand_hist, log_effect_hist, log_mud_hist)
-
-ggsave("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/2023-07-07_log_texture_hist.png", all_log_hist, width = 8, height = 8)
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Comparison_Effect_vs_Fine_Sand_Scatter.png"), width = 16, height = 8, units = "in", res = 300)
-
-par(mfrow = c(1, 2))
-par(mar = c(5 ,6 , 4, 1))
-
-log_comp <- plot(log_effect$`% Fine Sand`, log_effect$`Effect Size`, cex= 1.8, cex.lab = 1.5, cex.axis = 1.8 ,xlab = "Log % Fine Sand" , ylab = expression(paste("Log Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")), lwd = 2)
-
-log_comp <- log_comp + lines(lowess(log_effect$`% Fine Sand`, log_effect$`Effect Size`), col = "blue", lwd = 3)
-
-comp <- plot(effect$`% Fine Sand`, effect$`Effect Size`, cex= 1.8, cex.lab = 1.5, cex.axis = 1.8 ,xlab = "% Fine Sand" , ylab = expression(paste("Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")), lwd = 2)
-
-comp <- comp + lines(lowess(effect$`% Fine Sand`, effect$`Effect Size`), col = "blue", lwd = 3)
-
-dev.off()
-
-
-ggsave("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/2023-07-07_log_texture_hist.png", all_log_hist, width = 8, height = 8)
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_vs_Fine_Sand_Scatter.png"), width = 8, height = 8, units = "in", res = 300)
-
-par(mar = c(5 ,6 , 4, 1))
-
-plot(effect$`% Fine Sand`, effect$`Effect Size`, cex= 1.8, cex.lab = 1.8, cex.axis = 1.8 ,xlab = "% Fine Sand" , ylab = expression(paste("Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")), lwd = 2)
-
-#lines(lowess(effect$`% Fine Sand`, effect$`Effect Size`), col = "blue", lwd = 3)
-
-dev.off()
-
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_vs_Fine_Sand_Scatter.png"), width = 8, height = 8, units = "in", res = 300)
-
-# ggplot(effect, aes(x = `% Fine Sand`, y = `Effect Size`))+
-#   geom_point()+
-#   #geom_smooth(method = lm)+
-#   theme_bw()
-
-par(mar = c(5 ,6 , 4, 1))
-
-plot(effect$`% Fine Sand`, effect$`Effect Size`, cex= 1.8, cex.lab = 1.8, cex.axis = 1.8 ,xlab = "Log % Fine Sand" , ylab = expression(paste("Log Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")), lwd = 2)
-
-lines(lowess(effect$`% Fine Sand`, effect$`Effect Size`), col = "blue", lwd = 3)
-
-dev.off()
-
-## Mud vs. Effect Size ####
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_vs_Mud.png"), width = 8, height = 8, units = "in", res = 300)
-
-par(mar = c(5 ,6 , 4, 1))
-
-plot(effect$`% Mud`, effect$`Effect Size`, cex= 1.8, cex.lab = 1.8, cex.axis = 1.8 ,xlab = "% Mud" , ylab = expression(paste("Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")), lwd = 2)
-
-#lines(lowess(effect$`% Mud`, effect$`Effect Size`), col = "blue", lwd = 3)
-
-dev.off()
-
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Log_Effect_vs_Log_Mud.png"), width = 8, height = 8, units = "in", res = 300)
-
-par(mar = c(5 ,6 , 4, 1))
-
-plot(log_effect$`% Mud`, log_effect$`Effect Size`, cex= 1.8, cex.lab = 1.8, cex.axis = 1.8 ,xlab = "Log % Mud" , ylab = expression(paste("Log Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")), lwd = 2)
-
-#lines(lowess(log_effect$`% Mud`, log_effect$`Effect Size`), col = "blue", lwd = 3)
-
-dev.off()
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Comparison_Effect_vs_Mud_Scatter.png"), width = 16, height = 8, units = "in", res = 300)
-
-par(mfrow = c(1, 2))
-par(mar = c(5 ,6 , 4, 1))
-
-mud <- plot(effect$`% Mud`, effect$`Effect Size`, cex= 1.8, cex.lab = 1.8, cex.axis = 1.8 ,xlab = "% Mud" , ylab = expression(paste("Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")), lwd = 2)
-
-mud <- mud + lines(lowess(effect$`% Mud`, effect$`Effect Size`), col = "blue", lwd = 3)
-
-par(mar = c(5 ,6 , 4, 1))
-
-log_mud <- plot(log_effect$`% Mud`, log_effect$`Effect Size`, cex= 1.8, cex.lab = 1.8, cex.axis = 1.8 ,xlab = "Log % Mud" , ylab = expression(paste("Log Effect Size (Wet - Dry Rate) (mg O"[2]*" L"^-1*" min"^-1*")")), lwd = 2)
-
-log_mud <- log_mud + lines(lowess(log_effect$`% Mud`, log_effect$`Effect Size`), col = "blue", lwd = 3)
-
-dev.off()
-
-# James Correlation Matrix ####
-
-panel.cor <- function(x, y, digits=2, prefix="", cex.cor)
-{
-  usr <- par("usr"); on.exit(par(usr))
-  par(usr = c(0, 1, 0, 1))
-  r = (cor(x, y))
-  txt <- format(c(r, 0.123456789), digits=digits)[1]
-  txt <- paste(prefix, txt, sep="")
-  if(missing(cex.cor)) {cex.cor <- 0.8/strwidth(txt)} else {cex = cex.cor}
-  text(0.5, 0.5, txt, cex = cex.cor * (1 + r)/1)
-  
-  # if(missing(cex.cor)) {cex <- 1.2/strwidth(txt)} else {cex = cex.cor}
-  # text(0.5, 0.5, txt, cex = cex * sin(sqrt(abs(r))))
-  
-  test <- cor.test(x,y)
-  Signif <- symnum(test$p.value, corr = FALSE, na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1), symbols = c("***", "**", "*", " "))
-  #text(0.5, 0.5, txt, cex = cex * r)
-  text(.5, .8, Signif, cex=cex, col=2)
-  
-}
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_James_Effect_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
-
-pairs(log_effect, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 1, cex = 1)
-
-dev.off()
 
 ## Effect Size PCA ####
 
