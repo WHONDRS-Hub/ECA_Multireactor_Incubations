@@ -144,10 +144,10 @@ effect_data <- medians %>%
   relocate(median_Lost_Gravimetric_Water, .after = median_Final_Gravimetric_Moisture) %>% 
   #filter(Sample_Name != "EC_021_INC") %>% 
   group_by(Sample_ID) %>% 
-  mutate(across(c(median_SpC:median_Lost_Gravimetric_Water), ~. [Rep == "Wet"] - .[Rep  == "Dry"])) %>% 
-  rename_with(.cols = c(median_SpC:median_Lost_Gravimetric_Water), .fn = ~ paste0("diff_", .x)) %>% 
+  mutate(across(c(median_SpC:median_ATP_picomol_per_g), ~. [Rep == "Wet"] - .[Rep  == "Dry"])) %>% 
+  rename_with(.cols = c(median_SpC:median_ATP_picomol_per_g), .fn = ~ paste0("diff_", .x)) %>% 
   distinct(Sample_ID, .keep_all = TRUE) %>% 
-  dplyr::select(-c(median_Incubation_Water_Mass_g, diff_median_Dry_Sediment_Mass_g, diff_median_Final_Water_mass_g, diff_median_Initial_Water_mass_g))
+  dplyr::select(-c(diff_median_Incubation_Water_Mass_g, diff_median_Dry_Sediment_Mass_g, diff_median_Final_Water_mass_g, diff_median_Initial_Water_mass_g))
   
 
 write.csv(effect_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_Median_ECA_Data.csv") 
