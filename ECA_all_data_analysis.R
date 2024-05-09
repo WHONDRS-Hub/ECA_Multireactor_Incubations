@@ -1,5 +1,10 @@
 #### Sensitivity Analysis For ECA removals ####
 library(tidyverse)
+library(corrplot)
+library(ggpubr)
+library(ggpmisc)
+library(factoextra)
+library(stringr)
 
 rm(list=ls());graphics.off()
 
@@ -47,19 +52,19 @@ panel.cor <- function(x, y, digits=2, prefix="", cex.cor)
 clean_all_data = all_data %>%
   filter(Respiration_Rate_mg_DO_per_kg_per_H != 9999) %>% 
   mutate(Treat = case_when(grepl("W",INC)~"Wet",
-                           grepl("D", INC) ~"Dry")) 
+                           grepl("D", INC) ~"Dry")) %>% 
+  mutate(Fe_mg_per_L = if_else(grepl("SFE_Below", Fe_mg_per_L), "0.001", Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Below", Fe_mg_per_kg), "0.003", Fe_mg_per_kg)) %>%
+  mutate(Fe_mg_per_L = if_else(grepl("SFE_Above", Fe_mg_per_L), str_extract(Fe_mg_per_L, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Above", Fe_mg_per_kg), str_extract(Fe_mg_per_kg, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_kg)) %>% 
+  mutate(Fe_mg_per_L = as.numeric(Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_kg = as.numeric(Fe_mg_per_kg))
 
 cube_all_data = clean_all_data %>% 
   mutate(across(where(is.numeric), cube_root)) %>% 
   rename_with(where(is.numeric), .fn = ~ paste0("cube_", .x))
 
 ## Respiration Histograms ####
-
-color_pallete <- colorRampPalette(colors = c("#D55E00", "#0072B2"))
-
-num_colors <- nlevels(clean_all_data$Treat)
-
-samples_colors <- color_pallete(num_colors)
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Wet_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
@@ -79,10 +84,10 @@ png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Fi
 ggplot(subset(cube_all_data, Treat %in% "Wet"), aes(x = cube_Respiration_Rate_mg_DO_per_kg_per_H)) +
   geom_histogram(fill = "#0072B2")+
   ggtitle("Wet Rates")+
-  xlab(expression("Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
+  xlab(expression("Cube Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
   theme(strip.text = element_text(
     size = 4))+
-  ylim(0, 50)+
+  ylim(0, 87.5)+
   theme_bw()
 
 dev.off()
@@ -100,6 +105,36 @@ ggplot(subset(clean_all_data, Treat %in% "Dry"), aes(x = Respiration_Rate_mg_DO_
   theme_bw()
 
 dev.off()
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Wet_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+
+ggplot(subset(cube_all_data, Treat %in% "Dry"), aes(x = cube_Respiration_Rate_mg_DO_per_kg_per_H)) +
+  geom_histogram(fill = "#D55E00")+
+  ggtitle("Wet Rates")+
+  xlab(expression("Cube Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
+  theme(strip.text = element_text(
+    size = 4))+
+  ylim(0, 87.5)+
+  theme_bw()
+
+dev.off()
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_All_Rates_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+
+all_cube_hist = ggplot(cube_all_data, aes(x = cube_Respiration_Rate_mg_DO_per_kg_per_H)) +
+  geom_histogram(position = "identity", alpha = 0.8, aes(fill = Treat))+
+  scale_fill_manual(values = c("#D55E00","#0072B2"))  +
+  #ggtitle("Wet Rates")+
+  xlab(expression("Cube Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
+  theme(strip.text = element_text(
+    size = 4))+
+  ylim(0, 87.5)+
+  theme_bw()
+
+all_cube_hist
+
+dev.off()
+
 
 ####
 
@@ -134,51 +169,75 @@ cube_effect_limits <- c(-12, 12)
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Histogram.png"), width = 10, height = 10, units = "in", res = 300)
 
-ggplot(cube_effect_data, aes(x = cube_diff_median_Respiration_Rate_mg_DO_per_kg_per_H))+
+cube_effect_hist = ggplot(cube_effect_data, aes(x = cube_diff_median_Respiration_Rate_mg_DO_per_kg_per_H))+
   # geom_histogram(binwidth = 0.15, fill = "#009E73")+
   geom_histogram(binwidth = 0.5, aes(fill = after_stat(x))) +
   scale_fill_gradient2(name = "Cube Effect Size", limits = cube_effect_limits, low = "firebrick2", mid = "goldenrod2",
                        high = "dodgerblue2", midpoint = (max(cube_effect_limits)+min(cube_effect_limits))/2) +
   theme_bw()+
-  theme(axis.title.x = element_text(size = 24),
-        axis.title.y = element_text(size = 24),
-        axis.text.x = element_text(size = 18),
-        axis.text.y = element_text(size =18))+
+  #theme(axis.title.x = element_text(size = 4),
+      #  axis.title.y = element_text(size = 4),
+      #  axis.text.x = element_text(size = 4),
+      #  axis.text.y = element_text(size =4))+
   xlim(c(-12, 12))+
-  ylab("Count\n")+
+  ylab("count\n")+
   xlab(expression("\n Cube Effect Size (Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))
+  
+
+cube_effect_hist
 
 dev.off()
 
 ####
 
+
+## Effect Size + Rate Combined Figure
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Combined_Histogram.png"), width = 8, height = 4, units = "in", res = 300)
+
+cube_effect_hist_new = cube_effect_hist +
+  theme(legend.position = c(0.85, 0.8),
+        legend.key.size = unit(0.15, "in"), 
+        legend.title = element_text(size = 8),
+        axis.title.x = element_text(size = 10)) + 
+  xlab(expression(atop("\n Cube Effect Size", "(Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))) 
+  
+
+all_cube_hist_new = all_cube_hist + 
+  theme(legend.position = c(0.85, 0.8), 
+        legend.key.size = unit(0.15, "in"), 
+        legend.title = element_text(size = 8),
+        axis.title.x = element_text(size = 10)) +
+  guides(fill = guide_legend(title="Treatment")) + 
+  xlab(expression(atop("\n Cube Respiration Rate", "(mg O"[2]*" kg"^-1*" H"^-1*")")))
+
+combine_hist = ggarrange(all_cube_hist_new, cube_effect_hist_new, labels = c("A", "B"), label.x = c(0.15, 0.175), label.y = c(0.97, 0.97))
+
+combine_hist
+
+dev.off()
+
 # James Correlation Matrix ####
-
-cube_effect_data_corr = cube_effect_data %>% 
-  column_to_rownames("Sample_ID")%>% 
-  select(-c(Rep, cube_diff_median_Respiration_Rate_mg_DO_per_L_per_H, cube_diff_median_Fe_mg_per_L, cube_diff_median_ATP_nanomol_per_L))
-
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
-
-pairs(cube_effect_data_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 1, cex = 1)
-
-dev.off()
+all_samples_cube_corr <- cube_all_data %>% 
+  dplyr::select(-c(Sample_ID, INC, Treat, Methods_Deviation, cube_Incubation_Water_Mass_g, cube_Dry_Sediment_Mass_g, cube_Initial_Water_mass_g, cube_Final_Water_mass_g, cube_Respiration_Rate_mg_DO_per_L_per_H, cube_Fe_mg_per_L, cube_ATP_nanomol_per_L)) %>% 
+  relocate(cube_Respiration_Rate_mg_DO_per_kg_per_H, .before = cube_SpC) %>% 
+  column_to_rownames("Sample_Name") %>% 
+  filter(!is.na(cube_mean_ssa))
 
 
-## Correlation Ind ####
+cube_all_samples_corr <- cor(all_samples_cube_corr, method = "spearman")
 
-all_samples_clean_corr <- all_samples_clean %>% 
-  dplyr::select(-c(kit, Treat, EC, Log_Mean_Rep_Fe_mg_L, Temp, pH, D50, `Geometric Mean`, `RUSLE Geometric Mean`))
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_All_Samples_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
 
-all_samples_corr <- cor(all_samples_clean_corr, method = "spearman")
+pairs(all_samples_cube_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = 1)
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_All_Samples_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
-
-corrplot(all_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "All Samples Correlation")
+#corrplot(cube_all_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "All Samples Correlation")
 
 dev.off()
 
-## Dry Corr Ind ####
+## NEED TO BE UPDATED - WET/DRY Individual Matrices #### ####
+
+## Dry Corr Ind ###
 
 all_samples_dry <- all_samples_clean %>%
   na.omit()  %>% 
@@ -189,11 +248,11 @@ all_samples_dry_corr <- cor(all_samples_dry,method = "spearman")
 
 png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_All_Dry_Samples_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
 
-corrplot(all_samples_dry_corr, type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25, title = "All Dry Samples Correlation")
+#corrplot(all_samples_dry_corr, type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25, title = "All Dry Samples Correlation")
 
 dev.off()
 
-## Wet Correlation Ind ####
+## Wet Correlation Ind ###
 all_samples_wet <- all_samples_clean %>%
   na.omit()  %>% 
   filter(!grepl("Dry", Treat)) %>% 
@@ -207,188 +266,130 @@ corrplot(all_samples_wet_corr,type = "upper", tl.col = "black", tl.cex = 1.6, cl
 
 dev.off()
 
-#### Wet/Dry Correlation Matrices ####
-wd_list <- list(rem_resp_avg, mean_fe_treat, mean_chem, average_grav)
 
-#merge all data frames in list
-wet_dry <- wd_list %>% 
-  reduce(merge, by = c("kit", "Treat"), remove = FALSE)
 
-mean_wet_dry <- merge(wet_dry, grn_ssa, by = "kit")
-
-mean_wet_dry_clean <- mean_wet_dry %>% 
-  rename(`Average Rate (mg/L)` = Average_Rate) %>% 
-  #rename(`Effect Size` = effect) %>% 
-    rename(`Mean Initial Gravimetric Water` = average_grav_intial) %>% 
-  rename(`Mean Final Gravimetric Water` = average_grav_final) %>% 
-  rename(`Mean Lost Gravimetric Water` = average_grav_lost) %>% 
- # rename(`Mean Fe (II) (mg/kg)`  = Mean_Treat_Fe_mg_kg) %>% 
-  rename(`Mean Sp. Conducitivity` = Mean_Sp_Conductivity) %>% 
-  rename(`Mean pH` = Mean_pH) %>% 
-  rename(`Mean Temp.` = Mean_Temperature) %>% 
-  rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
-  rename(`% Med. Sand` = Percent_Med_Sand) %>% 
-  rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
-  rename(`% Mud` = Percent_Mud) %>% 
-  rename(`Geometric Mean` = geom) %>% 
-  rename(`RUSLE Geometric Mean` = geom_rusle) %>% 
-  rename(`D50` = d50) %>% 
-  dplyr::select(-c(#Mean_Treat_Fe_mg_L,
-    #Log_Mean_Treat_Fe_mg_kg,
-    `RUSLE Geometric Mean`, `Geometric Mean`,  Percent_Clay, `% Fine Sand`,`% Med. Sand`, `% Coarse Sand`,`% Mud`, Percent_Silt, Percent_Tot_Sand)) %>% 
-  na.omit()
-
-mean_wet_dry_clean_corr <- mean_wet_dry_clean %>%
-  unite(kit_treat, c("kit", "Treat"), sep = "_", remove = TRUE) %>% 
-  dplyr::select(-c(EC)) %>% 
-  na.omit() %>% 
-  remove_rownames %>% 
-  column_to_rownames(var = c("kit_treat")) 
-
-mean_samples_corr <- cor(mean_wet_dry_clean_corr, method = "spearman")
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Mean_Wet_Dry_Samples_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
-
-corrplot(mean_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Mean Samples Correlation")
-
-dev.off()
-
-## Mean Wet Corr ####
-mean_wet <- mean_wet_dry_clean %>%
-  filter(!grepl("Dry", Treat)) %>% 
-  remove_rownames %>% 
-  column_to_rownames(var = "kit") %>% 
-  dplyr::select(-c(Treat, EC))
- 
-mean_wet_corr <- cor(mean_wet, method = "spearman")
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Mean_Wet_Treatment_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
-
-corrplot(mean_wet_corr, title = "Wet Treatment Correlation", type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25)
-
-dev.off()
-
-## Mean Dry Corr ####
-mean_dry <-  mean_wet_dry_clean %>%
-  filter(!grepl("Wet", Treat)) %>% 
-  remove_rownames %>% 
-  column_to_rownames(var = "kit") %>% 
-  dplyr::select(-c(Treat, EC))
-
-mean_dry_corr <- cor(mean_dry, method = "spearman")
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Mean_Dry_Treatment_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
-
-corrplot(mean_dry_corr, title = "Dry Treatment Correlation", type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25)
-
-dev.off()
-
-#### Effect Differences Correlation Matrix ####
-
-effect_list <- list(effect_all, mean_fe_diff, mean_chem_diff, average_grav_lost,grn, ssa_clean)
-
-#merge all data frames in list
-effect <- effect_list %>% 
-  reduce(merge, by = "kit") %>% 
-  mutate(log_ssa = log10(mean_ssa)) %>% 
-  mutate(log_mud = log10(Percent_Mud)) %>% 
-  rename(`Effect Size` = Effect_Size) %>% 
-  rename(`Log Effect Size` = Log_Effect_Size) %>% 
-  #rename(`Fe (II) Diff.`  = Fe_Difference_mg_kg) %>% 
-  rename(`SpC Diff.` = Sp_Conductivity_Difference) %>% 
-  rename(`Temp. Diff.` = Temp_Difference) %>% 
-  rename(`pH Diff.` = pH_Difference) %>% 
-  rename(`Moisture Diff.` = Final_Gravimetric_Moisture_Difference) %>% 
-  rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
-  rename(`% Med. Sand` = Percent_Med_Sand) %>% 
-  rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
-  rename(`% Mud` = Percent_Mud) %>% 
-  rename(D50 = d50) %>% 
-  rename(`Fe Difference (mg/L)` = Fe_Difference_mg_L) %>% 
-  na.omit()  %>% 
-  remove_rownames %>% 
-  column_to_rownames(var = "kit") %>% 
-  dplyr::select(-c("Percent_Tot_Sand", "Percent_Silt", "Percent_Clay",D50, EC))%>% 
-  dplyr::select(-c(#"% Fine Sand", "% Med. Sand", "% Coarse Sand", "% Mud",
-    "geom_rusle", "geom"
-    #, "D50"
-    ))
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Log_Effect_Log_SSA.png"), width = 8, height = 8, units = "in", res = 300)
-
-ggplot(effect, aes(y = `Log Effect Size`, x = `log_ssa`)) +
-  geom_point() +
-  #stat_poly_eq()+
-  #stat_poly_line()+
-  #geom_smooth(method = "lm")+
-  ylab("Log Effect Size") +
-  xlab(expression("Log Specific Surface Area (m"^2*" g"^-1*")")) + 
-  #xlab("Log % Mud")+
-  theme_bw()
-
-dev.off()
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_SSA.png"), width = 8, height = 8, units = "in", res = 300)
-
-ggplot(effect, aes(y = `Effect Size`, x = `mean_ssa`)) +
-  geom_point(size = 4, aes(color = `Effect Size`)) +
-  scale_color_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
-                       high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2)+
-  #stat_poly_eq()+
-  #stat_poly_line()+
-  #geom_smooth(method = "lm")+
-  ylab("Effect Size") +
-  xlab(expression("Specific Surface Area (m"^2*" g"^-1*")")) + 
-  #xlab("Log % Mud")+
-  theme_bw()+
-  theme(axis.title = element_text(size=20))
-
-dev.off()
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_Mud.png"), width = 8, height = 8, units = "in", res = 300)
-
-ggplot(effect, aes(y = `Effect Size`, x = `% Mud`)) +
-  geom_point() +
-  #stat_poly_eq()+
-  #stat_poly_line()+
-  #geom_smooth(method = "lm")+
-  ylab("Effect Size") +
-  xlab(expression("% Mud")) + 
-  #xlab("Log % Mud")+
-  theme_bw()
-
-dev.off()
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Log_Effect_Log_Mud.png"), width = 8, height = 8, units = "in", res = 300)
-
-ggplot(effect, aes(y = `Log Effect Size`, x = `log_mud`)) +
-  geom_point() +
-  #stat_poly_eq()+
-  #stat_poly_line()+
-  #geom_smooth(method = "lm")+
-  ylab("Log Effect Size") +
-  xlab(expression("Log % Mud")) + 
-  #xlab("Log % Mud")+
-  theme_bw()
-
-dev.off()
+## NEED TO BE UPDATED - WET/DRY Median Matrices ####
+## Effect Size ####
+cube_effect_data_corr = cube_effect_data %>% 
+  column_to_rownames("Sample_ID")%>% 
+  select(-c(Rep, cube_diff_median_Respiration_Rate_mg_DO_per_L_per_H, cube_diff_median_Fe_mg_per_L, cube_diff_median_ATP_nanomol_per_L)) %>% 
+  rename(Cube_SpC_Diff = cube_diff_median_SpC) %>% 
+  rename(Cube_pH_Diff = cube_diff_median_pH) %>%
+  rename(Cube_Temp_Diff = cube_diff_median_Temp) %>%
+  rename(Cube_Effect_Size = cube_diff_median_Respiration_Rate_mg_DO_per_kg_per_H) %>%
+  rename(Cube_Fe_mg_kg_Diff = cube_diff_median_Fe_mg_per_kg) %>%
+  rename(Cube_InGravMoi_Diff = cube_diff_median_Initial_Gravimetric_Moisture) %>%
+  rename(Cube_FinGravMoi_Diff = cube_diff_median_Final_Gravimetric_Moisture) %>%
+  rename(Cube_LostGravMoi_Diff = cube_diff_median_Lost_Gravimetric_Water) %>%
+  rename(Cube_ATP_pmol_g_Diff = cube_diff_median_ATP_picomol_per_g) %>%
+  rename(Cube_Fine_Sand = cube_median_Percent_Fine_Sand) %>%
+  rename(Cube_Med_Sand = cube_median_Percent_Med_Sand) %>%
+  rename(Cube_Coarse_Sand = cube_median_Percent_Coarse_Sand) %>%
+  rename(Cube_Tot_Sand = cube_median_Percent_Tot_Sand) %>%
+  rename(Cube_Silt = cube_median_Percent_Silt) %>%
+  rename(Cube_Clay = cube_median_Percent_Clay) %>%
+  rename(Cube_SSA = cube_median_mean_ssa) %>% 
+  relocate(Cube_Effect_Size, .before = Cube_SpC_Diff) %>% 
+  filter(!is.na(Cube_SSA))
   
-effect_corr <- cor(effect, method = "spearman")
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_Difference_Correlation_Matrix_Coulson.png"), width = 8, height = 8, units = "in", res = 300)
-
-corrplot(effect_corr, type = 'upper', tl.col = "black", tl.cex = 1.6, cl.cex = 1.25)
+pairs(cube_effect_data_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = 1)
 
 dev.off()
 
-rcorr(cbind(effect_corr))
+## Scatter Plots ####
 
+##Fe vs. Effect ##
 
+fe_cube_out = cube_effect_data_corr %>% 
+  filter(Cube_Fe_mg_kg_Diff > -1)
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fe_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+
+fe_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Fe_mg_kg_Diff, y = Cube_Effect_Size)) +
+  geom_point() +
+  theme_bw() +
+  stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+  stat_poly_line(data = fe_out, se = FALSE)+
+  xlab("Cube Root Fe (II) (mg/kg) Difference (Wet - Dry)") +
+  ylab("Cube Root Effect Size (mg/kg) (Wet - Dry)")+ 
+  theme(text = element_text(size = 13)) 
+
+dev.off()
+
+fe_out = effect_data %>% 
+  filter(diff_median_Fe_mg_per_kg > -1)
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Median_Effect_vs_Fe_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+
+ggplot(effect_data, aes(x = diff_median_Fe_mg_per_kg, y = diff_median_Respiration_Rate_mg_DO_per_kg_per_H)) +
+  geom_point() +
+  theme_bw() +
+  stat_cor(data = fe_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+  stat_poly_line(data = fe_out, se = FALSE)+
+  xlab("Fe (II) (mg/kg) Difference (Wet - Dry)") +
+  ylab("Effect Size (mg/kg) (Wet - Dry)")+ 
+  theme(text = element_text(size = 13)) 
+
+dev.off()
+
+##ATP vs. Effect ##
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_ATP_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+
+atp_cube = ggplot(cube_effect_data_corr, aes(x = Cube_ATP_pmol_g_Diff, y = Cube_Effect_Size)) +
+  geom_point() +
+  theme_bw() +
+  stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+  stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
+  xlab("Cube Root ATP (picomol/g) Difference (Wet - Dry)") +
+  ylab("Cube Root Effect Size (mg/kg) (Wet - Dry)")+ 
+  theme(text = element_text(size = 13)) 
+
+dev.off()
+
+##Fine Sand vs. Effect ##
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_ATP_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+
+fs_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Fine_Sand, y = Cube_Effect_Size)) +
+  geom_point() +
+  theme_bw() +
+  stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+  stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
+  xlab("Cube Root Fine Sand (%)") +
+  ylab("Cube Root Effect Size (mg/kg) (Wet - Dry)")+ 
+  theme(text = element_text(size = 13)) 
+
+dev.off()
 
 
 ## Effect Size PCA ####
 
-effect_pca <- prcomp(effect, scale = TRUE,
+effect_data_clean = effect_data %>% 
+  filter(!is.na(median_mean_ssa)) %>% 
+  select(-c(Rep, diff_median_ATP_nanomol_per_L, diff_median_Respiration_Rate_mg_DO_per_L_per_H, diff_median_Fe_mg_per_L)) %>% 
+  column_to_rownames("Sample_ID") %>% 
+  rename(SpC_Diff = diff_median_SpC) %>% 
+  rename(pH_Diff = diff_median_pH) %>%
+  rename(Temp_Diff = diff_median_Temp) %>%
+  rename(Effect_Size = diff_median_Respiration_Rate_mg_DO_per_kg_per_H) %>%
+  rename(Fe_mg_kg_Diff = diff_median_Fe_mg_per_kg) %>%
+  rename(InGravMoi_Diff = diff_median_Initial_Gravimetric_Moisture) %>%
+  rename(FinGravMoi_Diff = diff_median_Final_Gravimetric_Moisture) %>%
+  rename(LostGravMoi_Diff = diff_median_Lost_Gravimetric_Water) %>%
+  rename(ATP_pmol_g_Diff = diff_median_ATP_picomol_per_g) %>%
+  rename(Fine_Sand = median_Percent_Fine_Sand) %>%
+  rename(Med_Sand = median_Percent_Med_Sand) %>%
+  rename(Coarse_Sand = median_Percent_Coarse_Sand) %>%
+  rename(Tot_Sand = median_Percent_Tot_Sand) %>%
+  rename(Silt = median_Percent_Silt) %>%
+  rename(Clay = median_Percent_Clay) %>%
+  rename(SSA = median_mean_ssa) %>% 
+  relocate(Effect_Size, .before = SpC_Diff)
+
+effect_pca <- prcomp(effect_data_clean, scale = TRUE,
                  center = TRUE, retx = T)
 
 # Summary
@@ -398,19 +399,54 @@ summary(effect_pca)
 dim(effect_pca$x)
 effect_pca$x
 
-limits = c(-4,
-           4)
+limits = c(-1450,
+           1450)
 
 ind <- get_pca_ind(effect_pca)
 ind
 
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_Effect_PCA.png"), width = 10, height = 10, units = "in", res = 500)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Median_Effect_PCA.png"), width = 8, height = 8, units = "in", res = 300)
 
-fviz_pca_biplot(effect_pca, col.var = "black",geom = "point"
+pca = fviz_pca_biplot(effect_pca, col.var = "black",geom = "point"
 )+
-  geom_point(aes(color = effect$`Effect Size`), size = 3.5)+
+  geom_point(aes(color = effect_data_clean$Effect_Size), size = 3.5)+
   scale_color_gradient2(limits = limits, low = "firebrick2", mid = "goldenrod2",
                         high = "dodgerblue2", midpoint = (max(limits)+min(limits))/2) +
   labs(color = paste0("Wet - Dry Rate"))
+
+pca
+
+dev.off()
+
+## PCA with Scatter Plots ####
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Combined_PCA.png"), width = 12, height = 8, units = "in", res = 300)
+
+pca_new = pca + theme(legend.position = c(0.85, 0.2), 
+      legend.key.size = unit(0.25, "in"), 
+      legend.title = element_text(size = 8),
+      axis.title.x = element_text(size = 10))
+
+fe_cube_new = fe_cube + 
+  ylab("") + 
+  theme(axis.title.x = element_text(size = 10))
+
+
+atp_cube_new = atp_cube + 
+  ylab("") + 
+  theme(axis.title.x = element_text(size = 10))
+
+fs_cube_new = fs_cube + 
+  ylab("") + 
+  theme(axis.title.x = element_text(size = 10))
+
+combine_scatter = ggarrange(fe_cube_new, atp_cube_new, fs_cube_new, common.legend = TRUE, nrow = 3, labels = c("B", "C", "D"), label.x = c(0.9, 0.9, 0.9), label.y = c(0.3, 0.3, 0.3), heights = c(1,1,1)) 
+
+  annotate_scatter = annotate_figure(combine_scatter, left = text_grob("Cube Root Effect Size (mg/kg) (Wet - Dry)", x = 0.75, y = 0.5, size = 15, vjust = 1, rot = 90))
+
+
+combine_pca = ggarrange(pca_new, annotate_scatter, labels = c("A"), ncol = 2, label.x = c(0.08), label.y = c(0.95), widths = c(2, 1), heights = c(2,2)) 
+
+combine_pca
 
 dev.off()
