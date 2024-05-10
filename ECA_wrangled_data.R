@@ -126,14 +126,13 @@ write.csv(all_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All
 #   group_by(Sample_Name) %>% 
 #   summarise_if(is.numeric, mean)
 
-medians = all_data 
-  filter(ATP_nanomol_per_L != -9999) %>% 
-  filter(Respiration_Rate_mg_DO_per_kg_per_H != -9999) %>% 
+medians = all_data %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
-  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) 
+  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>% 
+  dplyr::select(-c(Incubation_Water_Mass_g, Dry_Sediment_Mass_g, Final_Water_mass_g, Initial_Water_mass_g)) %>% 
   group_by(Sample_ID, Rep) %>%
   summarise(across(where(is.numeric), median)) %>% 
-  rename_with(.cols = c(SpC:Lost_Gravimetric_Water), .fn = ~ paste0("median_", .x))
+  rename_with(.cols = c(SpC:Lost_Gravimetric_Water), .fn = ~ paste0("median_", .x)) 
   
 write.csv(medians,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Medians_ECA_Data.csv") 
   
@@ -147,8 +146,7 @@ effect_data <- medians %>%
   group_by(Sample_ID) %>% 
   mutate(across(c(median_SpC:median_ATP_picomol_per_g), ~. [Rep == "Wet"] - .[Rep  == "Dry"])) %>% 
   rename_with(.cols = c(median_SpC:median_ATP_picomol_per_g), .fn = ~ paste0("diff_", .x)) %>% 
-  distinct(Sample_ID, .keep_all = TRUE) %>% 
-  dplyr::select(-c(diff_median_Incubation_Water_Mass_g, diff_median_Dry_Sediment_Mass_g, diff_median_Final_Water_mass_g, diff_median_Initial_Water_mass_g))
+  distinct(Sample_ID, .keep_all = TRUE)
   
 
 write.csv(effect_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_Median_ECA_Data.csv") 
