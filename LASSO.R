@@ -23,7 +23,7 @@ icon_resp = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/v2_CM_SSS_Sedi
   mutate(Mean_Normalized_Respiration_Rate_mg_DO_per_H_per_L_sediment = abs(as.numeric(Mean_Normalized_Respiration_Rate_mg_DO_per_H_per_L_sediment))) %>% 
   select(-c(Sample_Name))
 
-all_data = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_03-06-2024.csv")  %>% 
+all_data = read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-08-2024.csv")  %>% 
   filter(!grepl("052", Sample_Name)) %>% 
   filter(!grepl("053", Sample_Name)) %>% 
   filter(!grepl("057", Sample_Name)) %>% 
@@ -234,21 +234,27 @@ ggplot(best_effect, aes(x = Percent_Fine_Sand.x, y =diff_Mean_OutliersRemoved_Re
   scale_color_gradient2(limits = limits, low = "firebrick2", mid = "goldenrod2", high = "dodgerblue2", midpoint = (max(limits)+min(limits))/2) +
   theme_bw() +
   xlab("% Fine Sand") +
-  ylab("Effect Size") +
+  ylab("Effect Size") 
   #labs(color = "ATP")
 
-
+effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_Median_ECA_Data.csv",header = TRUE) %>% 
+  select(-c(X))
+  
+  
 ## Cube Effect Size
 # To get theoretical, effect size > 3.5
-cube_best_effect = best_effect %>% 
+cube_best_effect = effect_data %>% 
   mutate(across(where(is.numeric), cube_root)) %>% 
-  rename_with(.cols = c(diff_Mean_SpC:mean_ssa), .fn = ~ paste0("cube_", .x)) %>% 
-  select(-c(Treat)) %>% 
+  rename_with(.cols = c(diff_median_SpC:median_mean_ssa), .fn = ~ paste0("cube_", .x)) %>% 
+  select(-c(Rep, cube_diff_median_Respiration_Rate_mg_DO_per_L_per_H, cube_diff_median_Fe_mg_per_L, cube_diff_median_ATP_nanomol_per_L, cube_diff_median_Initial_Gravimetric_Moisture, cube_diff_median_Lost_Gravimetric_Water, cube_median_Percent_Med_Sand, cube_median_Percent_Coarse_Sand, cube_median_Percent_Tot_Sand, cube_median_Percent_Silt, cube_median_Percent_Clay)) %>% 
+  filter(!is.na(cube_median_mean_ssa)) %>% 
   #filter(Mean_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H < 3.5) %>% 
-  column_to_rownames("Sample_ID") #%>% 
+  column_to_rownames("Sample_ID") %>% 
+  filter(cube_diff_median_Fe_mg_per_kg >-1)#%>% 
   #mutate(Th = ifelse(Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H > 3.5, "theoretical", "real"))
 #limits = c(0.9, 4.35)
 limits = c(-2, 2)
+
 
 ggplot(cube_best_effect, aes(x = Final_Gravimetric_Water, y = Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H)) + 
   #geom_point() +
@@ -257,20 +263,23 @@ ggplot(cube_best_effect, aes(x = Final_Gravimetric_Water, y = Mean_OutliersRemov
 scale_color_gradient2(limits = limits, low = "firebrick2", mid = "goldenrod2", high = "dodgerblue2", midpoint = (max(limits)+min(limits))/2) +
   theme_bw()
 
+
 ## Scale cube effect size
 z_cube_best_effect = cube_best_effect %>% 
-  mutate(across(where(is.numeric), function(x) ((x - mean(x)) / sd(x))))
+  mutate(across(where(is.numeric), function(x) ((x - mean(x)) / sd(x)))) 
+
+
 
 ## EFFECT SIZE LASSO ####
 ## Set response variable
-eff <- z_cube_best_effect$Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H
+eff <- z_cube_best_effect$cube_diff_median_Respiration_Rate_mg_DO_per_kg_per_H
 
 ## Set predictor variables
 #Try all data
 #z_cube_effect_pred <- data.matrix(z_cube_best_effect[, c('Mean_Fe_mg_per_L', 'Mean_ATP_nanomol_per_L', 'Percent_Fine_Sand', 'Percent_Coarse_Sand', 'Percent_Tot_Sand', 'Percent_Silt', 'Percent_Clay', 'mean_ssa', 'Mean_SpC', 'Mean_Temp', 'Mean_pH', 'Initial_Gravimetric_Water', 'Final_Gravimetric_Water')])
 
 ## Chosen variables: FS, SSA, Fe, Moi, ATP, SpC, Temp, pH
-z_cube_effect_pred <- data.matrix(z_cube_best_effect[, c("Mean_Fe_mg_per_kg", "Mean_ATP_picomol_per_g",  "Percent_Fine_Sand", "mean_ssa", "Mean_SpC", "Mean_Temp", "Mean_pH",  "Final_Gravimetric_Water")])
+z_cube_effect_pred <- data.matrix(z_cube_best_effect[, c("cube_diff_median_Fe_mg_per_kg", "cube_diff_median_ATP_picomol_per_g",  "cube_median_Percent_Fine_Sand", "cube_median_mean_ssa", "cube_diff_median_SpC", "cube_diff_median_Temp", "cube_diff_median_pH",  "cube_diff_median_Final_Gravimetric_Moisture")])
 
 ## Start LASSO
 #alpha = 1 is for LASSO regression
