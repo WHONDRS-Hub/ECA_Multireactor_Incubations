@@ -60,60 +60,60 @@ cube_all_data = clean_all_data %>%
 
 ## Respiration Histograms ####
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Wet_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Wet_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+# 
+# ggplot(subset(clean_all_data, Treat %in% "Wet"), aes(x = Respiration_Rate_mg_DO_per_kg_per_H)) +
+#   geom_histogram(fill = "#0072B2")+
+#   ggtitle("Wet Rates")+
+#   xlab(expression("Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
+#   theme(strip.text = element_text(
+#     size = 4))+
+#   ylim(0, 250)+
+#   theme_bw()
+# 
+# dev.off()
 
-ggplot(subset(clean_all_data, Treat %in% "Wet"), aes(x = Respiration_Rate_mg_DO_per_kg_per_H)) +
-  geom_histogram(fill = "#0072B2")+
-  ggtitle("Wet Rates")+
-  xlab(expression("Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
-  theme(strip.text = element_text(
-    size = 4))+
-  ylim(0, 250)+
-  theme_bw()
-
-dev.off()
-
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Wet_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
-
-ggplot(subset(cube_all_data, Treat %in% "Wet"), aes(x = cube_Respiration_Rate_mg_DO_per_kg_per_H)) +
-  geom_histogram(fill = "#0072B2")+
-  ggtitle("Wet Rates")+
-  xlab(expression("Cube Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
-  theme(strip.text = element_text(
-    size = 4))+
-  ylim(0, 87.5)+
-  theme_bw()
-
-dev.off()
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Wet_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+# 
+# ggplot(subset(cube_all_data, Treat %in% "Wet"), aes(x = cube_Respiration_Rate_mg_DO_per_kg_per_H)) +
+#   geom_histogram(fill = "#0072B2")+
+#   ggtitle("Wet Rates")+
+#   xlab(expression("Cube Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
+#   theme(strip.text = element_text(
+#     size = 4))+
+#   ylim(0, 87.5)+
+#   theme_bw()
+# 
+# dev.off()
 
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Dry_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Dry_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+# 
+# ggplot(subset(clean_all_data, Treat %in% "Dry"), aes(x = Respiration_Rate_mg_DO_per_kg_per_H)) +
+#   geom_histogram(fill = "#D55E00")+
+#   ggtitle("Dry Rates")+
+#   xlab(expression("Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
+#   theme(strip.text = element_text(
+#     size = 4))+
+#   ylim(0, 250) + 
+#   theme_bw()
+# 
+# dev.off()
 
-ggplot(subset(clean_all_data, Treat %in% "Dry"), aes(x = Respiration_Rate_mg_DO_per_kg_per_H)) +
-  geom_histogram(fill = "#D55E00")+
-  ggtitle("Dry Rates")+
-  xlab(expression("Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
-  theme(strip.text = element_text(
-    size = 4))+
-  ylim(0, 250) + 
-  theme_bw()
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Dry_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+# 
+# ggplot(subset(cube_all_data, Treat %in% "Dry"), aes(x = cube_Respiration_Rate_mg_DO_per_kg_per_H)) +
+#   geom_histogram(fill = "#D55E00")+
+#   ggtitle("Wet Rates")+
+#   xlab(expression("Cube Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
+#   theme(strip.text = element_text(
+#     size = 4))+
+#   ylim(0, 87.5)+
+#   theme_bw()
+# 
+# dev.off()
 
-dev.off()
-
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Wet_Treatment_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
-
-ggplot(subset(cube_all_data, Treat %in% "Dry"), aes(x = cube_Respiration_Rate_mg_DO_per_kg_per_H)) +
-  geom_histogram(fill = "#D55E00")+
-  ggtitle("Wet Rates")+
-  xlab(expression("Cube Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
-  theme(strip.text = element_text(
-    size = 4))+
-  ylim(0, 87.5)+
-  theme_bw()
-
-dev.off()
-
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_All_Rates_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+#png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_All_Rates_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
 
 all_cube_hist = ggplot(cube_all_data, aes(x = cube_Respiration_Rate_mg_DO_per_kg_per_H)) +
   geom_histogram(position = "identity", alpha = 0.8, aes(fill = Treat))+
@@ -125,35 +125,35 @@ all_cube_hist = ggplot(cube_all_data, aes(x = cube_Respiration_Rate_mg_DO_per_kg
   ylim(0, 87.5)+
   theme_bw()
 
-all_cube_hist
+#all_cube_hist
 
-dev.off()
+#dev.off()
 
 
 ####
 
 ## Effect Size Histogram ####
 
-effect_limits = c(-1500, 1500)
-
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Median_Effect_Histogram.png"), width = 10, height = 10, units = "in", res = 300)
-
-ggplot(effect_data, aes(x = diff_median_Respiration_Rate_mg_DO_per_kg_per_H))+
-  # geom_histogram(binwidth = 0.15, fill = "#009E73")+
-  geom_histogram(binwidth = 30, aes(fill = after_stat(x))) +
-  scale_fill_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
-                       high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2) +
-  theme_bw()+
-  theme(axis.title.x = element_text(size = 24),
-        axis.title.y = element_text(size = 24),
-        axis.text.x = element_text(size = 18),
-        axis.text.y = element_text(size =18))+
-  xlim(c(-1500,1500))+
-  ylab("Count\n")+
-  xlab(expression("\n Effect Size (Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))
-
-
-dev.off()
+# effect_limits = c(-1500, 1500)
+# 
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Median_Effect_Histogram.png"), width = 10, height = 10, units = "in", res = 300)
+# 
+# ggplot(effect_data, aes(x = diff_median_Respiration_Rate_mg_DO_per_kg_per_H))+
+#   # geom_histogram(binwidth = 0.15, fill = "#009E73")+
+#   geom_histogram(binwidth = 30, aes(fill = after_stat(x))) +
+#   scale_fill_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
+#                        high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2) +
+#   theme_bw()+
+#   theme(axis.title.x = element_text(size = 24),
+#         axis.title.y = element_text(size = 24),
+#         axis.text.x = element_text(size = 18),
+#         axis.text.y = element_text(size =18))+
+#   xlim(c(-1500,1500))+
+#   ylab("Count\n")+
+#   xlab(expression("\n Effect Size (Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))
+# 
+# 
+# dev.off()
 
 cube_effect_data = effect_data %>% 
   mutate(across(where(is.numeric), cube_root)) %>% 
@@ -161,7 +161,7 @@ cube_effect_data = effect_data %>%
 
 cube_effect_limits <- c(-12, 12)
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Histogram.png"), width = 10, height = 10, units = "in", res = 300)
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Histogram.png"), width = 10, height = 10, units = "in", res = 300)
 
 cube_effect_hist = ggplot(cube_effect_data, aes(x = cube_diff_median_Respiration_Rate_mg_DO_per_kg_per_H))+
   # geom_histogram(binwidth = 0.15, fill = "#009E73")+
@@ -178,9 +178,9 @@ cube_effect_hist = ggplot(cube_effect_data, aes(x = cube_diff_median_Respiration
   xlab(expression("\n Cubed Root Effect Size (Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))
   
 
-cube_effect_hist
+#cube_effect_hist
 
-dev.off()
+#dev.off()
 
 ####
 
@@ -221,13 +221,13 @@ all_samples_cube_corr <- cube_all_data %>%
 
 cube_all_samples_corr <- cor(all_samples_cube_corr, method = "spearman")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_All_Samples_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
-
-pairs(all_samples_cube_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = 1)
-
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_All_Samples_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
+# 
+# pairs(all_samples_cube_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = 1)
+# 
 #corrplot(cube_all_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "All Samples Correlation")
-
-dev.off()
+# 
+# dev.off()
 
 ## NEED TO BE UPDATED - WET/DRY Individual Matrices #### ####
 
@@ -286,11 +286,11 @@ cube_effect_data_corr = cube_effect_data %>%
   relocate(Cube_Effect_Size, .before = Cube_SpC_Diff) %>% 
   filter(!is.na(Cube_SSA))
   
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
-
-pairs(cube_effect_data_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = 1)
-
-dev.off()
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
+# 
+# pairs(cube_effect_data_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = 1)
+# 
+# dev.off()
 
 ## Scatter Plots ####
 
@@ -462,5 +462,58 @@ combine_scatter = ggarrange(fs_cube_new, fe_cube_new, moi_cube_new, common.legen
 combine_pca = ggarrange(pca_new, annotate_scatter, labels = c("A"), ncol = 2, label.x = c(0.08), label.y = c(0.95), widths = c(2, 1), heights = c(2,2)) 
 
 combine_pca
+
+dev.off()
+
+## Cube PCA ####
+
+cube_effect_data_clean = cube_effect_data %>% 
+  #filter(!is.na(median_mean_ssa)) %>% 
+  select(-c(Rep, cube_diff_median_ATP_nanomol_per_L, cube_diff_median_Respiration_Rate_mg_DO_per_L_per_H, cube_diff_median_Fe_mg_per_L)) %>% 
+  column_to_rownames("Sample_ID") %>% 
+  rename(cube_SpC_Diff = cube_diff_median_SpC) %>% 
+  rename(cube_pH_Diff = cube_diff_median_pH) %>%
+  rename(cube_Temp_Diff = cube_diff_median_Temp) %>%
+  rename(cube_Effect_Size = cube_diff_median_Respiration_Rate_mg_DO_per_kg_per_H) %>%
+  rename(cube_Fe_mg_kg_Diff = cube_diff_median_Fe_mg_per_kg) %>%
+  rename(cube_InGravMoi_Diff = cube_diff_median_Initial_Gravimetric_Moisture) %>%
+  rename(cube_FinGravMoi_Diff = cube_diff_median_Final_Gravimetric_Moisture) %>%
+  rename(cube_LostGravMoi_Diff = cube_diff_median_Lost_Gravimetric_Water) %>%
+  rename(cube_ATP_pmol_g_Diff = cube_diff_median_ATP_picomol_per_g) %>%
+  rename(cube_Fine_Sand = cube_median_Percent_Fine_Sand) %>%
+  rename(cube_Med_Sand = cube_median_Percent_Med_Sand) %>%
+  rename(cube_Coarse_Sand = cube_median_Percent_Coarse_Sand) %>%
+  rename(cube_Tot_Sand = cube_median_Percent_Tot_Sand) %>%
+  rename(cube_Silt = cube_median_Percent_Silt) %>%
+  rename(cube_Clay = cube_median_Percent_Clay) %>%
+  rename(cube_SSA = cube_median_mean_ssa) %>% 
+  relocate(cube_Effect_Size, .before = cube_SpC_Diff)
+
+cube_effect_pca <- prcomp(cube_effect_data_clean, scale = TRUE,
+                     center = TRUE, retx = T)
+
+# Summary
+summary(cube_effect_pca)
+
+# See the principal components
+dim(cube_effect_pca$x)
+cube_effect_pca$x
+
+cube_limits = c(-12,
+           12)
+
+ind <- get_pca_ind(cube_effect_pca)
+ind
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_PCA.png"), width = 8, height = 8, units = "in", res = 300)
+
+cube_pca = fviz_pca_biplot(cube_effect_pca, col.var = "black",geom = "point"
+)+
+  geom_point(aes(color = cube_effect_data_clean$cube_Effect_Size), size = 3.5)+
+  scale_color_gradient2(limits = cube_limits, low = "firebrick2", mid = "goldenrod2",
+                        high = "dodgerblue2", midpoint = (max(cube_limits)+min(cube_limits))/2) +
+  labs(color = paste0("cube_Wet - Dry Rate"))
+
+cube_pca
 
 dev.off()
