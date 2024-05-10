@@ -305,8 +305,8 @@ fe_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Fe_mg_kg_Diff, y = Cube_Eff
   geom_point() +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect_data_corr, label.x = -2.5, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect_data_corr, label.x = -2.5, label.y = 10, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = fe_cube_out, label.x = -2.5, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = fe_cube_out, label.x = -2.5, label.y = 9.5, size = 4, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = fe_cube_out, se = FALSE)+
   xlab("Cubed Root Fe (II) (mg/kg) Difference (Wet - Dry)") +
   ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
@@ -314,36 +314,36 @@ fe_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Fe_mg_kg_Diff, y = Cube_Eff
 
 dev.off()
 
-fe_out = effect_data %>% 
-  filter(diff_median_Fe_mg_per_kg > -1)
-
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Median_Effect_vs_Fe_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
-
-ggplot(effect_data, aes(x = diff_median_Fe_mg_per_kg, y = diff_median_Respiration_Rate_mg_DO_per_kg_per_H)) +
-  geom_point() +
-  theme_bw() +
-  stat_cor(data = fe_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_poly_line(data = fe_out, se = FALSE)+
-  xlab("Fe (II) (mg/kg) Difference (Wet - Dry)") +
-  ylab("Effect Size (mg/kg) (Wet - Dry)")+ 
-  theme(text = element_text(size = 13)) 
-
-dev.off()
+# fe_out = effect_data %>% 
+#   filter(diff_median_Fe_mg_per_kg > -1)
+# 
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Median_Effect_vs_Fe_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+# 
+# ggplot(effect_data, aes(x = diff_median_Fe_mg_per_kg, y = diff_median_Respiration_Rate_mg_DO_per_kg_per_H)) +
+#   geom_point() +
+#   theme_bw() +
+#   stat_cor(data = fe_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+#   stat_poly_line(data = fe_out, se = FALSE)+
+#   xlab("Fe (II) (mg/kg) Difference (Wet - Dry)") +
+#   ylab("Effect Size (mg/kg) (Wet - Dry)")+ 
+#   theme(text = element_text(size = 13)) 
+# 
+# dev.off()
 
 ##ATP vs. Effect ##
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_ATP_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
-
-atp_cube = ggplot(cube_effect_data_corr, aes(x = Cube_ATP_pmol_g_Diff, y = Cube_Effect_Size)) +
-  geom_point() +
-  theme_bw() +
-  stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
-  xlab("Cube Root ATP (picomol/g) Difference (Wet - Dry)") +
-  ylab("Cube Root Effect Size (mg/kg) (Wet - Dry)")+ 
-  theme(text = element_text(size = 13)) 
-
-dev.off()
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_ATP_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+# 
+# atp_cube = ggplot(cube_effect_data_corr, aes(x = Cube_ATP_pmol_g_Diff, y = Cube_Effect_Size)) +
+#   geom_point() +
+#   theme_bw() +
+#   stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+#   stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
+#   xlab("Cube Root ATP (picomol/g) Difference (Wet - Dry)") +
+#   ylab("Cube Root Effect Size (mg/kg) (Wet - Dry)")+ 
+#   theme(text = element_text(size = 13)) 
+# 
+# dev.off()
 
 ##Fine Sand vs. Effect ##
 
@@ -353,8 +353,8 @@ fs_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Fine_Sand, y = Cube_Effect_
   geom_point() +
   theme_bw() +
   #stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`\n`~")))+ #sep = "~`;`~"
-  stat_cor(data = cube_effect_data_corr, label.x = 0.1, label.y = 13, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect_data_corr, label.x = 0.1, label.y = 12, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect_data_corr, label.x = 0.9, label.y = 11.5, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect_data_corr, label.x = 0.9, label.y = 10, size = 4, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
   xlab("Cubed Root Fine Sand (%)") +
   ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
@@ -368,8 +368,8 @@ grav_cube = ggplot(cube_effect_data_corr, aes(x = Cube_FinGravMoi_Diff, y = Cube
   geom_point() +
   theme_bw() +
   #stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect_data_corr, label.x = 0.65, label.y = 12, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect_data_corr, label.x = 0.65, label.y = 11, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect_data_corr, label.x = 0.9, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect_data_corr, label.x = 0.9, label.y = 9.5, size = 4, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
   xlab("Cubed Root Final Gravimetric Moisture Difference (Wet - Dry)") +
   ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
@@ -443,16 +443,16 @@ pca_new = pca + theme(legend.position = c(0.85, 0.2),
 
 fe_cube_new = fe_cube + 
   ylab("") + 
-  theme(axis.title.x = element_text(size = 9))
+  theme(axis.title.x = element_text(size = 8))
 
 
 moi_cube_new = grav_cube + 
   ylab("") + 
-  theme(axis.title.x = element_text(size = 9))
+  theme(axis.title.x = element_text(size = 8))
 
 fs_cube_new = fs_cube + 
   ylab("") + 
-  theme(axis.title.x = element_text(size = 9))
+  theme(axis.title.x = element_text(size = 8))
 
 combine_scatter = ggarrange(fs_cube_new, fe_cube_new, moi_cube_new, common.legend = TRUE, nrow = 3, labels = c("B", "C", "D"), label.x = c(0.9, 0.9, 0.9), label.y = c(0.3, 0.3, 0.3), heights = c(1,1,1)) 
 
