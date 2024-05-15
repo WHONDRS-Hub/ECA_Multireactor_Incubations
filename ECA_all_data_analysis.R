@@ -5,8 +5,10 @@ library(ggpubr)
 library(ggpmisc)
 library(factoextra)
 library(stringr)
+library(glmnet)
 
 rm(list=ls());graphics.off()
+#set.seed(26)
 
 #### Read in Data
 
@@ -155,6 +157,7 @@ all_cube_hist = ggplot(cube_all_data, aes(x = cube_Respiration_Rate_mg_DO_per_kg
 # 
 # dev.off()
 
+## EFFECT CUBE ROOT
 cube_effect_data = effect_data %>% 
   mutate(across(where(is.numeric), cube_root)) %>% 
   rename_with(where(is.numeric), .fn = ~ paste0("cube_", .x))
@@ -215,8 +218,7 @@ dev.off()
 all_samples_cube_corr <- cube_all_data %>% 
   dplyr::select(-c(Sample_ID, INC, Treat, Methods_Deviation, cube_Incubation_Water_Mass_g, cube_Dry_Sediment_Mass_g, cube_Initial_Water_mass_g, cube_Final_Water_mass_g, cube_Respiration_Rate_mg_DO_per_L_per_H, cube_Fe_mg_per_L, cube_ATP_nanomol_per_L)) %>% 
   relocate(cube_Respiration_Rate_mg_DO_per_kg_per_H, .before = cube_SpC) %>% 
-  column_to_rownames("Sample_Name") %>% 
-  filter(!is.na(cube_mean_ssa))
+  column_to_rownames("Sample_Name") 
 
 
 cube_all_samples_corr <- cor(all_samples_cube_corr, method = "spearman")
@@ -229,40 +231,7 @@ cube_all_samples_corr <- cor(all_samples_cube_corr, method = "spearman")
 # 
 # dev.off()
 
-## NEED TO BE UPDATED - WET/DRY Individual Matrices #### ####
 
-## Dry Corr Ind ###
-
-all_samples_dry <- all_samples_clean %>%
-  na.omit()  %>% 
-  filter(!grepl("Wet", Treat)) %>% 
-  dplyr::select(-c(kit, Treat, Log_Mean_Rep_Fe_mg_L, Temp, pH, D50, `Geometric Mean`, `RUSLE Geometric Mean`, EC))
-
-all_samples_dry_corr <- cor(all_samples_dry,method = "spearman")
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_All_Dry_Samples_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
-
-#corrplot(all_samples_dry_corr, type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25, title = "All Dry Samples Correlation")
-
-dev.off()
-
-## Wet Correlation Ind ###
-all_samples_wet <- all_samples_clean %>%
-  na.omit()  %>% 
-  filter(!grepl("Dry", Treat)) %>% 
-  dplyr::select(-c(kit, Treat, Log_Mean_Rep_Fe_mg_L, Temp, pH, D50, `Geometric Mean`, `RUSLE Geometric Mean`, EC))
-
-all_samples_wet_corr <- cor(all_samples_wet, method = "spearman")
-
-png(file = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/effect size/Figures/", as.character(Sys.Date()),"_All_Wet_Samples_Correlation_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
-
-corrplot(all_samples_wet_corr,type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25, title = "All Wet Samples Correlation")
-
-dev.off()
-
-
-
-## NEED TO BE UPDATED - WET/DRY Median Matrices ####
 ## Effect Size ####
 cube_effect_data_corr = cube_effect_data %>% 
   column_to_rownames("Sample_ID")%>% 
@@ -283,8 +252,7 @@ cube_effect_data_corr = cube_effect_data %>%
   rename(Cube_Silt = cube_median_Percent_Silt) %>%
   rename(Cube_Clay = cube_median_Percent_Clay) %>%
   rename(Cube_SSA = cube_median_mean_ssa) %>% 
-  relocate(Cube_Effect_Size, .before = Cube_SpC_Diff) %>% 
-  filter(!is.na(Cube_SSA))
+  relocate(Cube_Effect_Size, .before = Cube_SpC_Diff) 
   
 # png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
 # 
@@ -299,7 +267,7 @@ cube_effect_data_corr = cube_effect_data %>%
 fe_cube_out = cube_effect_data_corr %>% 
   filter(Cube_Fe_mg_kg_Diff > -1)
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fe_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+#png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fe_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 fe_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Fe_mg_kg_Diff, y = Cube_Effect_Size)) +
   geom_point() +
@@ -312,7 +280,7 @@ fe_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Fe_mg_kg_Diff, y = Cube_Eff
   ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
   theme(text = element_text(size = 12)) 
 
-dev.off()
+#dev.off()
 
 # fe_out = effect_data %>% 
 #   filter(diff_median_Fe_mg_per_kg > -1)
@@ -382,7 +350,6 @@ dev.off()
 ## Effect Size PCA ####
 
 effect_data_clean = effect_data %>% 
-  filter(!is.na(median_mean_ssa)) %>% 
   select(-c(Rep, diff_median_ATP_nanomol_per_L, diff_median_Respiration_Rate_mg_DO_per_L_per_H, diff_median_Fe_mg_per_L)) %>% 
   column_to_rownames("Sample_ID") %>% 
   rename(SpC_Diff = diff_median_SpC) %>% 
@@ -401,7 +368,8 @@ effect_data_clean = effect_data %>%
   rename(Silt = median_Percent_Silt) %>%
   rename(Clay = median_Percent_Clay) %>%
   rename(SSA = median_mean_ssa) %>% 
-  relocate(Effect_Size, .before = SpC_Diff)
+  relocate(Effect_Size, .before = SpC_Diff) %>% 
+  filter(Fe_mg_kg_Diff > -1)
 
 effect_pca <- prcomp(effect_data_clean, scale = TRUE,
                  center = TRUE, retx = T)
@@ -412,6 +380,60 @@ summary(effect_pca)
 # See the principal components
 dim(effect_pca$x)
 effect_pca$x
+
+## PCA into LASSO ####
+#Put prop. of variation in DF for LASSO
+
+pca_lasso_data = effect_data_clean %>% 
+  select(-c(Effect_Size))
+
+effect_pca_lasso <- prcomp(pca_lasso_data, scale = TRUE,
+                     center = TRUE, retx = T)
+
+summary(effect_pca_lasso)
+
+pca_scores = as.data.frame(effect_pca_lasso$x)
+
+correlations = cor(pca_lasso_data, pca_scores)
+print(correlations)
+
+pca_scores_scale = as.data.frame(scale(pca_scores))
+
+#mean(pca_scores$PC1)
+#sd(pca_scores$PC1)
+
+
+
+## Set response variable
+resp_pca_lasso <- scale(effect_data_clean$Effect_Size)
+
+## Set predictor variables
+pred_pca_lasso <- data.matrix(pca_scores_scale[, c("PC1",  "PC2",  "PC3", "PC4", "PC5", "PC6", "PC7",  "PC8", "PC9", "PC10", "PC11", "PC12")])
+
+
+
+lasso = cv.glmnet(pred_pca_lasso, resp_pca_lasso, alpha = 1)
+
+best_lambda <- lasso$lambda.min
+best_lambda
+
+plot(lasso)
+
+best_lasso_model <- glmnet(pred_pca_lasso, resp_pca_lasso, alpha = 1, lambda = best_lambda)
+
+coef(best_lasso_model)
+
+resp_predict <- predict(best_lasso_model, s = best_lambda, newx = pred_pca_lasso)
+
+sst <- sum((resp_pca_lasso - mean(resp_pca_lasso))^2)
+sse <- sum((resp_predict - resp_pca_lasso)^2)
+
+rsq = 1 - sse/sst
+
+rsq
+
+
+####
 
 limits = c(-1450,
            1450)
@@ -465,45 +487,108 @@ combine_pca
 
 dev.off()
 
-## Cube PCA ####
+## Cube PCA for LASSO####
 
-cube_effect_data_clean = cube_effect_data %>% 
-  #filter(!is.na(median_mean_ssa)) %>% 
-  select(-c(Rep, cube_diff_median_ATP_nanomol_per_L, cube_diff_median_Respiration_Rate_mg_DO_per_L_per_H, cube_diff_median_Fe_mg_per_L)) %>% 
-  column_to_rownames("Sample_ID") %>% 
-  rename(cube_SpC_Diff = cube_diff_median_SpC) %>% 
-  rename(cube_pH_Diff = cube_diff_median_pH) %>%
-  rename(cube_Temp_Diff = cube_diff_median_Temp) %>%
-  rename(cube_Effect_Size = cube_diff_median_Respiration_Rate_mg_DO_per_kg_per_H) %>%
-  rename(cube_Fe_mg_kg_Diff = cube_diff_median_Fe_mg_per_kg) %>%
-  rename(cube_InGravMoi_Diff = cube_diff_median_Initial_Gravimetric_Moisture) %>%
-  rename(cube_FinGravMoi_Diff = cube_diff_median_Final_Gravimetric_Moisture) %>%
-  rename(cube_LostGravMoi_Diff = cube_diff_median_Lost_Gravimetric_Water) %>%
-  rename(cube_ATP_pmol_g_Diff = cube_diff_median_ATP_picomol_per_g) %>%
-  rename(cube_Fine_Sand = cube_median_Percent_Fine_Sand) %>%
-  rename(cube_Med_Sand = cube_median_Percent_Med_Sand) %>%
-  rename(cube_Coarse_Sand = cube_median_Percent_Coarse_Sand) %>%
-  rename(cube_Tot_Sand = cube_median_Percent_Tot_Sand) %>%
-  rename(cube_Silt = cube_median_Percent_Silt) %>%
-  rename(cube_Clay = cube_median_Percent_Clay) %>%
-  rename(cube_SSA = cube_median_mean_ssa) %>% 
-  relocate(cube_Effect_Size, .before = cube_SpC_Diff)
+# Fe outlier not in analysis
+# Effect Size not in PCA
 
-cube_effect_pca <- prcomp(cube_effect_data_clean, scale = TRUE,
+cube_effect_data_clean = cube_effect_data_corr %>% 
+  #relocate(cube_Effect_Size, .before = cube_SpC_Diff) %>% 
+  filter(Cube_Fe_mg_kg_Diff > -1)
+
+#limits = c(0, 1450)
+#ggplot(effect_data_clean, aes(x = FinGravMoi_Diff, y = Fine_Sand, color = Effect_Size)) +
+#  geom_point() +
+#  scale_color_gradient2(limits = limits, low = "firebrick2", mid = "goldenrod2",
+ #                       high = "dodgerblue2", midpoint = (max(limits)+min(limits))/2)
+
+##Run PCA without effect size
+cube_data_pca = cube_effect_data_clean %>% 
+  select(-c(Cube_Effect_Size))
+
+cube_effect_pca <- prcomp(cube_data_pca, scale = TRUE,
                      center = TRUE, retx = T)
 
 # Summary
 summary(cube_effect_pca)
 
-# See the principal components
-dim(cube_effect_pca$x)
-cube_effect_pca$x
+#cumulative variation
+
+cumulative_var = cumsum(cube_effect_pca$sdev^2)/sum(cube_effect_pca$sdev^2)
+
+pca_plot = data.frame(PC = 1:length(cube_effect_pca$sdev), Cumulative_Variance = cumulative_var)
+
+ggplot(pca_plot, aes(x = PC, y = Cumulative_Variance)) +
+  geom_col()
+
+
+# Look at PCA loadings
+
+loadings = cube_effect_pca$rotation
+
+print(loadings)
+
+loadings_df <- as.data.frame(loadings) %>% 
+  select(c(PC1, PC2, PC3, PC4, PC5)) 
+
+# Plotting the heatmap
+
+row_names <- rownames(loadings_df)
+loadings_df$Variable <- row_names
+
+# Melt the dataframe for plotting
+loadings_melted <- reshape2::melt(loadings_df, id.vars = "Variable")
+
+# Plotting the heatmap
+ggplot(loadings_melted, aes(x = variable, y = Variable, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+  labs(x = "Principal Component", y = "Variable", fill = "Loadings") +
+  ggtitle("PCA Loadings Heatmap")+
+  geom_text(aes(label = round(value, 2)), color = "black", size = 3)
+
+
+
+
+set.seed(42)
+## Set response variable
+#yvar <- data.matrix(scale(cube_effect_data_clean$Cube_Effect_Size, center = TRUE, scale = TRUE))
+yvar <- data.matrix(cube_effect_data_clean$Cube_Effect_Size)
+mean(yvar)
+sd(yvar)
+
+## Set predictor variables
+pca_scores = as.data.frame(scale(cube_effect_pca$x, center = TRUE, scale = TRUE))
+#pca_scores = as.data.frame(cube_effect_pca$x)
+#mean(pca_scores$PC1)
+#sd(pca_scores$PC1)
+
+xvars <- data.matrix(pca_scores[, c("PC1",  "PC2", "PC3", "PC4", "PC5")])
+
+lasso = cv.glmnet(xvars, yvar, alpha = 1, 
+                  standardize = FALSE, standardize.response = FALSE, intercept = FALSE, nfolds = 3)
+
+best_lambda <- lasso$lambda.min
+best_lambda
+
+plot(lasso)
+
+best_lasso_model <- glmnet(xvars, yvar, alpha = 1, lambda = best_lambda, standardize = FALSE, standardize.response = FALSE, intercept = FALSE)
+
+coef(best_lasso_model)
+
+yvar_predict <- predict(best_lasso_model, s = best_lambda, newx = xvars)
+
+sst <- sum((yvar - mean(yvar))^2)
+sse <- sum((yvar_predict - yvar)^2)
+
+rsq = 1 - sse/sst
+
+rsq
+
 
 cube_limits = c(-12,
            12)
-
-ind <- get_pca_ind(cube_effect_pca)
-ind
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_PCA.png"), width = 8, height = 8, units = "in", res = 300)
 

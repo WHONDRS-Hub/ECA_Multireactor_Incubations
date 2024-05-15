@@ -6,6 +6,8 @@ library(janitor)
 
 rm(list=ls());graphics.off()
 
+cube_root <- function(x) sign(x) * (abs(x))^(1/3)
+
 ## EFFECT SIZE DATA ####
 effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_Median_ECA_Data.csv",header = TRUE) %>% 
   select(-c(X))
@@ -39,7 +41,7 @@ yvar <- data.matrix(z_cube_best_effect$cube_diff_median_Respiration_Rate_mg_DO_p
 xvar <- data.matrix(z_cube_best_effect[, c("cube_diff_median_Fe_mg_per_kg", "cube_diff_median_ATP_picomol_per_g",  "cube_median_Percent_Fine_Sand", "cube_median_mean_ssa", "cube_diff_median_SpC", "cube_diff_median_Temp", "cube_diff_median_pH",  "cube_diff_median_Final_Gravimetric_Moisture")])
 
 ## Start LASSO
-#set.seed(42)
+set.seed(26)
 
 #alpha = 1 is for LASSO regression
 cv_model <- cv.glmnet(xvar, yvar, alpha = 1, standardize = FALSE,  standardize.response = FALSE, intercept = FALSE)
