@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF
+  xmlns:dcterms="http://purl.org/dc/terms/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:hsterms="https://www.hydroshare.org/terms/"
+  xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+>
+  <hsterms:GeographicFeatureAggregation rdf:about="http://www.hydroshare.org/resource/55b4b0d910964c8690252518c2e60f9e/data/contents/WBDHU2_resmap.xml#aggregation">
+    <dc:subject>US</dc:subject>
+    <dc:subject>WBD</dc:subject>
+    <hsterms:GeometryInformation>
+      <rdf:Description>
+        <hsterms:geometryType>POLYGON</hsterms:geometryType>
+        <hsterms:featureCount rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">22</hsterms:featureCount>
+      </rdf:Description>
+    </hsterms:GeometryInformation>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldName>sourcedata</hsterms:fieldName>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</hsterms:fieldPrecision>
+        <hsterms:fieldTypeCode>4</hsterms:fieldTypeCode>
+        <hsterms:fieldType>String</hsterms:fieldType>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">100</hsterms:fieldWidth>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <dc:subject>inlandWaters</dc:subject>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldType>String</hsterms:fieldType>
+        <hsterms:fieldName>huc2</hsterms:fieldName>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">2</hsterms:fieldWidth>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</hsterms:fieldPrecision>
+        <hsterms:fieldTypeCode>4</hsterms:fieldTypeCode>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</hsterms:fieldPrecision>
+        <hsterms:fieldName>name</hsterms:fieldName>
+        <hsterms:fieldTypeCode>4</hsterms:fieldTypeCode>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">120</hsterms:fieldWidth>
+        <hsterms:fieldType>String</hsterms:fieldType>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</hsterms:fieldPrecision>
+        <hsterms:fieldTypeCode>4</hsterms:fieldTypeCode>
+        <hsterms:fieldType>String</hsterms:fieldType>
+        <hsterms:fieldName>sourcefeat</hsterms:fieldName>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">40</hsterms:fieldWidth>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldName>areasqkm</hsterms:fieldName>
+        <hsterms:fieldTypeCode>2</hsterms:fieldTypeCode>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">11</hsterms:fieldPrecision>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">19</hsterms:fieldWidth>
+        <hsterms:fieldType>Real</hsterms:fieldType>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <dc:subject>Basin</dc:subject>
+    <dc:rights>
+      <rdf:Description>
+        <hsterms:rightsStatement>This resource is shared under the Creative Commons Attribution CC BY.</hsterms:rightsStatement>
+        <hsterms:URL rdf:resource="http://creativecommons.org/licenses/by/4.0/"/>
+      </rdf:Description>
+    </dc:rights>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldTypeCode>4</hsterms:fieldTypeCode>
+        <hsterms:fieldType>String</hsterms:fieldType>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">40</hsterms:fieldWidth>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</hsterms:fieldPrecision>
+        <hsterms:fieldName>metasource</hsterms:fieldName>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <dc:subject>Sub-basin</dc:subject>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">11</hsterms:fieldPrecision>
+        <hsterms:fieldName>areaacres</hsterms:fieldName>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">19</hsterms:fieldWidth>
+        <hsterms:fieldType>Real</hsterms:fieldType>
+        <hsterms:fieldTypeCode>2</hsterms:fieldTypeCode>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldType>String</hsterms:fieldType>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</hsterms:fieldPrecision>
+        <hsterms:fieldTypeCode>4</hsterms:fieldTypeCode>
+        <hsterms:fieldName>tnmid</hsterms:fieldName>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">40</hsterms:fieldWidth>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <dc:subject>Watershed</dc:subject>
+    <dc:language>eng</dc:language>
+    <hsterms:spatialReference>
+      <hsterms:box>
+        <rdf:value>northlimit=71.43957259000004; southlimit=-14.61019276299993; westlimit=-179.22965548699997; eastlimit=179.85667473500004; projection_string=GEOGCS["WGS 84",
+    DATUM["WGS_1984",
+        SPHEROID["WGS 84",6378137,298.257223563,
+            AUTHORITY["EPSG","7030"]],
+        AUTHORITY["EPSG","6326"]],
+    PRIMEM["Greenwich",0,
+        AUTHORITY["EPSG","8901"]],
+    UNIT["degree",0.0174532925199433,
+        AUTHORITY["EPSG","9122"]],
+    AUTHORITY["EPSG","4326"]]; projection_name=WGS 84; datum=WGS_1984; units=degree</rdf:value>
+      </hsterms:box>
+    </hsterms:spatialReference>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldType>String</hsterms:fieldType>
+        <hsterms:fieldName>states</hsterms:fieldName>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">50</hsterms:fieldWidth>
+        <hsterms:fieldTypeCode>4</hsterms:fieldTypeCode>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</hsterms:fieldPrecision>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <dc:subject>2-digit</dc:subject>
+    <dc:subject>12-digit</dc:subject>
+    <dc:subject>United States</dc:subject>
+    <dc:subject>16-digit</dc:subject>
+    <dc:subject>Hydrologic Unit Code</dc:subject>
+    <dc:subject>6-digit</dc:subject>
+    <dc:subject>14-digit</dc:subject>
+    <dc:subject>Subwatershed</dc:subject>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldType>Real</hsterms:fieldType>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">11</hsterms:fieldPrecision>
+        <hsterms:fieldName>Shape_Area</hsterms:fieldName>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">19</hsterms:fieldWidth>
+        <hsterms:fieldTypeCode>2</hsterms:fieldTypeCode>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <dc:subject>8-digit</dc:subject>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</hsterms:fieldPrecision>
+        <hsterms:fieldTypeCode>4</hsterms:fieldTypeCode>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">130</hsterms:fieldWidth>
+        <hsterms:fieldName>sourceorig</hsterms:fieldName>
+        <hsterms:fieldType>String</hsterms:fieldType>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</hsterms:fieldPrecision>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">10</hsterms:fieldWidth>
+        <hsterms:fieldTypeCode>9</hsterms:fieldTypeCode>
+        <hsterms:fieldName>loaddate</hsterms:fieldName>
+        <hsterms:fieldType>Date</hsterms:fieldType>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <dc:subject>HUC</dc:subject>
+    <dc:coverage>
+      <dcterms:box>
+        <rdf:value>westlimit=-179.22965548699997; northlimit=71.43957259000004; eastlimit=179.85667473500004; southlimit=-14.61019276299993; projection=WGS 84 EPSG:4326; units=Decimal degrees</rdf:value>
+      </dcterms:box>
+    </dc:coverage>
+    <dc:subject>Watershed Boundary Dataset</dc:subject>
+    <dc:subject>Sub-region</dc:subject>
+    <dc:type rdf:resource="https://www.hydroshare.org/terms/GeographicFeatureAggregation"/>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldTypeCode>12</hsterms:fieldTypeCode>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">10</hsterms:fieldWidth>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</hsterms:fieldPrecision>
+        <hsterms:fieldName>OBJECTID</hsterms:fieldName>
+        <hsterms:fieldType>Integer64</hsterms:fieldType>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <dc:title>HUC 2 National Watershed Boundary Dataset (WBD)</dc:title>
+    <dc:subject>4-digit</dc:subject>
+    <dc:subject>10-digit</dc:subject>
+    <dc:subject>Region</dc:subject>
+    <dc:subject>Hydrologic Units</dc:subject>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</hsterms:fieldPrecision>
+        <hsterms:fieldTypeCode>4</hsterms:fieldTypeCode>
+        <hsterms:fieldType>String</hsterms:fieldType>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">50</hsterms:fieldWidth>
+        <hsterms:fieldName>referenceg</hsterms:fieldName>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+    <hsterms:FieldInformation>
+      <rdf:Description>
+        <hsterms:fieldWidth rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">19</hsterms:fieldWidth>
+        <hsterms:fieldType>Real</hsterms:fieldType>
+        <hsterms:fieldPrecision rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">11</hsterms:fieldPrecision>
+        <hsterms:fieldTypeCode>2</hsterms:fieldTypeCode>
+        <hsterms:fieldName>Shape_Leng</hsterms:fieldName>
+      </rdf:Description>
+    </hsterms:FieldInformation>
+  </hsterms:GeographicFeatureAggregation>
+  <rdf:Description rdf:about="http://www.hydroshare.org/terms/GeographicFeatureAggregation">
+    <rdfs:label>Geographic Feature Content: The multiple files that are part of a geographic shapefile</rdfs:label>
+    <rdfs:isDefinedBy rdf:resource="https://www.hydroshare.org/terms/"/>
+  </rdf:Description>
+</rdf:RDF>
