@@ -121,7 +121,7 @@ all_data <- left_join(all_respiration, all_iron, by = "Sample_Name") %>%
   mutate(Fe_mg_per_kg = if_else(grepl("SFE_Above", Fe_mg_per_kg), str_extract(Fe_mg_per_kg, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_kg)) %>% 
   mutate(Fe_mg_per_kg = if_else(grepl("SFE_Below", Fe_mg_per_kg), as.numeric(Fe_mg_per_L * (Incubation_Water_Mass_g/Dry_Sediment_Mass_g)), as.numeric(Fe_mg_per_kg))) %>%
   mutate(Fe_mg_per_kg = as.numeric(Fe_mg_per_kg))
- 
+
 write.csv(all_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-20-2024.csv", row.names = FALSE)  
 
 # summary_data <- all_data %>% 
@@ -134,12 +134,29 @@ write.csv(all_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All
 #   group_by(Sample_Name) %>% 
 #   summarise_if(is.numeric, mean)
 
+# cv = all_data %>% 
+#   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+#   mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+#   mutate(NPOC_mg_C_per_L = as.numeric(NPOC_mg_C_per_L)) %>% 
+#   mutate(TN_mg_N_per_L = as.numeric(TN_mg_N_per_L)) %>% 
+#   dplyr::select(-c(Incubation_Water_Mass_g, Dry_Sediment_Mass_g, Final_Water_mass_g, Initial_Water_mass_g)) %>% 
+#   group_by(Sample_ID, Rep) %>%
+#   summarise(across(where(is.numeric),
+#                    list(mean = ~mean(.x, na.rm = TRUE), 
+#                         sd = ~sd(.x, na.rm = TRUE), 
+#                         cv = ~(sd(.x, na.rm = TRUE)/mean(.x, na.rm = TRUE))*100)))
+# 
+# ggplot(cv, aes(x = TN_mg_N_per_L_cv)) + 
+#   geom_histogram()
+
 medians = all_data %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
-  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>% 
+  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  mutate(NPOC_mg_C_per_L = as.numeric(NPOC_mg_C_per_L)) %>% 
+  mutate(TN_mg_N_per_L = as.numeric(TN_mg_N_per_L)) %>% 
   dplyr::select(-c(Incubation_Water_Mass_g, Dry_Sediment_Mass_g, Final_Water_mass_g, Initial_Water_mass_g)) %>% 
   group_by(Sample_ID, Rep) %>%
-  summarise(across(where(is.numeric), median)) %>% 
+  summarise(across(where(is.numeric), ~median(.x, na.rm = TRUE))) %>% 
   rename_with(.cols = c(SpC:Lost_Gravimetric_Water), .fn = ~ paste0("median_", .x)) 
   
 write.csv(medians,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-20_Medians_ECA_Data.csv") 
