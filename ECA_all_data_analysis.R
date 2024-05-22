@@ -13,15 +13,15 @@ rm(list=ls());graphics.off()
 #### Read in Data
 
 #Individual samples 
-all_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-08-2024.csv",header = TRUE) 
+all_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-20-2024.csv",header = TRUE) 
 
 #Summary Data 
 
-sum_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Medians_ECA_Data.csv",header = TRUE) %>% 
+sum_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-20_Medians_ECA_Data.csv",header = TRUE) %>% 
   select(-c(X))
 
 #Effect Size Data
-effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_Median_ECA_Data.csv",header = TRUE) %>% 
+effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-20_Effect_Median_ECA_Data.csv",header = TRUE) %>% 
   select(-c(X)) 
 
 ## Functions ####
@@ -241,9 +241,9 @@ cube_effect_data_corr = cube_effect_data %>%
   rename(Cube_Temp_Diff = cube_diff_median_Temp) %>%
   rename(Cube_Effect_Size = cube_diff_median_Respiration_Rate_mg_DO_per_kg_per_H) %>%
   rename(Cube_Fe_mg_kg_Diff = cube_diff_median_Fe_mg_per_kg) %>%
-  rename(Cube_InGravMoi_Diff = cube_diff_median_Initial_Gravimetric_Moisture) %>%
-  rename(Cube_FinGravMoi_Diff = cube_diff_median_Final_Gravimetric_Moisture) %>%
-  rename(Cube_LostGravMoi_Diff = cube_diff_median_Lost_Gravimetric_Water) %>%
+  rename(Cube_Dry_InGravMoi= cube_median_Dry_Initial_Gravimetric_Moisture) %>%
+  rename(Cube_Dry_FinGravMoi = cube_median_Dry_Final_Gravimetric_Moisture) %>%
+  rename(Cube_Dry_LostGravMoi = cube_median_Dry_Lost_Gravimetric_Moisture) %>%
   rename(Cube_ATP_pmol_g_Diff = cube_diff_median_ATP_picomol_per_g) %>%
   rename(Cube_Fine_Sand = cube_median_Percent_Fine_Sand) %>%
   rename(Cube_Med_Sand = cube_median_Percent_Med_Sand) %>%
@@ -302,15 +302,15 @@ fe_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Fe_mg_kg_Diff, y = Cube_Eff
 
 # png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_ATP_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 # 
-# atp_cube = ggplot(cube_effect_data_corr, aes(x = Cube_ATP_pmol_g_Diff, y = Cube_Effect_Size)) +
-#   geom_point() +
-#   theme_bw() +
-#   stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-#   stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
-#   xlab("Cube Root ATP (picomol/g) Difference (Wet - Dry)") +
-#   ylab("Cube Root Effect Size (mg/kg) (Wet - Dry)")+ 
-#   theme(text = element_text(size = 13)) 
-# 
+atp_cube = ggplot(cube_effect_data_corr, aes(x = Cube_ATP_pmol_g_Diff, y = Cube_Effect_Size)) +
+  geom_point() +
+  theme_bw() +
+  stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+  stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
+  xlab("Cube Root ATP (picomol/g) Difference (Wet - Dry)") +
+  ylab("Cube Root Effect Size (mg/kg) (Wet - Dry)")+
+  theme(text = element_text(size = 13))
+
 # dev.off()
 
 ##Fine Sand vs. Effect ##
@@ -330,14 +330,15 @@ fs_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Fine_Sand, y = Cube_Effect_
 
 #dev.off()
 
+
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fin_Grav_Moi_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
-grav_cube = ggplot(cube_effect_data_corr, aes(x = Cube_FinGravMoi_Diff, y = Cube_Effect_Size)) +
+grav_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Dry_LostGravMoi, y = Cube_Effect_Size)) +
   geom_point() +
   theme_bw() +
   #stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect_data_corr, label.x = 0.9, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect_data_corr, label.x = 0.9, label.y = 9.5, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect_data_corr, label.x = 0.8, label.y = 10.5, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect_data_corr, label.x = 0.8, label.y = 9.5, size = 4, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
   xlab("Cubed Root Final Gravimetric Moisture Difference (Wet - Dry)") +
   ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
@@ -463,9 +464,14 @@ pca_new = pca + theme(legend.position = c(0.85, 0.2),
       legend.title = element_text(size = 8),
       axis.title.x = element_text(size = 10))
 
-fe_cube_new = fe_cube + 
-  ylab("") + 
+# fe_cube_new = fe_cube + 
+#   ylab("") + 
+#   theme(axis.title.x = element_text(size = 8))
+
+atp_cube_new = atp_cube +
+  ylab("") +
   theme(axis.title.x = element_text(size = 8))
+
 
 
 moi_cube_new = grav_cube + 
@@ -476,10 +482,17 @@ fs_cube_new = fs_cube +
   ylab("") + 
   theme(axis.title.x = element_text(size = 8))
 
-combine_scatter = ggarrange(fs_cube_new, fe_cube_new, moi_cube_new, common.legend = TRUE, nrow = 3, labels = c("B", "C", "D"), label.x = c(0.9, 0.9, 0.9), label.y = c(0.3, 0.3, 0.3), heights = c(1,1,1)) 
+#combine_scatter = ggarrange(fs_cube_new, atp_cube_new, moi_cube_new, common.legend = TRUE, nrow = 3, labels = c("B", "C", "D"), label.x = c(0.9, 0.9, 0.9), label.y = c(0.3, 0.3, 0.3), heights = c(1,1,1)) 
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Combined_Scatter_SFS.png"), width = 12, height = 8, units = "in", res = 300)
+
+combine_scatter = ggarrange(fs_cube_new, moi_cube_new, common.legend = TRUE, nrow = 2, heights = c(1,1)) 
 
   annotate_scatter = annotate_figure(combine_scatter, left = text_grob("Cube Root Effect Size (mg/kg) (Wet - Dry)", x = 0.75, y = 0.5, size = 15, vjust = 1, rot = 90))
+  
+  combine_scatter
 
+  dev.off()
 
 combine_pca = ggarrange(pca_new, annotate_scatter, labels = c("A"), ncol = 2, label.x = c(0.08), label.y = c(0.95), widths = c(2, 1), heights = c(2,2)) 
 
