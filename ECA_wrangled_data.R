@@ -30,6 +30,7 @@ fe.date = '04-12-2024'
 atp.date = '01-26-2024'
 #atp.summary = '03-05-2024'
 npoc.tn.date = '2024-03-01'
+cn.date = '05-23-2024'
 
 #Read in all data
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
@@ -100,12 +101,20 @@ npoc_tn_all = read.csv(paste0("Boye_Files/EC/EC_NPOC_TN_Check_for_Duplicates_",n
   dplyr::select(-c(Date_of_Run, Methods_Deviation, Method_Notes, duplicate, Sample_ID)) %>% 
   relocate(Sample_Name, .before = NPOC_mg_C_per_L)
 
+## ECA C/N
+
+cn_all = read.csv(paste0("CN/02_FormattedData/ECA_CN_",cn.date,".csv")) %>% 
+  mutate(Sample_Name  = str_replace(sample_id, "SCN", "INC")) %>% 
+  separate(Sample_Name, c("Parent_ID", "Rep"), remove = TRUE, sep = "_INC") %>% 
+  unite(Sample_Name, c("parent_id", "Rep"), sep = "_INC") %>% 
+  dplyr::select(-c(sample_id, Parent_ID))
 ##Start Merging Individual data
 
 all_data <- left_join(all_respiration, all_iron, by = "Sample_Name") %>%
   left_join(grav_inc, by = "Sample_Name") %>% 
   left_join(atp_all, by = "Sample_Name") %>% 
   left_join(npoc_tn_all, by = "Sample_Name") %>% 
+  left_join(cn_all, by = "Sample_Name") %>% 
   separate(Sample_Name, c("EC", "kit", "INC"), sep = "_", remove = FALSE) %>%
   unite(Sample_ID, c("EC", "kit")) %>% 
   left_join(grain_all, by = "Sample_ID") %>% 
@@ -122,7 +131,7 @@ all_data <- left_join(all_respiration, all_iron, by = "Sample_Name") %>%
   mutate(Fe_mg_per_kg = if_else(grepl("SFE_Below", Fe_mg_per_kg), as.numeric(Fe_mg_per_L * (Incubation_Water_Mass_g/Dry_Sediment_Mass_g)), as.numeric(Fe_mg_per_kg))) %>%
   mutate(Fe_mg_per_kg = as.numeric(Fe_mg_per_kg))
 
-write.csv(all_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-20-2024.csv", row.names = FALSE)  
+write.csv(all_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-29-2024.csv", row.names = FALSE)  
 
 # summary_data <- all_data %>% 
 #   separate(Sample_Name, c("Sample_Name", "Replicate"), sep = "-") %>% 
@@ -159,7 +168,7 @@ medians = all_data %>%
   summarise(across(where(is.numeric), ~median(.x, na.rm = TRUE))) %>% 
   rename_with(.cols = c(SpC:Lost_Gravimetric_Water), .fn = ~ paste0("median_", .x)) 
   
-write.csv(medians,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-20_Medians_ECA_Data.csv") 
+write.csv(medians,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-29_Medians_ECA_Data.csv") 
   
 
 effect_data <- medians %>% 
@@ -177,4 +186,4 @@ effect_data <- medians %>%
   rename(median_Dry_Lost_Gravimetric_Moisture = median_Lost_Gravimetric_Water)
   
 
-write.csv(effect_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-20_Effect_Median_ECA_Data.csv") 
+write.csv(effect_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-29_Effect_Median_ECA_Data.csv") 
