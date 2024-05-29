@@ -572,7 +572,9 @@ respiration = respiration[-1,]
 ```{r Boye Format for Respiration Rates}
 
 ## Pull in solid:solution ratio data for mg/kg calculations
-solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_ReadyForBoye_01-29-2024.csv"))
+solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EC_Drying_Masses_Summary_ReadyForBoye_on_2024-04-26.csv"))
+
+#01-29-2024
 
 ## Pull in SpC, Temp, pH for these samples
 chem <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/SpC_pH_Temp_Processed_Data/EC_SpC_pH_Temp_ReadyForBoye_10-03-2023.csv"))
@@ -639,7 +641,7 @@ boye <- all.samples %>%
   relocate(pH, .after = SpC) %>% 
   relocate(Temp, .after = pH) %>% 
   relocate(Methods_Deviation.x, .before = Methods_Deviation.y) %>% 
-  dplyr::select(-c(Initial_Water_Mass_g, Final_Water_Mass_g, Incubation_Water_Mass_g, Dry_Sediment_Mass_g)) # rename(Methods_Deviation = Methods_Deviation.x)
+  dplyr::select(-c(Initial_Water_mass_g, Final_Water_mass_g, Incubation_Water_Mass_g, Dry_Sediment_Mass_g)) # rename(Methods_Deviation = Methods_Deviation.x)
 
 boye_dev <- boye %>% 
   separate(Methods_Deviation.y, c("MOI_1", "MOI_2"), sep = ";") %>% 
@@ -657,6 +659,8 @@ rename(Methods_Deviation = Methods_Deviation.fin)
 * A distance matrix is used to remove the replicate most unlike the others if the coefficient of variation is greater than 50%
 
 ```{r Remove Outliers}
+
+## Do not end up using these because we published as medians
 
 #Remove RR with -9999, calculate CV for replicates for mg/L and mg/kg values
 
@@ -691,10 +695,10 @@ colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_
 unique.samples = unique(slope.outliers$kit_treat)
 
 #try 0, 10, 30, 50, 100, export histograms of removals, effect sizes
-cv.threshold = 50
+cv.threshold = 0
 
 #try keeping n = 3,4 samples
-rem.threshold = 3
+rem.threshold = 5
 
 for (i in 1:length(unique.samples)) {
   
@@ -769,13 +773,13 @@ slope.final.flag <- slope.final %>%
   relocate(Respiration_Rate_mg_DO_per_kg_per_H, .after = Sample_Name)
 
 outliers_flag <- left_join(boye_dev, slope.final.flag, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
-  mutate(Methods_Deviation_flag = ifelse(cv_before_removal_L > 50,  "RATE_CV_050", NA)) %>%  
-   mutate(Methods_Deviation_outlier = ifelse(is.na(cv_before_removal_L) & is.na(Mean_Slope_All_L) & Respiration_Rate_mg_DO_per_L_per_H != -9999, "RATE_CV_050; RATE_CV_000", NA)) %>% 
-  mutate(Methods_Deviation_flag = ifelse(!is.na(Methods_Deviation_flag), Methods_Deviation_flag, Methods_Deviation_outlier)) %>% 
-  mutate(Methods_Deviation = ifelse(Methods_Deviation == "N/A", Methods_Deviation_flag, paste(Methods_Deviation, Methods_Deviation_flag, sep = "; "))) %>% 
+  #mutate(Methods_Deviation_flag = ifelse(cv_before_removal_L > 50,  "RATE_CV_050", NA)) %>%  
+   #mutate(Methods_Deviation_outlier = ifelse(is.na(cv_before_removal_L) & is.na(Mean_Slope_All_L) & Respiration_Rate_mg_DO_per_L_per_H != -9999, "RATE_CV_050; RATE_CV_000", NA)) %>% 
+  #mutate(Methods_Deviation_flag = ifelse(!is.na(Methods_Deviation_flag), Methods_Deviation_flag, Methods_Deviation_outlier)) %>% 
+  #mutate(Methods_Deviation = ifelse(Methods_Deviation == "N/A", Methods_Deviation_flag, paste(Methods_Deviation, Methods_Deviation_flag, sep = "; "))) %>% 
   mutate(Methods_Deviation = ifelse(is.na(Methods_Deviation), "N/A", Methods_Deviation)) %>% 
     mutate(Methods_Deviation = ifelse(grepl("INC_008", Methods_Deviation), "INC_008", Methods_Deviation)) %>% 
-  dplyr::select(-c(Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, cv_after_removal, Mean_Slope_Removed, flag, Methods_Deviation_flag, Methods_Deviation_outlier)) %>% 
+  dplyr::select(-c(Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, cv_after_removal, Mean_Slope_Removed, flag, Initial_Gravimetric_Moisture, Final_Gravimetric_Moisture)) %>% 
   mutate(DO_Concentration_At_Incubation_Time_Zero = round(as.numeric(DO_Concentration_At_Incubation_Time_Zero), 2)) 
 
 cv.threshold = 50
@@ -786,11 +790,13 @@ eca_respiration_all_final = outliers_flag %>%
   mutate(Methods_Deviation)
   
 
-write.csv(eca_respiration_all_final, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-03-05.csv", row.names = F)
+write.csv(eca_respiration_all_final, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-05-29.csv", row.names = F)
 
 ```
 
 ```{r Summary File }
+## DO NOT USE, USED MEDIANS INSTEAD
+
 
 cv <- function(x) {
   cv_value <- (sd(x) / mean(x)) * 100

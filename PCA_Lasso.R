@@ -11,7 +11,7 @@ rm(list=ls());graphics.off()
 
 #### Read in Effect Size Data
 
-effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-20_Effect_Median_ECA_Data.csv",header = TRUE) %>% 
+effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-29_Effect_Median_ECA_Data.csv",header = TRUE) %>% 
   dplyr::select(-c(X)) 
 
 ## Functions ####
@@ -46,6 +46,8 @@ cube_effect_data_corr = cube_effect_data %>%
   rename(Cube_Silt = cube_median_Percent_Silt) %>%
   rename(Cube_Clay = cube_median_Percent_Clay) %>%
   rename(Cube_SSA = cube_median_mean_ssa) %>% 
+  rename(Cube_TN_Percent_Diff = cube_diff_median_tn_percent) %>% 
+  rename(Cube_TOC_Percent_Diff = cube_diff_median_toc_percent) %>% 
   relocate(Cube_Effect_Size, .before = Cube_SpC_Diff)  %>% 
   filter(Cube_Fe_mg_kg_Diff > -1)
 

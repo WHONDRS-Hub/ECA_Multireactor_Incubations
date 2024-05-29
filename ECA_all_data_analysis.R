@@ -13,16 +13,16 @@ rm(list=ls());graphics.off()
 #### Read in Data
 
 #Individual samples 
-all_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-20-2024.csv",header = TRUE) 
+all_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-29-2024.csv",header = TRUE) 
 
 #Summary Data 
 
-sum_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-20_Medians_ECA_Data.csv",header = TRUE) %>% 
+sum_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-29_Medians_ECA_Data.csv",header = TRUE) %>% 
   select(-c(X))
 
 #Effect Size Data
-effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-20_Effect_Median_ECA_Data.csv",header = TRUE) %>% 
-  select(-c(X)) 
+effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-29_Effect_Median_ECA_Data.csv",header = TRUE) %>% 
+ dplyr::select(-c(X)) 
 
 ## Functions ####
 
@@ -225,7 +225,7 @@ cube_all_samples_corr <- cor(all_samples_cube_corr, method = "spearman")
 
 # png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_All_Samples_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
 # 
-# pairs(all_samples_cube_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = 1)
+#pairs(all_samples_cube_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = 1)
 # 
 #corrplot(cube_all_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "All Samples Correlation")
 # 
@@ -234,8 +234,8 @@ cube_all_samples_corr <- cor(all_samples_cube_corr, method = "spearman")
 
 ## Effect Size ####
 cube_effect_data_corr = cube_effect_data %>% 
-  column_to_rownames("Sample_ID")%>% 
-  select(-c(Rep, cube_diff_median_Respiration_Rate_mg_DO_per_L_per_H, cube_diff_median_Fe_mg_per_L, cube_diff_median_ATP_nanomol_per_L)) %>% 
+  column_to_rownames("Sample_ID") %>% 
+  dplyr::select(-c(Rep, cube_diff_median_Respiration_Rate_mg_DO_per_L_per_H, cube_diff_median_Fe_mg_per_L, cube_diff_median_ATP_nanomol_per_L, cube_diff_median_NPOC_mg_C_per_L, cube_diff_median_TN_mg_N_per_L)) %>% 
   rename(Cube_SpC_Diff = cube_diff_median_SpC) %>% 
   rename(Cube_pH_Diff = cube_diff_median_pH) %>%
   rename(Cube_Temp_Diff = cube_diff_median_Temp) %>%
@@ -245,6 +245,10 @@ cube_effect_data_corr = cube_effect_data %>%
   rename(Cube_Dry_FinGravMoi = cube_median_Dry_Final_Gravimetric_Moisture) %>%
   rename(Cube_Dry_LostGravMoi = cube_median_Dry_Lost_Gravimetric_Moisture) %>%
   rename(Cube_ATP_pmol_g_Diff = cube_diff_median_ATP_picomol_per_g) %>%
+  rename(Cube_NPOC_mg_kg_Diff = cube_diff_median_NPOC_mg_C_per_kg) %>% 
+  rename(Cube_TN_mg_kg_Diff = cube_diff_median_TN_mg_N_per_kg) %>% 
+  rename(Cube_TN_solid_perc_Diff = cube_diff_median_tn_percent) %>% 
+  rename(Cube_TOC_solid_perc_Diff = cube_diff_median_toc_percent) %>% 
   rename(Cube_Fine_Sand = cube_median_Percent_Fine_Sand) %>%
   rename(Cube_Med_Sand = cube_median_Percent_Med_Sand) %>%
   rename(Cube_Coarse_Sand = cube_median_Percent_Coarse_Sand) %>%
@@ -253,12 +257,15 @@ cube_effect_data_corr = cube_effect_data %>%
   rename(Cube_Clay = cube_median_Percent_Clay) %>%
   rename(Cube_SSA = cube_median_mean_ssa) %>% 
   relocate(Cube_Effect_Size, .before = Cube_SpC_Diff) 
+cube_effect_samples_corr <- cor(cube_effect_data_corr, method = "spearman")
   
-# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
+ png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
 # 
 # pairs(cube_effect_data_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = 1)
+
+corrplot(cube_effect_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Effect Samples Correlation")
 # 
-# dev.off()
+ dev.off()
 
 ## Scatter Plots ####
 
@@ -329,6 +336,17 @@ fs_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Fine_Sand, y = Cube_Effect_
   theme(text = element_text(size = 12)) 
 
 #dev.off()
+
+cn_cube = ggplot(cube_effect_data_corr, aes(x = Cube_TOC_solid_perc_Diff, y = Cube_Effect_Size)) +
+  geom_point() +
+  theme_bw() +
+  #stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`\n`~")))+ #sep = "~`;`~"
+  stat_cor(data = cube_effect_data_corr, label.x = -1.5, label.y = 11.5, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect_data_corr, label.x = -1.5, label.y = 11, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
+  xlab("Cubed Root TOC Difference Solid (%)") +
+  ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
+  theme(text = element_text(size = 12))
 
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fin_Grav_Moi_Scatter.png"), width = 6, height = 6, units = "in", res = 300)

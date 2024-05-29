@@ -178,8 +178,8 @@ effect_data <- medians %>%
   relocate(median_Initial_Gravimetric_Moisture:median_Final_Gravimetric_Moisture, .after = median_Lost_Gravimetric_Water) %>% 
   #filter(Sample_Name != "EC_021_INC") %>% 
   group_by(Sample_ID) %>% 
-  mutate(across(c(median_SpC:median_TN_mg_N_per_kg), ~. [Rep == "Wet"] - .[Rep  == "Dry"])) %>% 
-  rename_with(.cols = c(median_SpC:median_TN_mg_N_per_kg), .fn = ~ paste0("diff_", .x)) %>% 
+  mutate(across(c(median_SpC:median_tn_percent), ~. [Rep == "Wet"] - .[Rep  == "Dry"])) %>% 
+  rename_with(.cols = c(median_SpC:median_tn_percent), .fn = ~ paste0("diff_", .x)) %>% 
   distinct(Sample_ID, .keep_all = TRUE) %>% 
   rename(median_Dry_Initial_Gravimetric_Moisture = median_Initial_Gravimetric_Moisture ) %>% 
   rename(median_Dry_Final_Gravimetric_Moisture = median_Final_Gravimetric_Moisture ) %>% 
