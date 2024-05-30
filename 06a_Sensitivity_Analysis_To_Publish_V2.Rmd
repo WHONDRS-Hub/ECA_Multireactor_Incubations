@@ -39,6 +39,7 @@ library(readr)
 + EC_014_INC-W1 : Bad measurements for first 6 minutes
 + EC_011-W and EC_012-W : Too much water added at beginning of 21-day incubation
 
+51 - D1 - weird values
 
 ```{r Load and Clean Data, include = FALSE}
 
@@ -48,7 +49,7 @@ rm(list=ls());graphics.off()
 #Example:
 pnnl.user = 'laan208'
 
-input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EC_INC_ReadyForBoye_10-03-2023.csv")
+input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EC_INC_Raw_DO_By_Min_ReadyForBoye_2024-05-30.csv")
 
 output.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/ReadyForBoye/")
 
@@ -688,9 +689,9 @@ slope.outliers <- cv %>%
 
 slope.outliers$flag <- NA
 
-slope.final <- as.data.frame(matrix(NA, ncol = 11, nrow =1))
+slope.final <- as.data.frame(matrix(NA, ncol = 10, nrow =1))
 
-colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_Rate_mg_DO_per_L_per_H", "Mean_Slope_All_L", "Mean_Slope_All_kg", "cv_before_removal_L", "cv_before_removal_kg", "cv_after_removal", "Mean_Slope_Removed","flag")
+colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_Rate_mg_DO_per_L_per_H", "Mean_Slope_All_L", "Mean_Slope_All_kg", "cv_before_removal_L", "cv_before_removal_kg", "cv_after_removal", "Mean_Slope_Removed")
 
 unique.samples = unique(slope.outliers$kit_treat)
 
@@ -790,7 +791,7 @@ eca_respiration_all_final = outliers_flag %>%
   mutate(Methods_Deviation)
   
 
-write.csv(eca_respiration_all_final, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-05-29.csv", row.names = F)
+write.csv(eca_respiration_all_final, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-05-30.csv", row.names = F)
 
 ```
 
