@@ -30,30 +30,81 @@ setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Tea
 # Remove NEON samples - 52, 53, 57
 all_respiration <- read.csv(paste0("INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",respiration.date,".csv")) %>% 
   dplyr::select(c(Sample_Name, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) 
+  
 
-#mean_respiration <- read.csv(paste0("INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_",respiration.summary,".csv"))
+filter(!grepl("INC_008|INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation))
+#remove samples with too much water (EC_011/012-W), missing replicates (EC_072-W5/D5),  overexposed samples (EC_027, EC_013, EC_014), less sediment in sample (EC_012-D5)
+
+median_respiration = all_respiration %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  mutate(SpC = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002", Methods_Deviation), NA, SpC)) %>% 
+  mutate(pH = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002", Methods_Deviation), NA, pH)) %>% 
+  mutate(Temp = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temp)) %>% 
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  group_by(Sample_ID, Rep) %>%
+  summarise(across(where(is.numeric),
+                   list(median = ~median(.x, na.rm = TRUE),
+                        cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
+                        n = ~sum(!is.na(.x))), 
+                    .names = "{.col}_{.fn}")) %>% 
+  ungroup() %>% 
+  group_by(Sample_ID, Rep) %>%
+  mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
+  select(c(Sample_ID, Rep, SpC_median, pH_median, Temp_median, Respiration_Rate_mg_DO_per_L_per_H_median, Respiration_Rate_mg_DO_per_kg_per_H_median, Remove)) %>% 
+  unite(Sample_Name, c("Sample_ID", "Rep"))
+
 
 #ECA Iron
 all_iron <- read_csv(paste0("Fe/03_ProcessedData/EC_ReadyForBoye_",fe.date,".csv")) %>% 
   mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC")) %>% 
-  dplyr::select(-c(Methods_Deviation))
+  rename(Dev_Fe = Methods_Deviation)
+  
+  #dplyr::select(-c(Methods_Deviation))
+
+median_iron = all_iron  %>% 
+  mutate(Temp = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temp)) %>% 
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  group_by(Sample_ID, Rep) %>%
+  summarise(across(where(is.numeric),
+                   list(median = ~median(.x, na.rm = TRUE),
+                        cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
+                        n = ~sum(!is.na(.x))), 
+                   .names = "{.col}_{.fn}")) %>% 
+  ungroup() %>% 
+  group_by(Sample_ID, Rep) %>%
+  mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
+  select(c(Sample_ID, Rep, SpC_median, pH_median, Temp_median, Respiration_Rate_mg_DO_per_L_per_H_median, Respiration_Rate_mg_DO_per_kg_per_H_median, Remove)) %>% 
+  unite(Sample_Name, c("Sample_ID", "Rep"))
+
 
 
 #Gravimetric Moisture
 
 grav_inc <- read.csv(paste0("INC/03_ProcessedData/EC_Drying_Masses_Summary_ReadyForBoye_on_",grav.summary,".csv")) %>% 
+  rename(Dev_Moi = Methods_Deviation)
+  
   dplyr::select(-c(Methods_Deviation)) 
 
 ## ECA ATP ####
 atp_all = read.csv(paste0("ATP/03_ProcessedData/EC_ATP_ReadyForBoye_",atp.date,".csv")) %>% 
-  dplyr::select(-c(Material, Methods_Deviation)) %>% 
-  mutate(Sample_Name  = str_replace(Sample_Name, "ATP", "INC"))
+    mutate(Sample_Name  = str_replace(Sample_Name, "ATP", "INC")) %>% 
+    rename(Dev_ATP = Methods_Deviation)
+    
+ # dplyr::select(-c(Material, Methods_Deviation)) %>% 
+  
 
 ## ECA NPOC/TN ####
 
 npoc_tn_all = read.csv(paste0("Boye_Files/EC/EC_NPOC_TN_Check_for_Duplicates_",npoc.tn.date,"_by_laan208.csv")) %>% 
   mutate(Sample_Name  = str_replace(Sample_ID, "SIR", "INC")) %>% 
-  dplyr::select(-c(Date_of_Run, Methods_Deviation, Method_Notes, duplicate, Sample_ID)) %>% 
+    rename(Dev_NPOC = Methods_Deviation) %>% 
+  dplyr::select(-c(Date_of_Run, #Methods_Deviation, 
+                   Method_Notes, duplicate, Sample_ID)) %>% 
   relocate(Sample_Name, .before = NPOC_mg_C_per_L)
 
 ## ECA C/N
@@ -63,6 +114,7 @@ cn_all = read.csv(paste0("CN/02_FormattedData/ECA_CN_",cn.date,".csv")) %>%
   separate(Sample_Name, c("Parent_ID", "Rep"), remove = TRUE, sep = "_INC") %>% 
   unite(Sample_Name, c("parent_id", "Rep"), sep = "_INC") %>% 
   dplyr::select(-c(sample_id, Parent_ID))
+
 ##Start Merging Individual data
 
 all_data <- left_join(all_respiration, all_iron, by = "Sample_Name") %>%
