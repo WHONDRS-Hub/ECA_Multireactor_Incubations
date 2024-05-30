@@ -10,11 +10,11 @@ rm(list=ls());graphics.off()
 ## INPUTS ####
 pnnl.user = 'laan208'
 
-fast.rates.in = 'ev_fast_rate_calculations.xlsx'
+fast.rates.in = 'ec_fast_rate_calculations.xlsx'
   #EC: ec_fast_rate_calculations.xlsx
   #EV: ev_fast_rate_calculations.xlsx
 
-study.code = 'EV_'
+study.code = 'EC_'
   #EC_
   #EV_
 
