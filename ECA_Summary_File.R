@@ -27,19 +27,15 @@ cn.date = '05-23-2024'
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
 
 #All Respiration Rates
-# Remove NEON samples - 52, 53, 57
 all_respiration <- read.csv(paste0("INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",respiration.date,".csv")) %>% 
   dplyr::select(c(Sample_Name, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) 
   
-
-filter(!grepl("INC_008|INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation))
-#remove samples with too much water (EC_011/012-W), missing replicates (EC_072-W5/D5),  overexposed samples (EC_027, EC_013, EC_014), less sediment in sample (EC_012-D5)
-
 median_respiration = all_respiration %>% 
-  mutate(Respiration_Rate_mg_DO_per_L_per_H = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
-  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  mutate(SpC = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002", Methods_Deviation), NA, SpC)) %>% 
-  mutate(pH = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002", Methods_Deviation), NA, pH)) %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  #missing replicates (EC_072-W5/D5),  overexposed samples (EC_027, EC_013, EC_014), less sediment in sample (EC_012-D5)
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  mutate(SpC = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, SpC)) %>% 
+  mutate(pH = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, pH)) %>% 
   mutate(Temp = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temp)) %>% 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
@@ -56,6 +52,9 @@ median_respiration = all_respiration %>%
   select(c(Sample_ID, Rep, SpC_median, pH_median, Temp_median, Respiration_Rate_mg_DO_per_L_per_H_median, Respiration_Rate_mg_DO_per_kg_per_H_median, Remove)) %>% 
   unite(Sample_Name, c("Sample_ID", "Rep"))
 
+# Gravimetric Moisture ----------------------------------------------------
+
+
 
 #ECA Iron
 all_iron <- read_csv(paste0("Fe/03_ProcessedData/EC_ReadyForBoye_",fe.date,".csv")) %>% 
@@ -65,9 +64,15 @@ all_iron <- read_csv(paste0("Fe/03_ProcessedData/EC_ReadyForBoye_",fe.date,".csv
   #dplyr::select(-c(Methods_Deviation))
 
 median_iron = all_iron  %>% 
-  mutate(Temp = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temp)) %>% 
-  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
-  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+  mutate(Fe_mg_per_L = ifelse(grepl("INC_Method_001", Dev_Fe), NA, Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_kg = ifelse(grepl("INC_Method_001", Dev_Fe), NA, Fe_mg_per_kg)) %>% 
+  mutate(Fe_mg_per_L = if_else(grepl("SFE_Below", Fe_mg_per_L), "0.001", Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_L = if_else(grepl("SFE_Above", Fe_mg_per_L), str_extract(Fe_mg_per_L, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_L = as.numeric(Fe_mg_per_L)) %>%
+  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Above", Fe_mg_per_kg), str_extract(Fe_mg_per_kg, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_kg)) %>% 
+  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Below", Fe_mg_per_kg), as.numeric(Fe_mg_per_L * (Incubation_Water_Mass_g/Dry_Sediment_Mass_g)), as.numeric(Fe_mg_per_kg))) %>%
+  mutate(Fe_mg_per_kg = as.numeric(Fe_mg_per_kg)) %>% 
+   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
   mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
   group_by(Sample_ID, Rep) %>%
   summarise(across(where(is.numeric),
@@ -77,7 +82,10 @@ median_iron = all_iron  %>%
                    .names = "{.col}_{.fn}")) %>% 
   ungroup() %>% 
   group_by(Sample_ID, Rep) %>%
-  mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
+  mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) 
+
+
+%>% ## Check CV's, then remove 
   select(c(Sample_ID, Rep, SpC_median, pH_median, Temp_median, Respiration_Rate_mg_DO_per_L_per_H_median, Respiration_Rate_mg_DO_per_kg_per_H_median, Remove)) %>% 
   unite(Sample_Name, c("Sample_ID", "Rep"))
 
