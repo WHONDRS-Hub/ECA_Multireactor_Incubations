@@ -42,17 +42,17 @@ median_respiration = all_respiration %>%
   mutate(Temp = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temp)) %>% 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
-  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
   group_by(Sample_ID, Rep) %>%
   summarise(across(where(is.numeric),
-                   list(median = ~median(.x, na.rm = TRUE),
+                   list(Median = ~median(.x, na.rm = TRUE),
                         cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
                         n = ~sum(!is.na(.x))), 
-                    .names = "{.col}_{.fn}")) %>% 
+                    .names = "{.fn}_{.col}")) %>% 
   ungroup() %>% 
   group_by(Sample_ID, Rep) %>%
   mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
-  select(c(Sample_ID, Rep, SpC_median, pH_median, Temp_median, Respiration_Rate_mg_DO_per_L_per_H_median, Respiration_Rate_mg_DO_per_kg_per_H_median, Remove)) %>% 
+  select(c(Sample_ID, Rep, Median_SpC, Median_pH, Median_Temp, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H, Remove)) %>% 
   unite(Sample_Name, c("Sample_ID", "Rep"))
 
 # Gravimetric Moisture ----------------------------------------------------
@@ -66,17 +66,17 @@ median_grav = grav_inc %>%
   mutate(Final_Gravimetric_Moisture = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Final_Gravimetric_Moisture)) %>% 
   #missing replicates (EC_072-W5/D5), less sediment in sample (EC_012-D5)
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
-  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
   group_by(Sample_ID, Rep) %>%
   summarise(across(where(is.numeric),
-                   list(median = ~median(.x, na.rm = TRUE),
+                   list(Median = ~median(.x, na.rm = TRUE),
                         cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
                         n = ~sum(!is.na(.x))), 
-                   .names = "{.col}_{.fn}")) %>% 
+                   .names = "{.fn}_{.col}")) %>% 
   ungroup() %>% 
   group_by(Sample_ID, Rep) %>%
   mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
-  select(c(Sample_ID, Rep,Initial_Gravimetric_Moisture_median, Final_Gravimetric_Moisture_median, Remove)) %>% 
+  select(c(Sample_ID, Rep,Median_Initial_Gravimetric_Moisture, Median_Final_Gravimetric_Moisture, Remove)) %>% 
   unite(Sample_Name, c("Sample_ID", "Rep"))
 
 # Iron --------------------------------------------------------------------
@@ -98,17 +98,17 @@ median_iron = all_iron  %>%
   mutate(Fe_mg_per_kg = if_else(grepl("SFE_Below", Fe_mg_per_kg), as.numeric(Fe_mg_per_L * (Incubation_Water_Mass_g/Dry_Sediment_Mass_g)), as.numeric(Fe_mg_per_kg))) %>%
   mutate(Fe_mg_per_kg = as.numeric(Fe_mg_per_kg)) %>% 
    separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
-  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
   group_by(Sample_ID, Rep) %>%
   summarise(across(where(is.numeric),
-                   list(median = ~median(.x, na.rm = TRUE),
+                   list(Median = ~median(.x, na.rm = TRUE),
                         cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
                         n = ~sum(!is.na(.x))), 
-                   .names = "{.col}_{.fn}")) %>% 
+                   .names = "{.fn}_{.col}")) %>% 
   ungroup() %>% 
   group_by(Sample_ID, Rep) %>%
   mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
-  select(c(Sample_ID, Rep, Fe_mg_per_L_median, Fe_mg_per_kg_median, Remove)) %>% 
+  select(c(Sample_ID, Rep, Median_Fe_mg_per_L, Median_Fe_mg_per_kg, Remove)) %>% 
   unite(Sample_Name, c("Sample_ID", "Rep"))
 
 
@@ -125,17 +125,17 @@ median_atp = atp_all %>%
   mutate(ATP_nanomol_per_L = ifelse(ATP_nanomol_per_L == -9999, NA, ATP_nanomol_per_L)) %>% 
   mutate(ATP_picomol_per_g = ifelse(ATP_picomol_per_g == -9999, NA, ATP_picomol_per_g)) %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
-  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
   group_by(Sample_ID, Rep) %>%
   summarise(across(where(is.numeric),
-                   list(median = ~median(.x, na.rm = TRUE),
+                   list(Median = ~median(.x, na.rm = TRUE),
                         cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
                         n = ~sum(!is.na(.x))), 
-                   .names = "{.col}_{.fn}")) %>% 
+                   .names = "{.fn}_{.col}")) %>% 
   ungroup() %>% 
   group_by(Sample_ID, Rep) %>%
   mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
-  select(c(Sample_ID, Rep, ATP_nanomol_per_L_median, ATP_picomol_per_g_median, Remove)) %>% 
+  select(c(Sample_ID, Rep, Median_ATP_nanomol_per_L, Median_ATP_picomol_per_g, Remove)) %>% 
   unite(Sample_Name, c("Sample_ID", "Rep"))
 
 # NPOC/TN -----------------------------------------------------------------
@@ -157,19 +157,19 @@ median_npoc_tn = npoc_tn_all %>%
   mutate(TN_mg_N_per_L = ifelse(grepl("VI_OCN_010|VB_OCN_001", Methods_Deviation), NA, TN_mg_N_per_L)) %>% 
   mutate(TN_mg_N_per_kg = ifelse(grepl("VI_OCN_010|VB_OCN_001", Methods_Deviation), NA, TN_mg_N_per_kg)) %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
-  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
   mutate(NPOC_mg_C_per_L = as.numeric(NPOC_mg_C_per_L)) %>% 
   mutate(TN_mg_N_per_L = as.numeric(TN_mg_N_per_L)) %>% 
   group_by(Sample_ID, Rep) %>%
   summarise(across(where(is.numeric),
-                   list(median = ~median(.x, na.rm = TRUE),
+                   list(Median = ~median(.x, na.rm = TRUE),
                         cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
                         n = ~sum(!is.na(.x))), 
-                   .names = "{.col}_{.fn}")) %>% 
+                   .names = "{.fn}_{.col}")) %>% 
   ungroup() %>% 
   group_by(Sample_ID, Rep) %>%
   mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
-  select(c(Sample_ID, Rep, NPOC_mg_C_per_L_median, NPOC_mg_C_per_kg_median, TN_mg_N_per_L_median, TN_mg_N_per_kg_median, Remove)) %>% 
+  select(c(Sample_ID, Rep, Median_NPOC_mg_C_per_L, Median_NPOC_mg_C_per_kg, Median_TN_mg_N_per_L, Median_TN_mg_N_per_kg, Remove)) %>% 
   unite(Sample_Name, c("Sample_ID", "Rep")) 
 
 
@@ -196,6 +196,24 @@ medians = left_join(median_respiration, median_grav, by = "Sample_Name") %>%
   left_join(median_iron, by = "Sample_Name") %>% 
   left_join(median_atp, by = "Sample_Name") %>% 
   left_join(median_npoc_tn, by = "Sample_Name") %>% 
-  mutate(remove_any_true = if_any(everything(), ~ .x == TRUE))
+  mutate(remove_any_true = if_any(everything(), ~ .x == TRUE)) %>% 
+  select(-c(Remove.x, Remove.y, Remove.x.x, Remove.y.y, Remove)) %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "_INC_", "-"))
   
 
+
+# Effect Size -------------------------------------------------------------
+
+# Remove Gravimetric Moisture from this?
+
+effect_data <- medians %>% 
+  separate(Sample_Name, c("Sample_Name", "Treat"), sep = "-") %>% 
+  group_by(Sample_Name) %>% 
+  mutate(across(where(is.numeric), ~. [Treat == "W"] - .[Treat  == "D"])) %>% 
+  rename_with(~ str_replace_all(., "Median_", "Effect_Size_")) %>% 
+  distinct(Sample_Name, .keep_all = TRUE) %>% 
+  select(-c(Treat))
+  
+
+
+write.csv(effect_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-29_Effect_Median_ECA_Data.csv") 
