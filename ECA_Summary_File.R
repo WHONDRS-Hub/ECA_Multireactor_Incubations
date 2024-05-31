@@ -26,10 +26,13 @@ cn.date = '05-23-2024'
 #Read in all data
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
 
-#All Respiration Rates
+
+# Respiration -------------------------------------------------------------
+
 all_respiration <- read.csv(paste0("INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",respiration.date,".csv")) %>% 
   dplyr::select(c(Sample_Name, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) 
-  
+
+
 median_respiration = all_respiration %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   #missing replicates (EC_072-W5/D5),  overexposed samples (EC_027, EC_013, EC_014), less sediment in sample (EC_012-D5)
@@ -54,18 +57,40 @@ median_respiration = all_respiration %>%
 
 # Gravimetric Moisture ----------------------------------------------------
 
+grav_inc = read.csv(paste0("INC/03_ProcessedData/EC_Drying_Masses_Summary_ReadyForBoye_on_",grav.summary,".csv")) 
 
+#Some dry reps have high CV: EC_057 (low moisture), EC_081 (one lower sample), EC_063 (low moisture), EC_088 (one lower sample), EC_076 (low moisture), EC_071 (one lower sample), EC_056 (low moisture), EC_069 (one slightly lower) 
 
-#ECA Iron
+median_grav = grav_inc %>% 
+  mutate(Initial_Gravimetric_Moisture = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Initial_Gravimetric_Moisture)) %>% 
+  mutate(Final_Gravimetric_Moisture = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Final_Gravimetric_Moisture)) %>% 
+  #missing replicates (EC_072-W5/D5), less sediment in sample (EC_012-D5)
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  group_by(Sample_ID, Rep) %>%
+  summarise(across(where(is.numeric),
+                   list(median = ~median(.x, na.rm = TRUE),
+                        cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
+                        n = ~sum(!is.na(.x))), 
+                   .names = "{.col}_{.fn}")) %>% 
+  ungroup() %>% 
+  group_by(Sample_ID, Rep) %>%
+  mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
+  select(c(Sample_ID, Rep,Initial_Gravimetric_Moisture_median, Final_Gravimetric_Moisture_median, Remove)) %>% 
+  unite(Sample_Name, c("Sample_ID", "Rep"))
+
+# Iron --------------------------------------------------------------------
+
 all_iron <- read_csv(paste0("Fe/03_ProcessedData/EC_ReadyForBoye_",fe.date,".csv")) %>% 
   mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC")) %>% 
   rename(Dev_Fe = Methods_Deviation)
-  
-  #dplyr::select(-c(Methods_Deviation))
 
+# Fe replicates have high CV's, but no apparent batch effects/deviations
+  
 median_iron = all_iron  %>% 
-  mutate(Fe_mg_per_L = ifelse(grepl("INC_Method_001", Dev_Fe), NA, Fe_mg_per_L)) %>% 
-  mutate(Fe_mg_per_kg = ifelse(grepl("INC_Method_001", Dev_Fe), NA, Fe_mg_per_kg)) %>% 
+  left_join(grav_inc, by = "Sample_Name") %>% 
+  mutate(Fe_mg_per_L = ifelse(grepl("INC_Method_001|INC_Method_002", Dev_Fe), NA, Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_kg = ifelse(grepl("INC_Method_001|INC_Method_002", Dev_Fe), NA, Fe_mg_per_kg)) %>% 
   mutate(Fe_mg_per_L = if_else(grepl("SFE_Below", Fe_mg_per_L), "0.001", Fe_mg_per_L)) %>% 
   mutate(Fe_mg_per_L = if_else(grepl("SFE_Above", Fe_mg_per_L), str_extract(Fe_mg_per_L, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_L)) %>% 
   mutate(Fe_mg_per_L = as.numeric(Fe_mg_per_L)) %>%
@@ -82,40 +107,76 @@ median_iron = all_iron  %>%
                    .names = "{.col}_{.fn}")) %>% 
   ungroup() %>% 
   group_by(Sample_ID, Rep) %>%
-  mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) 
-
-
-%>% ## Check CV's, then remove 
-  select(c(Sample_ID, Rep, SpC_median, pH_median, Temp_median, Respiration_Rate_mg_DO_per_L_per_H_median, Respiration_Rate_mg_DO_per_kg_per_H_median, Remove)) %>% 
+  mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
+  select(c(Sample_ID, Rep, Fe_mg_per_L_median, Fe_mg_per_kg_median, Remove)) %>% 
   unite(Sample_Name, c("Sample_ID", "Rep"))
 
 
-
-#Gravimetric Moisture
-
-grav_inc <- read.csv(paste0("INC/03_ProcessedData/EC_Drying_Masses_Summary_ReadyForBoye_on_",grav.summary,".csv")) %>% 
-  rename(Dev_Moi = Methods_Deviation)
-  
-  dplyr::select(-c(Methods_Deviation)) 
-
-## ECA ATP ####
+# ATP ---------------------------------------------------------------------
 atp_all = read.csv(paste0("ATP/03_ProcessedData/EC_ATP_ReadyForBoye_",atp.date,".csv")) %>% 
-    mutate(Sample_Name  = str_replace(Sample_Name, "ATP", "INC")) %>% 
-    rename(Dev_ATP = Methods_Deviation)
-    
- # dplyr::select(-c(Material, Methods_Deviation)) %>% 
-  
+    mutate(Sample_Name  = str_replace(Sample_Name, "ATP", "INC")) 
 
-## ECA NPOC/TN ####
+#ATP has high CV's but no apparent Method Deviations
+
+median_atp = atp_all %>% 
+  mutate(ATP_nanomol_per_L = ifelse(grepl("INC_Method_001", Methods_Deviation), NA, ATP_nanomol_per_L)) %>% 
+  # ATP_002 (don't have sample), INC_Method_001
+  mutate(ATP_picomol_per_g = ifelse(grepl("INC_Method_001", Methods_Deviation), NA, ATP_picomol_per_g)) %>%
+  mutate(ATP_nanomol_per_L = ifelse(ATP_nanomol_per_L == -9999, NA, ATP_nanomol_per_L)) %>% 
+  mutate(ATP_picomol_per_g = ifelse(ATP_picomol_per_g == -9999, NA, ATP_picomol_per_g)) %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  group_by(Sample_ID, Rep) %>%
+  summarise(across(where(is.numeric),
+                   list(median = ~median(.x, na.rm = TRUE),
+                        cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
+                        n = ~sum(!is.na(.x))), 
+                   .names = "{.col}_{.fn}")) %>% 
+  ungroup() %>% 
+  group_by(Sample_ID, Rep) %>%
+  mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
+  select(c(Sample_ID, Rep, ATP_nanomol_per_L_median, ATP_picomol_per_g_median, Remove)) %>% 
+  unite(Sample_Name, c("Sample_ID", "Rep"))
+
+# NPOC/TN -----------------------------------------------------------------
 
 npoc_tn_all = read.csv(paste0("Boye_Files/EC/EC_NPOC_TN_Check_for_Duplicates_",npoc.tn.date,"_by_laan208.csv")) %>% 
   mutate(Sample_Name  = str_replace(Sample_ID, "SIR", "INC")) %>% 
-    rename(Dev_NPOC = Methods_Deviation) %>% 
-  dplyr::select(-c(Date_of_Run, #Methods_Deviation, 
+    dplyr::select(-c(Date_of_Run, #Methods_Deviation, 
                    Method_Notes, duplicate, Sample_ID)) %>% 
   relocate(Sample_Name, .before = NPOC_mg_C_per_L)
 
-## ECA C/N
+#VI_OCN_010 - missing reps, VB_OCN_001 - broken vials 
+
+#remove blanks from median?
+
+median_npoc_tn = npoc_tn_all %>% 
+  filter(!grepl("Blk", Sample_Name))  %>% 
+  mutate(NPOC_mg_C_per_L = ifelse(grepl("VI_OCN_010|VB_OCN_001", Methods_Deviation), NA, NPOC_mg_C_per_L)) %>% 
+  mutate(NPOC_mg_C_per_kg = ifelse(grepl("VI_OCN_010|VB_OCN_001", Methods_Deviation), NA, NPOC_mg_C_per_kg)) %>% 
+  mutate(TN_mg_N_per_L = ifelse(grepl("VI_OCN_010|VB_OCN_001", Methods_Deviation), NA, TN_mg_N_per_L)) %>% 
+  mutate(TN_mg_N_per_kg = ifelse(grepl("VI_OCN_010|VB_OCN_001", Methods_Deviation), NA, TN_mg_N_per_kg)) %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  mutate(NPOC_mg_C_per_L = as.numeric(NPOC_mg_C_per_L)) %>% 
+  mutate(TN_mg_N_per_L = as.numeric(TN_mg_N_per_L)) %>% 
+  group_by(Sample_ID, Rep) %>%
+  summarise(across(where(is.numeric),
+                   list(median = ~median(.x, na.rm = TRUE),
+                        cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
+                        n = ~sum(!is.na(.x))), 
+                   .names = "{.col}_{.fn}")) %>% 
+  ungroup() %>% 
+  group_by(Sample_ID, Rep) %>%
+  mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
+  select(c(Sample_ID, Rep, NPOC_mg_C_per_L_median, NPOC_mg_C_per_kg_median, TN_mg_N_per_L_median, TN_mg_N_per_kg_median, Remove)) %>% 
+  unite(Sample_Name, c("Sample_ID", "Rep")) 
+
+
+
+# C/N ---------------------------------------------------------------------
+
+# waiting for ReadyForBoye File from Sophia
 
 cn_all = read.csv(paste0("CN/02_FormattedData/ECA_CN_",cn.date,".csv")) %>% 
   mutate(Sample_Name  = str_replace(sample_id, "SCN", "INC")) %>% 
@@ -123,59 +184,18 @@ cn_all = read.csv(paste0("CN/02_FormattedData/ECA_CN_",cn.date,".csv")) %>%
   unite(Sample_Name, c("parent_id", "Rep"), sep = "_INC") %>% 
   dplyr::select(-c(sample_id, Parent_ID))
 
-##Start Merging Individual data
 
-all_data <- left_join(all_respiration, all_iron, by = "Sample_Name") %>%
-  left_join(grav_inc, by = "Sample_Name") %>% 
-  left_join(atp_all, by = "Sample_Name") %>% 
-  left_join(npoc_tn_all, by = "Sample_Name") %>% 
-  left_join(cn_all, by = "Sample_Name") %>% 
-  separate(Sample_Name, c("EC", "kit", "INC"), sep = "_", remove = FALSE) %>%
-  unite(Sample_ID, c("EC", "kit")) %>% 
-  mutate(Respiration_Rate_mg_DO_per_L_per_H = if_else(Respiration_Rate_mg_DO_per_L_per_H == -9999, -9999,abs(Respiration_Rate_mg_DO_per_L_per_H))) %>%
-  mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Respiration_Rate_mg_DO_per_kg_per_H == -9999, -9999, abs(Respiration_Rate_mg_DO_per_kg_per_H)))%>% 
- # filter(!grepl("EC_052|EC_053|EC_057|EC_023", Sample_Name))%>% #remove NEON sites after 1st incubation, no gravimetric moisture (EC_023)
-#  filter(!grepl("INC_005|INC_Method_002|INC_008|INC_QA_004|INC_Method_001", Methods_Deviation)) %>% #remove samples with too much water (EC_011/012-W), missing replicates (EC_072-W5/D5), spilled sample (EC_041-W4), overexposed samples (EC_027, EC_013, EC_014), less sediment in sample (EC_012-D5), no gravimetric water (EC_023)
-  mutate(Fe_mg_per_L = if_else(grepl("SFE_Below", Fe_mg_per_L), "0.001", Fe_mg_per_L)) %>% 
-  mutate(Fe_mg_per_L = if_else(grepl("SFE_Above", Fe_mg_per_L), str_extract(Fe_mg_per_L, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_L)) %>% 
-  mutate(Fe_mg_per_L = as.numeric(Fe_mg_per_L)) %>%
-  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Above", Fe_mg_per_kg), str_extract(Fe_mg_per_kg, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_kg)) %>% 
-  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Below", Fe_mg_per_kg), as.numeric(Fe_mg_per_L * (Incubation_Water_Mass_g/Dry_Sediment_Mass_g)), as.numeric(Fe_mg_per_kg))) %>%
-  mutate(Fe_mg_per_kg = as.numeric(Fe_mg_per_kg))
+# Ions --------------------------------------------------------------------
+
+# Waiting for ReadyForBoye File from VGC
 
 
+# Merge Median Summary File -----------------------------------------------
 
-# summary_data <- all_data %>% 
-#   separate(Sample_Name, c("Sample_Name", "Replicate"), sep = "-") %>% 
-#   separate(Replicate, c("Treat", "Replicate"), sep = -1) %>% 
-#   unite(Sample_Name, c("Sample_Name", "Treat"), sep = "-") %>% 
-#   dplyr::select(-c(Replicate)) %>% 
-#   drop_na() %>% 
-#   filter(Respiration_Rate_mg_DO_per_L_per_H > -9999) %>% 
-#   group_by(Sample_Name) %>% 
-#   summarise_if(is.numeric, mean)
+medians = left_join(median_respiration, median_grav, by = "Sample_Name") %>% 
+  left_join(median_iron, by = "Sample_Name") %>% 
+  left_join(median_atp, by = "Sample_Name") %>% 
+  left_join(median_npoc_tn, by = "Sample_Name") %>% 
+  mutate(remove_any_true = if_any(everything(), ~ .x == TRUE))
+  
 
-# cv = all_data %>% 
-#   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
-#   mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
-#   mutate(NPOC_mg_C_per_L = as.numeric(NPOC_mg_C_per_L)) %>% 
-#   mutate(TN_mg_N_per_L = as.numeric(TN_mg_N_per_L)) %>% 
-#   dplyr::select(-c(Incubation_Water_Mass_g, Dry_Sediment_Mass_g, Final_Water_mass_g, Initial_Water_mass_g)) %>% 
-#   group_by(Sample_ID, Rep) %>%
-#   summarise(across(where(is.numeric),
-#                    list(mean = ~mean(.x, na.rm = TRUE), 
-#                         sd = ~sd(.x, na.rm = TRUE), 
-#                         cv = ~(sd(.x, na.rm = TRUE)/mean(.x, na.rm = TRUE))*100)))
-# 
-# ggplot(cv, aes(x = TN_mg_N_per_L_cv)) + 
-#   geom_histogram()
-
-medians = all_data %>% 
-  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
-  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
-  mutate(NPOC_mg_C_per_L = as.numeric(NPOC_mg_C_per_L)) %>% 
-  mutate(TN_mg_N_per_L = as.numeric(TN_mg_N_per_L)) %>% 
-  dplyr::select(-c(Incubation_Water_Mass_g, Dry_Sediment_Mass_g, Final_Water_mass_g, Initial_Water_mass_g)) %>% 
-  group_by(Sample_ID, Rep) %>%
-  summarise(across(where(is.numeric), ~median(.x, na.rm = TRUE))) %>% 
-  rename_with(.cols = c(SpC:Lost_Gravimetric_Water), .fn = ~ paste0("median_", .x)) 
