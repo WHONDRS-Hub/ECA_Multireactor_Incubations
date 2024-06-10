@@ -203,29 +203,29 @@ dev.off()
 
 ## Effect Size 
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Combined_Histogram.png"), width = 8, height = 4, units = "in", res = 300)
-
-cube_effect_hist_new = cube_effect_hist +
-  theme(legend.position = c(0.8, 0.8),
-        legend.key.size = unit(0.15, "in"), 
-        legend.title = element_text(size = 8),
-        axis.title.x = element_text(size = 10)) + 
-  xlab(expression(atop("\n Cubed Root Effect Size", "(Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))) 
-  
-
-all_cube_hist_new = all_cube_hist + 
-  theme(legend.position = c(0.85, 0.8), 
-        legend.key.size = unit(0.15, "in"), 
-        legend.title = element_text(size = 8),
-        axis.title.x = element_text(size = 10)) +
-  guides(fill = guide_legend(title="Treatment")) + 
-  xlab(expression(atop("\n Cubed Root Respiration Rate", "(mg O"[2]*" kg"^-1*" H"^-1*")")))
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Combined_Histogram.png"), width = 8, height = 4, units = "in", res = 300)
+# 
+# cube_effect_hist_new = cube_effect_hist +
+#   theme(legend.position = c(0.8, 0.8),
+#         legend.key.size = unit(0.15, "in"), 
+#         legend.title = element_text(size = 8),
+#         axis.title.x = element_text(size = 10)) + 
+#   xlab(expression(atop("\n Cubed Root Effect Size", "(Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))) 
+#   
+# 
+# all_cube_hist_new = all_cube_hist + 
+#   theme(legend.position = c(0.85, 0.8), 
+#         legend.key.size = unit(0.15, "in"), 
+#         legend.title = element_text(size = 8),
+#         axis.title.x = element_text(size = 10)) +
+#   guides(fill = guide_legend(title="Treatment")) + 
+#   xlab(expression(atop("\n Cubed Root Respiration Rate", "(mg O"[2]*" kg"^-1*" H"^-1*")")))
 
 #combine_hist = ggarrange(all_cube_hist_new, cube_effect_hist_new, labels = c("A", "B", "C"), label.x = c(0.15, 0.15, 0.15), label.y = c(0.97, 0.97, 0.97))
 
-combine_hist
-
-dev.off()
+# combine_hist
+# 
+# dev.off()
 
 
 ## Effect Size + Rate + Map Combined Figure
