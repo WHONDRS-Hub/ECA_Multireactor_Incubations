@@ -11,6 +11,8 @@ rm(list=ls());graphics.off()
 
 #### Read in Effect Size Data
 
+#change this to published data when ready
+
 effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-29_Effect_Median_ECA_Data.csv",header = TRUE) %>% 
   dplyr::select(-c(X)) 
 
@@ -88,6 +90,8 @@ loadings_df$Variable <- row_names
 # Melt the dataframe for plotting
 loadings_melted <- reshape2::melt(loadings_df, id.vars = "Variable")
 
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cubed_Root_PCA_Heatmap.png"), width = 12, height = 8, units = "in", res = 300)
+
 # Plotting the heatmap
 ggplot(loadings_melted, aes(x = variable, y = Variable, fill = value)) +
   geom_tile() +
@@ -96,6 +100,7 @@ ggplot(loadings_melted, aes(x = variable, y = Variable, fill = value)) +
   ggtitle("PCA Loadings Heatmap")+
   geom_text(aes(label = round(value, 2)), color = "black", size = 3)
 
+dev.off()
 
 ## LASSO with PCA Loadings ####
 set.seed(42)
@@ -152,7 +157,11 @@ cube_pca = fviz_pca_biplot(cube_effect_pca, col.var = "black",geom = "point"
   geom_point(aes(color = cube_effect_data_corr$Cube_Effect_Size), size = 3.5) +
   scale_color_gradient2(limits = cube_limits, low = "firebrick2", mid = "goldenrod2",
                         high = "dodgerblue2", midpoint = (max(cube_limits)+min(cube_limits))/2) +
-  labs(color = paste0("cube Wet - Dry Rate"))
+  labs(color = paste0("Cubed Root Wet - Dry Rate"))+ theme(legend.position = c(0.2, 0.85), 
+                                                           legend.key.size = unit(0.25, "in"), 
+                                                           legend.title = element_text(size = 8),
+                                                           axis.title.x = element_text(size = 10))
+
 
 cube_pca
 
