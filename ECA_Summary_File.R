@@ -39,7 +39,7 @@ median_respiration = all_respiration %>%
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   mutate(SpC = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, SpC)) %>% 
   mutate(pH = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, pH)) %>% 
-  mutate(Temp = ifelse(grepl("INC_008|INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temp)) %>% 
+  mutate(Temp = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temp)) %>% 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
   mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%

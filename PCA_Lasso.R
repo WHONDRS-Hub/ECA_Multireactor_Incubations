@@ -149,7 +149,7 @@ png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Fi
 
 cube_pca = fviz_pca_biplot(cube_effect_pca, col.var = "black",geom = "point"
 ) +
-  geom_point(aes(color = cube_effect_data_corr$cube_Effect_Size), size = 3.5) +
+  geom_point(aes(color = cube_effect_data_corr$Cube_Effect_Size), size = 3.5) +
   scale_color_gradient2(limits = cube_limits, low = "firebrick2", mid = "goldenrod2",
                         high = "dodgerblue2", midpoint = (max(cube_limits)+min(cube_limits))/2) +
   labs(color = paste0("cube Wet - Dry Rate"))
