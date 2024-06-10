@@ -6,11 +6,15 @@ library(ggpmisc)
 library(factoextra)
 library(stringr)
 library(glmnet)
+library(pdftools)
+library(magick)
+
 
 rm(list=ls());graphics.off()
 #set.seed(26)
 
 #### Read in Data
+##Switch to published DP when ready
 
 #Individual samples 
 all_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-29-2024.csv",header = TRUE) 
@@ -115,21 +119,27 @@ cube_all_data = clean_all_data %>%
 # 
 # dev.off()
 
-#png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_All_Rates_Histogram.png"), width = 8, height = 8, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_All_Rates_Histogram.png"), width = 4, height = 4, units = "in", res = 300)
 
 all_cube_hist = ggplot(cube_all_data, aes(x = cube_Respiration_Rate_mg_DO_per_kg_per_H)) +
   geom_histogram(position = "identity", alpha = 0.8, aes(fill = Treat))+
   scale_fill_manual(values = c("#D55E00","#0072B2"))  +
   #ggtitle("Wet Rates")+
-  xlab(expression("Cubed Root Respiration Rate (mg O"[2]*" kg"^- 1*" H"^-1*")"))+
   theme(strip.text = element_text(
     size = 4))+
   ylim(0, 87.5)+
-  theme_bw()
+  theme_bw() + 
+  theme(legend.position = c(0.85, 0.8), 
+        legend.key.size = unit(0.15, "in"), 
+        legend.title = element_text(size = 8),
+        axis.title.x = element_text(size = 10)) +
+  guides(fill = guide_legend(title="Treatment")) + 
+  xlab(expression(atop("\n Cubed Root Respiration Rate", "(mg O"[2]*" kg"^-1*" H"^-1*")"))) +
+  ylab("Count")
 
-#all_cube_hist
+all_cube_hist
 
-#dev.off()
+dev.off()
 
 
 ####
@@ -164,7 +174,7 @@ cube_effect_data = effect_data %>%
 
 cube_effect_limits <- c(-12, 12)
 
-# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Histogram.png"), width = 10, height = 10, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Histogram.png"), width = 4, height = 4, units = "in", res = 300)
 
 cube_effect_hist = ggplot(cube_effect_data, aes(x = cube_diff_median_Respiration_Rate_mg_DO_per_kg_per_H))+
   # geom_histogram(binwidth = 0.15, fill = "#009E73")+
@@ -177,18 +187,21 @@ cube_effect_hist = ggplot(cube_effect_data, aes(x = cube_diff_median_Respiration
       #  axis.text.x = element_text(size = 4),
       #  axis.text.y = element_text(size =4))+
   xlim(c(-12, 12))+
-  ylab("count\n")+
-  xlab(expression("\n Cubed Root Effect Size (Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))
+  ylab("Count\n")+
+    theme(legend.position = c(0.8, 0.8),
+        legend.key.size = unit(0.15, "in"), 
+        legend.title = element_text(size = 8),
+        axis.title.x = element_text(size = 10)) + 
+  xlab(expression(atop("\n Cubed Root Effect Size", "(Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))) 
   
 
-#cube_effect_hist
+cube_effect_hist
 
-#dev.off()
+dev.off()
 
 ####
 
-
-## Effect Size + Rate Combined Figure
+## Effect Size 
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Combined_Histogram.png"), width = 8, height = 4, units = "in", res = 300)
 
@@ -208,11 +221,46 @@ all_cube_hist_new = all_cube_hist +
   guides(fill = guide_legend(title="Treatment")) + 
   xlab(expression(atop("\n Cubed Root Respiration Rate", "(mg O"[2]*" kg"^-1*" H"^-1*")")))
 
-combine_hist = ggarrange(all_cube_hist_new, cube_effect_hist_new, labels = c("A", "B"), label.x = c(0.15, 0.15), label.y = c(0.97, 0.97))
+#combine_hist = ggarrange(all_cube_hist_new, cube_effect_hist_new, labels = c("A", "B", "C"), label.x = c(0.15, 0.15, 0.15), label.y = c(0.97, 0.97, 0.97))
 
 combine_hist
 
 dev.off()
+
+
+## Effect Size + Rate + Map Combined Figure
+
+# Read in Map .pdf
+
+map_path = "C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Map/Ecoregion_EffectSize_Map.pdf"
+
+map_image = image_read_pdf(map_path, density = 300)
+
+scale_map_image = image_scale(map_image, "80%")
+
+scale_map_label_image = image_annotate(scale_map_image, "C", size = 15, location = "+10+80", color = "black")
+
+# Read in Rate histograms figure .png
+
+rate_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-06-10_All_Rates_Histogram.png")
+
+rate_label_image = image_annotate(rate_image, "A", size = 65, location = "+30+20", color = "black")
+
+
+
+# Read in Effect Size Figure .pdf
+
+effect_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-06-10_Cube_Median_Effect_Histogram.png")
+
+effect_label_image = image_annotate(effect_image, "B", size = 65, location = "+30+20", color = "black")
+
+
+com_image = image_append(c(rate_label_image, effect_label_image))
+
+com_map_image = image_append(c(com_image, scale_map_label_image), stack = TRUE)
+
+image_write(com_map_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-06-10_Combined_map.png")
+
 
 # James Correlation Matrix ####
 all_samples_cube_corr <- cube_all_data %>% 
@@ -257,13 +305,14 @@ cube_effect_data_corr = cube_effect_data %>%
   rename(Cube_Clay = cube_median_Percent_Clay) %>%
   rename(Cube_SSA = cube_median_mean_ssa) %>% 
   relocate(Cube_Effect_Size, .before = Cube_SpC_Diff) 
+
 cube_effect_samples_corr <- cor(cube_effect_data_corr, method = "spearman")
   
  png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
 # 
 # pairs(cube_effect_data_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = 1)
 
-corrplot(cube_effect_samples_corr,type = "upper", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Effect Samples Correlation")
+corrplot(cube_effect_samples_corr,type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Effect Samples Correlation")
 # 
  dev.off()
 
@@ -335,18 +384,62 @@ fs_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Fine_Sand, y = Cube_Effect_
   ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
   theme(text = element_text(size = 12)) 
 
+# silt_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Silt, y = Cube_Effect_Size)) +
+#   geom_point() +
+#   theme_bw() +
+#   #stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`\n`~")))+ #sep = "~`;`~"
+#   stat_cor(data = cube_effect_data_corr, label.x = 0.9, label.y = 11.5, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+#   stat_cor(data = cube_effect_data_corr, label.x = 0.9, label.y = 11, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+#   stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
+#   xlab("Cubed Root Silt (%)") +
+#   ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
+#   theme(text = element_text(size = 12))
+
+# tot_sand_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Tot_Sand, y = Cube_Effect_Size)) +
+#   geom_point() +
+#   theme_bw() +
+#   #stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`\n`~")))+ #sep = "~`;`~"
+#   stat_cor(data = cube_effect_data_corr, label.x = 3.2, label.y = 11.5, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+#   stat_cor(data = cube_effect_data_corr, label.x = 3.2, label.y = 11, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+#   stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
+#   xlab("Cubed Root Total Sand (%)") +
+#   ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
+#   theme(text = element_text(size = 12))
+
+# clay_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Clay, y = Cube_Effect_Size)) +
+#   geom_point() +
+#   theme_bw() +
+#   #stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`\n`~")))+ #sep = "~`;`~"
+#   stat_cor(data = cube_effect_data_corr, label.x = 3.2, label.y = 11.5, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+#   stat_cor(data = cube_effect_data_corr, label.x = 3.2, label.y = 11, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+#   stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
+#   xlab("Cubed Root Clay (%)") +
+#   ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
+#   theme(text = element_text(size = 12))
+
+# coarse_sand_cube = ggplot(cube_effect_data_corr, aes(x = Cube_Coarse_Sand, y = Cube_Effect_Size)) +
+#   geom_point() +
+#   theme_bw() +
+#   #stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`\n`~")))+ #sep = "~`;`~"
+#   stat_cor(data = cube_effect_data_corr, label.x = 3.2, label.y = 11.5, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+#   stat_cor(data = cube_effect_data_corr, label.x = 3.2, label.y = 11, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+#   stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
+#   xlab("Cubed Root Coarse Sand (%)") +
+#   ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
+#   theme(text = element_text(size = 12))
+
 #dev.off()
 
-cn_cube = ggplot(cube_effect_data_corr, aes(x = Cube_TOC_solid_perc_Diff, y = Cube_Effect_Size)) +
-  geom_point() +
-  theme_bw() +
-  #stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`\n`~")))+ #sep = "~`;`~"
-  stat_cor(data = cube_effect_data_corr, label.x = -1.5, label.y = 11.5, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect_data_corr, label.x = -1.5, label.y = 11, size = 4, digits = 2, aes(label = paste(..p.label..)))+
-  stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
-  xlab("Cubed Root TOC Difference Solid (%)") +
-  ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
-  theme(text = element_text(size = 12))
+# cn_cube = ggplot(cube_effect_data_corr, aes(x = Cube_TOC_solid_perc_Diff, y = Cube_Effect_Size)) +
+#   geom_point() +
+#   theme_bw() +
+#   #stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`\n`~")))+ #sep = "~`;`~"
+#   stat_cor(data = cube_effect_data_corr, label.x = -1.5, label.y = 11.5, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+#   stat_cor(data = cube_effect_data_corr, label.x = -1.5, label.y = 11, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+#   stat_poly_line(data = cube_effect_data_corr, se = FALSE)+
+#   xlab("Cubed Root TOC Difference Solid (%)") +
+#   ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
+#   theme(text = element_text(size = 12))
 
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fin_Grav_Moi_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
@@ -583,21 +676,21 @@ ggplot(loadings_melted, aes(x = variable, y = Variable, fill = value)) +
 
 set.seed(42)
 ## Set response variable
-#yvar <- data.matrix(scale(cube_effect_data_clean$Cube_Effect_Size, center = TRUE, scale = TRUE))
-yvar <- data.matrix(cube_effect_data_clean$Cube_Effect_Size)
+yvar <- data.matrix(scale(cube_effect_data_clean$Cube_Effect_Size, center = TRUE, scale = TRUE))
+#yvar <- data.matrix(cube_effect_data_clean$Cube_Effect_Size)
 mean(yvar)
 sd(yvar)
 
 ## Set predictor variables
 pca_scores = as.data.frame(scale(cube_effect_pca$x, center = TRUE, scale = TRUE))
 #pca_scores = as.data.frame(cube_effect_pca$x)
-#mean(pca_scores$PC1)
-#sd(pca_scores$PC1)
+mean(pca_scores$PC1)
+sd(pca_scores$PC1)
 
 xvars <- data.matrix(pca_scores[, c("PC1",  "PC2", "PC3", "PC4", "PC5")])
 
 lasso = cv.glmnet(xvars, yvar, alpha = 1, 
-                  standardize = FALSE, standardize.response = FALSE, intercept = FALSE, nfolds = 3)
+                  standardize = FALSE, standardize.response = FALSE, intercept = FALSE, nfolds = 5)
 
 best_lambda <- lasso$lambda.min
 best_lambda
@@ -625,10 +718,10 @@ png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Fi
 
 cube_pca = fviz_pca_biplot(cube_effect_pca, col.var = "black",geom = "point"
 )+
-  geom_point(aes(color = cube_effect_data_clean$cube_Effect_Size), size = 3.5)+
+  geom_point(aes(color = cube_effect_data_clean$Cube_Effect_Size), size = 3.5)+
   scale_color_gradient2(limits = cube_limits, low = "firebrick2", mid = "goldenrod2",
                         high = "dodgerblue2", midpoint = (max(cube_limits)+min(cube_limits))/2) +
-  labs(color = paste0("cube_Wet - Dry Rate"))
+  labs(color = paste0("Cubed Root Effect Size\n(Wet - Dry Rate)"))
 
 cube_pca
 
