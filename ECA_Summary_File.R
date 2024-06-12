@@ -1,4 +1,4 @@
-## ECA Data Package
+## ECA Data Package Summary File
 
 library(tidyverse)
 
@@ -21,7 +21,7 @@ fe.date = '04-12-2024'
 atp.date = '01-26-2024'
 #atp.summary = '03-05-2024'
 npoc.tn.date = '2024-03-01'
-cn.date = '05-23-2024'
+cn.date = '06-11-2024'
 
 #Read in all data
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
@@ -178,12 +178,34 @@ median_npoc_tn = npoc_tn_all %>%
 
 # waiting for ReadyForBoye File from Sophia
 
-cn_all = read.csv(paste0("CN/02_FormattedData/ECA_CN_",cn.date,".csv")) %>% 
-  mutate(Sample_Name  = str_replace(sample_id, "SCN", "INC")) %>% 
-  separate(Sample_Name, c("Parent_ID", "Rep"), remove = TRUE, sep = "_INC") %>% 
-  unite(Sample_Name, c("parent_id", "Rep"), sep = "_INC") %>% 
-  dplyr::select(-c(sample_id, Parent_ID))
+cn_all = read.csv(paste0("CN/02_FormattedData/ECA_CN_ReadyForBoye_",cn.date,".csv")) %>% 
+  mutate(Sample_Name  = str_replace(Sample_Name, "SCN", "INC")) %>% 
+  dplyr::select(-c(Material))
 
+median_cn = cn_all %>% 
+  mutate(X01395_C_percent_per_mg = ifelse(grepl("INC_Method_001", Methods_Deviation), NA, X01395_C_percent_per_mg)) %>% 
+  mutate(X01397_N_percent_per_mg = ifelse(grepl("INC_Method_001", Methods_Deviation), NA, X01397_N_percent_per_mg)) %>%
+  mutate(X01395_C_percent_per_mg = ifelse(X01395_C_percent_per_mg == -9999, NA, X01395_C_percent_per_mg)) %>% 
+  mutate(X01397_N_percent_per_mg = ifelse(X01397_N_percent_per_mg == -9999, NA, X01397_N_percent_per_mg)) %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+  mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
+  group_by(Sample_ID, Rep) %>%
+  summarise(across(where(is.numeric),
+                   list(Median = ~median(.x, na.rm = TRUE),
+                        cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
+                        n = ~sum(!is.na(.x))), 
+                   .names = "{.fn}_{.col}")) %>% 
+  ungroup() %>% 
+  group_by(Sample_ID, Rep) %>%
+  mutate(Remove = ifelse(all(c_across(ends_with("_n")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
+  select(c(Sample_ID, Rep, Median_X01395_C_percent_per_mg, Median_X01397_N_percent_per_mg, Remove)) %>% 
+  unite(Sample_Name, c("Sample_ID", "Rep"))
+
+ggplot(median_cn, aes(x = cv_X01395_C_percent_per_mg)) + 
+  geom_histogram()
+
+ggplot(median_cn, aes(x = cv_X01397_N_percent_per_mg)) + 
+  geom_histogram()
 
 # Ions --------------------------------------------------------------------
 
@@ -196,8 +218,9 @@ medians = left_join(median_respiration, median_grav, by = "Sample_Name") %>%
   left_join(median_iron, by = "Sample_Name") %>% 
   left_join(median_atp, by = "Sample_Name") %>% 
   left_join(median_npoc_tn, by = "Sample_Name") %>% 
+  left_join(median_cn, by = "Sample_Name") %>% 
   mutate(remove_any_true = if_any(everything(), ~ .x == TRUE)) %>% 
-  select(-c(Remove.x, Remove.y, Remove.x.x, Remove.y.y, Remove)) %>% 
+  select(-c(Remove.x, Remove.y, Remove.x.x, Remove.y.y, Remove.x.x.x, Remove.y.y.y)) %>% 
   mutate(Sample_Name = str_replace(Sample_Name, "_INC_", "-"))
   
 
