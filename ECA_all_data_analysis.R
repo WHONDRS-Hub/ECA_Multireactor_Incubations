@@ -304,7 +304,8 @@ cube_effect_data_corr = cube_effect_data %>%
   rename(Cube_Silt = cube_median_Percent_Silt) %>%
   rename(Cube_Clay = cube_median_Percent_Clay) %>%
   rename(Cube_SSA = cube_median_mean_ssa) %>% 
-  relocate(Cube_Effect_Size, .before = Cube_SpC_Diff) 
+  relocate(Cube_Effect_Size, .before = Cube_SpC_Diff)%>% 
+  filter(Cube_Fe_mg_kg_Diff > -1) 
 
 cube_effect_samples_corr <- cor(cube_effect_data_corr, method = "spearman")
   
@@ -314,6 +315,18 @@ cube_effect_samples_corr <- cor(cube_effect_data_corr, method = "spearman")
 
 corrplot(cube_effect_samples_corr,type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Effect Samples Correlation")
 # 
+ dev.off()
+ 
+ scale_cube_effect_corr = as.data.frame(scale(cube_effect_data_corr))
+                                
+cube_effect_samples_corr_pearson <- cor(scale_cube_effect_corr, method = "pearson")
+ 
+ png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Pearson_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
+ # 
+ # pairs(cube_effect_data_corr, lower.panel = panel.smooth,upper.panel = panel.cor, gap = 0, cex.labels = 0.5, cex = 1)
+ 
+ corrplot(cube_effect_samples_corr_pearson,type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Effect Samples Pearson Correlation")
+ # 
  dev.off()
 
 ## Scatter Plots combined with PCA ####
