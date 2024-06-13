@@ -593,8 +593,8 @@ all.samples <-  left_join(removed, respiration, by = "Sample_Name") %>%
   separate(Sample_Name, into = c("EC", "kit", "rep"), sep = "_", remove = FALSE) %>% 
   mutate(Treat = case_when(grepl("W",rep)~"Wet",
                            grepl("D", rep) ~"Dry")) %>% 
-  mutate(Methods_Deviation.theoretical = if_else(number_of_points == 2 & `2_min_concentration` <= 5.5, "RATE_005", NA_character_)) %>% 
-  mutate(`2_min_concentration` = case_when(Methods_Deviation.theoretical == "RATE_005" ~ -9999, TRUE ~ `2_min_concentration`)) 
+  mutate(Methods_Deviation.theoretical = if_else(number_of_points == 2 & `2_min_concentration` <= 5.5, "RATE_005", NA_character_))# %>%
+  # mutate(`2_min_concentration` = case_when(Methods_Deviation.theoretical == "RATE_005" ~ -9999, TRUE ~ `2_min_concentration`))
 
 
 
@@ -689,9 +689,9 @@ slope.outliers <- cv %>%
 
 slope.outliers$flag <- NA
 
-slope.final <- as.data.frame(matrix(NA, ncol = 10, nrow =1))
+slope.final <- as.data.frame(matrix(NA, ncol = 11, nrow =1))
 
-colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_Rate_mg_DO_per_L_per_H", "Mean_Slope_All_L", "Mean_Slope_All_kg", "cv_before_removal_L", "cv_before_removal_kg", "cv_after_removal", "Mean_Slope_Removed")
+colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_Rate_mg_DO_per_L_per_H", "Mean_Slope_All_L", "Mean_Slope_All_kg", "cv_before_removal_L", "cv_before_removal_kg", "cv_after_removal", "Mean_Slope_Removed", "flag")
 
 unique.samples = unique(slope.outliers$kit_treat)
 
@@ -791,7 +791,7 @@ eca_respiration_all_final = outliers_flag %>%
   mutate(Methods_Deviation)
   
 
-write.csv(eca_respiration_all_final, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-05-30.csv", row.names = F)
+write.csv(eca_respiration_all_final, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-06-13.csv", row.names = F)
 
 ```
 
