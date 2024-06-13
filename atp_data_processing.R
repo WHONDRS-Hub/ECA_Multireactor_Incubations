@@ -6,6 +6,9 @@ rm(list=ls());graphics.off()
 
 pnnl.user = 'laan208'
 
+#raw.data = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/ATP/01_RawData/")
+
+
 raw.data = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ICON_ModEx_SSS/11_ATP/01_Raw_Data/")
 
 processed.data = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ICON_ModEx_SSS/11_ATP/03_ProcessedData/")
@@ -150,7 +153,7 @@ calibrate_atp_data = function(data_formatted){
                     # formula = y ~ poly(x,2))
     # all_slope = lm(standard_curve_mg_l~rlu)$coefficients["rlu"], 
     # all_intercept = lm(standard_curve_mg_l~rlu)$coefficients["(Intercept)"], 
-    # all_r2 = summary(lm(standard_curve_mg_l~rlu))$r.squared,
+    # all_r2 = summary(lm(standard_curve_mg_l~rlu))$r.squared, 
       low_slope = lm(rlu ~ standard_curve_mg_l, 
                      subset = standard_curve_mg_l <= 5)$coefficients["standard_curve_mg_l"], 
       low_intercept = lm(rlu ~ standard_curve_mg_l, 
@@ -220,11 +223,11 @@ lod <-  blanks %>%
   distinct(source, .keep_all = TRUE) %>% 
   mutate(day_lod = round(day_lod, 3))
 
-#lod = calibrate_atp_data(data_formatted) %>% 
- # filter(standard_curve_mg_l == 0) %>% 
- # mutate(std_err = sqrt(((0 - as.numeric(n_m_calculation))^2)/(low_count - 2))) %>% 
- # mutate(tray_lod = 3.3*(std_err/low_slope))
-
+# lod = calibrate_atp_data(data_formatted) %>%
+# filter(standard_curve_mg_l == 0) %>%
+# mutate(std_err = sqrt(((0 - as.numeric(n_m_calculation))^2)/(low_count - 2))) %>%
+# mutate(tray_lod = 3.3*(std_err/(low_slope)))
+# 
 
 ## Check reference sediments throughout runs
 reference = 
