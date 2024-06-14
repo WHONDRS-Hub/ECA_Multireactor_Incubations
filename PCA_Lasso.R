@@ -39,8 +39,8 @@ cube_effect_data_corr = cube_effect_data %>%
   rename(Cube_Dry_FinGravMoi = cube_median_Dry_Final_Gravimetric_Moisture) %>%
   rename(Cube_Dry_LostGravMoi = cube_median_Dry_Lost_Gravimetric_Moisture) %>%
   rename(Cube_ATP_pmol_g_Diff = cube_diff_median_ATP_picomol_per_g) %>%
-  rename(Cube_NPOC_mg_C_per_kg = cube_diff_median_NPOC_mg_C_per_kg) %>% 
-  rename(Cube_TN_mg_N_per_kg = cube_diff_median_TN_mg_N_per_kg) %>% 
+  rename(Cube_NPOC_mg_C_per_kg_Diff = cube_diff_median_NPOC_mg_C_per_kg) %>% 
+  rename(Cube_TN_mg_N_per_kg_Diff = cube_diff_median_TN_mg_N_per_kg) %>% 
   rename(Cube_Fine_Sand = cube_median_Percent_Fine_Sand) %>%
   rename(Cube_Med_Sand = cube_median_Percent_Med_Sand) %>%
   rename(Cube_Coarse_Sand = cube_median_Percent_Coarse_Sand) %>%
@@ -53,6 +53,9 @@ cube_effect_data_corr = cube_effect_data %>%
   relocate(Cube_Effect_Size, .before = Cube_SpC_Diff)  %>% 
   filter(Cube_Fe_mg_kg_Diff > -1)
 
+ggplot(cube_effect_data_corr, aes(x = Cube_Effect_Size, y = Cube_ATP_pmol_g_Diff)) +
+  geom_point() +
+  geom_smooth()
 
 ## Run PCA without effect size ####
 cube_data_pca = cube_effect_data_corr %>% 
@@ -80,7 +83,7 @@ loadings = cube_effect_pca$rotation
 print(loadings)
 
 loadings_df <- as.data.frame(loadings) %>% 
-  select(c(PC1, PC2, PC3, PC4, PC5)) 
+  select(c(PC1, PC2, PC3, PC4, PC5))
 
 # Generate heatmap
 
@@ -135,7 +138,7 @@ best_lasso_model <- glmnet(xvars, yvar, alpha = 1, lambda = best_lambda, family 
   #, standardize = TRUE, standardize.response = FALSE, intercept = FALSE
 )
 
-coef(best_lasso_model)
+lasso_coefs = coef(best_lasso_model)
 
 yvar_predict <- predict(best_lasso_model, s = best_lambda, newx = xvars)
 
@@ -145,6 +148,37 @@ sse <- sum((yvar_predict - yvar)^2)
 rsq = 1 - sse/sst
 
 rsq
+
+lasso_df = as.data.frame(as.matrix(lasso_coefs))
+
+colnames(lasso_df) = c("Coefficients")
+
+lasso_df = lasso_df %>% 
+  rownames_to_column(var = "variable") %>% 
+  slice(-1)
+
+
+weighted_pc = merge(lasso_df, loadings_melted, by = "variable") %>% 
+  mutate(pc_weight = value * Coefficients)
+
+weighted_total = weighted_pc %>% 
+  group_by(Variable) %>% 
+  mutate(total_weight = sum(pc_weight))
+
+ggplot(weighted_total, aes(x = fct_reorder(Variable, total_weight))) +
+  geom_col(aes(y = pc_weight, fill = variable)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+ggplot(weighted_total, aes(x = fct_reorder(Variable, total_weight), y = total_weight)) + 
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+abs_total = weighted_total %>% 
+  mutate(across(where(is.numeric), abs))
+
+ggplot(abs_total, aes(x = fct_reorder(Variable, total_weight), y = total_weight)) + 
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
 
 cube_limits = c(-12,
@@ -166,3 +200,53 @@ cube_pca = fviz_pca_biplot(cube_effect_pca, col.var = "black",geom = "point"
 cube_pca
 
 dev.off()
+
+## LASSO VARIABLES ####
+
+cube_variables = cube_effect_data_corr %>% 
+  select(c(Cube_Effect_Size, Cube_SpC_Diff, Cube_pH_Diff, Cube_Temp_Diff, Cube_Fe_mg_kg_Diff, Cube_ATP_pmol_g_Diff, Cube_NPOC_mg_C_per_kg_Diff, Cube_TN_mg_N_per_kg_Diff, Cube_TOC_Percent_Diff, Cube_TN_Percent_Diff, Cube_Fine_Sand, Cube_Tot_Sand, Cube_Dry_LostGravMoi))
+
+## LASSO with PCA Loadings ####
+set.seed(42)
+## Set response variable (Cube_Effect_Size)
+yvar <- data.matrix(scale(cube_variables$Cube_Effect_Size, center = TRUE, scale = TRUE))
+#yvar <- data.matrix(cube_effect_data_corr$Cube_Effect_Size)
+mean(yvar)
+sd(yvar)
+
+## Set predictor variables
+pca_scores = as.data.frame(scale(cube_effect_pca$x, center = TRUE, scale = TRUE))
+#pca_scores = as.data.frame(cube_effect_pca$x)
+mean(pca_scores$PC1)
+sd(pca_scores$PC1)
+
+xvars <- scale(cube_variables[, c("Cube_SpC_Diff",  "Cube_pH_Diff", "Cube_Temp_Diff", "Cube_Fe_mg_kg_Diff", "Cube_ATP_pmol_g_Diff", "Cube_NPOC_mg_C_per_kg_Diff", "Cube_TN_mg_N_per_kg_Diff", "Cube_TOC_Percent_Diff", "Cube_TN_Percent_Diff", "Cube_Fine_Sand", "Cube_Tot_Sand", "Cube_Dry_LostGravMoi")], center = T, scale = T)
+
+lasso = cv.glmnet(xvars, yvar, alpha = 1, nfolds = 5,
+                  ,standardize = FALSE, standardize.response = FALSE, intercept = FALSE
+                  #,standardize = TRUE, standardize.response = TRUE, intercept = FALSE
+                  # , standardize = TRUE, standardize.response = FALSE, intercept = FALSE
+)
+
+best_lambda <- lasso$lambda.min
+best_lambda
+
+plot(lasso)
+
+best_lasso_model <- glmnet(xvars, yvar, alpha = 1, lambda = best_lambda, family = "gaussian",
+                           , standardize = FALSE, standardize.response = FALSE, intercept = FALSE
+                           #  , standardize = TRUE, standardize.response = TRUE, intercept = FALSE
+                           #, standardize = TRUE, standardize.response = FALSE, intercept = FALSE
+)
+
+lasso_coefs = coef(best_lasso_model)
+
+yvar_predict <- predict(best_lasso_model, s = best_lambda, newx = xvars)
+
+sst <- sum((yvar - mean(yvar))^2)
+sse <- sum((yvar_predict - yvar)^2)
+
+rsq = 1 - sse/sst
+
+rsq
+
