@@ -7,7 +7,7 @@
 1. Pull out saturated DO values for each site from the calibration file. Make this into a study.code_fast_rates.xlsx file.\
      Note: This is done internally at PNNL
 
-2. Run 01_Optode_Raw_DO script
+2. Run 01_Optode_Raw_DO script\
    Note: This is done internally at PNNL
 
    a. **Script:** This pulls in raw data from optode results, mapping sheets, saturated 0 minute value, and flags if the sample was put on at the same time a picture was taken by adding a RATE_006 Method Deviation to the 2 minute point
