@@ -18,17 +18,17 @@ setwd("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders
 all_respiration <- read.csv("EC_Sediment_SpC_pH_Temp_Respiration.csv", skip = 2) %>% 
   slice(-1:-11) %>% 
   filter(Field_Name != "#End_Data") %>% 
-  dplyr::select(c(Sample_Name, Specific_Conductance_microsiemens_per_centimeter, pH, Temperature_degrees_Celsius, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) %>% 
-  mutate(across(c(Specific_Conductance_microsiemens_per_centimeter:Respiration_Rate_mg_DO_per_kg_per_H), as.numeric))
+  dplyr::select(c(Sample_Name, SpC_microsiemens_per_cm, pH, Temperature_degC, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) %>% 
+  mutate(across(c(SpC_microsiemens_per_cm:Respiration_Rate_mg_DO_per_kg_per_H), as.numeric))
 
 
 median_respiration = all_respiration %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   #missing replicates (EC_072-W5/D5),  overexposed samples (EC_027, EC_013, EC_014), less sediment in sample (EC_012-D5)
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  mutate(Specific_Conductance_microsiemens_per_centimeter = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Specific_Conductance_microsiemens_per_centimeter)) %>% 
+  mutate(SpC_microsiemens_per_cm = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, SpC_microsiemens_per_cm)) %>% 
   mutate(pH = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, pH)) %>% 
-  mutate(Temperature_degrees_Celsius = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temperature_degrees_Celsius)) %>% 
+  mutate(Temperature_degC = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temperature_degC)) %>% 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
   mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
@@ -41,7 +41,7 @@ median_respiration = all_respiration %>%
   ungroup() %>% 
   group_by(Sample_ID, Rep) %>%
   mutate(Remove = ifelse(all(c_across(starts_with("n_")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
-  select(c(Sample_ID, Rep, Median_Specific_Conductance_microsiemens_per_centimeter, Median_pH, Median_Temperature_degrees_Celsius, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H, Remove)) %>% 
+  select(c(Sample_ID, Rep, Median_SpC_microsiemens_per_cm, Median_pH, Median_Temperature_degC, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H, Remove)) %>% 
   unite(Sample_Name, c("Sample_ID", "Rep"))
 
 # Gravimetric Moisture ----------------------------------------------------
