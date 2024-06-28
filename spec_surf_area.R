@@ -18,7 +18,7 @@ input.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Data Generation and 
 
 ssa <- read_excel(input.path) %>% 
   mutate(Parent_ID = str_extract(Sample_ID, ".{5}(?=_)")) %>% 
-  filter(!grepl("EC_21_MOI-3|EC_23_MOI-2|EC_24_MOI-3",Sample_ID)) 
+  filter(!grepl("skip",Method_Notes)) #filtered out samples that had issues during run
 
 
 #setting constants
