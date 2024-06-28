@@ -36,51 +36,6 @@ ssa_calc <- ssa %>%
 
 
 #running a outlier test to remove samples that are most different from each other 
-# use the Rosner Test from `EnvStats` package
-  
-# library(EnvStats)
-# 
-# fit_rosner = function(ssa_outliers){
-#   
-#   # k represents number of outliers to remove
-#   # because we have variable number of reps, we need to first set k
-#   
-#   K = ssa_outliers  %>% mutate(k = n-3)%>% distinct(k) %>% pull(k)
-# 
-#   # then apply this to the rosner test
-#   x = rosnerTest(ssa_outliers %>% pull(ssa_m2_g), k = K) 
-# 
-#   # the output is a list, from that select the section we need
-#   # select only the relevant column (`Value`), 
-#   # and then process so we can left_join later
-#   y = x$all.stats %>% dplyr::select(Value) %>% 
-#     mutate(outlier = TRUE) %>% 
-#     rename(ssa_m2_g = Value)
-# 
-# }
-# 
-# outliers = 
-#   ssa_calc %>% 
-#   dplyr::select(Sample_ID, Parent_ID, ssa_m2_g)%>% 
-#   group_by(Parent_ID) %>% 
-#   dplyr::mutate(n = n()) %>% 
-#   ungroup() %>% 
-#   filter(n > 3) %>% 
-#   group_by(Parent_ID) %>% 
-#   do(fit_rosner(.))
-# 
-# # ^ this df contains the values that are outliers
-# # left_join this with the original file,
-# # and then remove the outliers
-# 
-# ssa_outliers_removed = 
-#   ssa_calc %>% 
-#   dplyr::select(Sample_ID, Parent_ID, ssa_m2_g) %>% 
-#   left_join(outliers) %>% 
-#   filter(!outlier %in% "TRUE") %>% 
-#   dplyr::select(-outlier)
-
-
 # outlier test using Dixon's Q
 
 library(outliers)
