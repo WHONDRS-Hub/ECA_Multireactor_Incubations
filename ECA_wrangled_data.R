@@ -21,172 +21,169 @@ pnnl.user = 'laan208'
 
 # choose file dates to read in 
 
-effect.date = '2023-11-08'
-respiration.date = '2023-11-08'
-removed.respiration.date = '2023-11-13'
-mg.kg.respiration.date = '2023-12-05'
-grav.date = '2023-12-01'
+respiration.date = '2024-05-29'
+#respiration.summary = '2024-03-05'
+grav.date = '2024-04-26'
+grav.summary = '2024-04-26'
+fe.date = '04-12-2024'
+#fe.summary = '03-05-2024'
+atp.date = '01-26-2024'
+#atp.summary = '03-05-2024'
+npoc.tn.date = '2024-03-01'
+cn.date = '05-23-2024'
 
 #Read in all data
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
 
-#effect size - change date to most recent
-effect_size <- read_csv(paste0("Optode multi reactor/Optode_multi_reactor_incubation/rates/ReadyForBoye/ECA_Effect_Size_ReadyForBoye_",effect.date,".csv"))
+#All Respiration Rates
+# Remove NEON samples - 52, 53, 57
+all_respiration <- read.csv(paste0("INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",respiration.date,".csv")) %>% 
+  dplyr::select(c(Sample_Name, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) 
 
-
-#Respiration rates with removals from dist matrix to calculate effect size 
-
-#respiration <- read.csv(paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/ReadyForBoye/ECA_Sediment_Incubations_Removed_Respiration_Rates_",removed.respiration.date,".csv"))
-
-#all_respiration <- read.csv(paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/ReadyForBoye/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",respiration.date,".csv"))
-
-all_respiration <- read.csv(paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/ReadyForBoye/ECA_Sediment_Incubations_mg_kg_rates_laan208_on_",mg.kg.respiration.date,".csv"))
-
-all_respiration <- all_respiration %>% 
-  dplyr::select(c(Sample_Name, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, mass_water))
+#mean_respiration <- read.csv(paste0("INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_",respiration.summary,".csv"))
 
 #ECA Iron
-iron <- read_csv(paste0("Fe/03_ProcessedData/EC_SFE_ReadyForBoye_12-05-2023.csv"))
-
-iron <- iron %>% 
-  dplyr::select(c(Sample_Name, Fe_mg_per_L, Fe_mg_per_kg)) %>% 
-separate(Sample_Name, into = c("EC", "Site", "INC"), sep = "_", remove = FALSE)
-
-
-iron_samples <- iron %>% 
-  separate(INC, c("Replicate", "Analytical"), sep = -1) %>% 
-  filter(!grepl("LOD", Fe_mg_per_L)) %>% 
-  filter(Fe_mg_per_L >= 0) %>% 
-  group_by(Site, Replicate) %>% 
-  mutate(Fe_mg_per_L = mean(as.numeric(Fe_mg_per_L))) %>% 
-  mutate(Fe_mg_per_kg = mean(as.numeric(Fe_mg_per_kg))) %>% 
-  unite(Sample_Name, c(EC:Replicate), sep = "_") %>% 
-  distinct(Sample_Name, .keep_all = TRUE) %>% 
-  dplyr::select(-c(Analytical)) %>% 
-  mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC"))
+all_iron <- read_csv(paste0("Fe/03_ProcessedData/EC_ReadyForBoye_",fe.date,".csv")) %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC")) %>% 
+  dplyr::select(-c(Methods_Deviation))
   
+
+#mean_iron <- read_csv(paste0("Fe/03_ProcessedData/EC_SFE_Summary_ReadyForBoye_",fe.summary,".csv")) %>% 
+  #select(-c(Material)) %>% 
+  #mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC"))
 
 #ICON Grain Size
-grain <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/v2_CM_SSS_Sediment_Grain_Size.csv", skip = 2, header = TRUE)
+grain <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/v3_CM_SSS_Sediment_Grain_Size.csv", skip = 2, header = TRUE)
 
-grain <- grain %>% 
+grain_all <- grain %>% 
   filter(!row_number() %in% c(1:11)) %>% 
-  dplyr::select(-c(Field_Name, Material)) 
+  dplyr::select(-c(Field_Name, Material)) %>% 
+  filter(!grepl("SSS", Sample_Name)) %>% 
+  filter(Sample_Name != "") %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "CM", "EC")) %>% 
+  mutate(Sample_ID = str_remove(Sample_Name, "_GRN")) %>% 
+  mutate_at(c("Percent_Fine_Sand", "Percent_Med_Sand", "Percent_Coarse_Sand", "Percent_Tot_Sand", "Percent_Silt", "Percent_Clay"), as.numeric) %>% 
+  dplyr::select(-c(IGSN, Methods_Deviation, Sample_Name))
 
-grain_new <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ICON_ModEx_SSS/09_Grain_Size/03_ProcessedData/20230721_Grain_Size_SBR_RC4_CM_R21/20230721_Data_Processed_Grain_Size_SBR_RC4_CM_R21.csv"))
+ssa <- read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/CM_SSS_Sediment_Specific_Surface_Area.csv", skip = 2, header = TRUE)
 
-grain <- grain %>% 
-  mutate(Sample_ID = Sample_Name) %>% 
-  dplyr::select(-c(Sample_Name))
+ssa_clean = ssa %>% 
+  filter(!row_number() %in% c(1:11)) %>% 
+  dplyr::select(-c(Field_Name, Material, IGSN)) %>% 
+  filter(!grepl("SSS", Sample_Name)) %>% 
+  filter(Sample_Name != "") %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "CM", "EC")) %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = -6)
 
-grain_all <- rbind(grain, grain_new)
-
-grain_all$Sample_ID <- str_replace(grain_all$Sample_ID, "CM", "EC") 
-
-grain_all <- grain_all %>% 
-  filter(!grepl("SSS", Sample_ID)) %>% 
-  separate(Sample_ID, into = c("EC", "Kit", "GRN"), sep = "_") %>% 
-  unite("Sample_ID", EC:Kit, sep = "_") %>% 
-  dplyr::select(-c(GRN)) %>% 
-  filter(!grepl("NA", Sample_ID)) %>% 
-  mutate_at(c("Percent_Fine_Sand", "Percent_Med_Sand", "Percent_Coarse_Sand", "Percent_Tot_Sand", "Percent_Silt", "Percent_Clay"), as.numeric)
-
-
-ssa <- read_csv(paste0("C:/GitHub/ECA_Multireactor_Incubations/Data/eca_ssa_predatapackage.csv"))
-
-ssa <- ssa %>% 
-  separate(Parent_ID, c("EC", "Site"), sep = "_")
-
-for (i in 1:nrow(ssa)){
-  
-  if (str_count(ssa$Site[i], "[0-9]") <= 2){
-    
-    ssa$Site[i] = paste0("0", ssa$Site[i])
-    
-  }
-  
-  else {
-    
-    ssa$Site[i] = ssa$Site[i]
-  }
-  
-}
-
-ssa <- ssa %>% 
-  unite(Sample_ID, c("EC", "Site"), sep = "_")
-
-mean_ssa <- ssa %>% 
-  group_by(Sample_ID) %>% 
-  mutate(average_ssa = mean(ssa_m2_g)) %>% 
-  distinct(Sample_ID, .keep_all = TRUE) %>% 
-  dplyr::select(Sample_ID, average_ssa)
-
-
-
-#All incubation pH, SpC, temp
-chemistry <- read_csv("INC/03_ProcessedData/SpC_pH_Temp.csv")
-
-map_corr = chemistry %>% 
-  dplyr::select(c(Sample_Name, SpC, Temp, pH)) %>% 
-  filter(!grepl("EV", Sample_Name))
-
-chem_all = map_corr %>% 
-  separate(Sample_Name, c("ECA"
-                          , "kit", "Analysis"), sep = "_", remove = FALSE) %>% 
-  mutate(Treat = case_when(grepl("W",Analysis)~"Wet",
-                           grepl("D", Analysis) ~"Dry"))
-
+mean_ssa <- ssa_clean %>% 
+  filter(Specific_Surface_Area_m2_per_g != -9999) %>% 
+  filter(!grepl("Negative", Specific_Surface_Area_m2_per_g)) %>%
+  mutate(Specific_Surface_Area_m2_per_g = as.numeric(Specific_Surface_Area_m2_per_g)) %>%
+  group_by(Sample_ID) %>%
+  summarise(mean_ssa = mean(Specific_Surface_Area_m2_per_g, na.rm = TRUE))
 
 #Gravimetric Moisture
 
-grav_inc <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Drying_Masses_Summary_merged_by_laan208_on_",grav.date,".csv"))
+grav_inc <- read.csv(paste0("INC/03_ProcessedData/EC_Drying_Masses_Summary_ReadyForBoye_on_",grav.summary,".csv")) %>% 
+  dplyr::select(-c(Methods_Deviation)) 
 
-all_data <- left_join(all_respiration, iron_samples, by = "Sample_Name") %>% 
+## ECA ATP ####
+atp_all = read.csv(paste0("ATP/03_ProcessedData/EC_ATP_ReadyForBoye_",atp.date,".csv")) %>% 
+  dplyr::select(-c(Material, Methods_Deviation)) %>% 
+  mutate(Sample_Name  = str_replace(Sample_Name, "ATP", "INC"))
+
+#atp_summary = read.csv(paste0("ATP/03_ProcessedData/EC_ATP_Summary_ReadyForBoye_",atp.summary,".csv"))
+
+## ECA NPOC/TN ####
+
+npoc_tn_all = read.csv(paste0("Boye_Files/EC/EC_NPOC_TN_Check_for_Duplicates_",npoc.tn.date,"_by_laan208.csv")) %>% 
+  mutate(Sample_Name  = str_replace(Sample_ID, "SIR", "INC")) %>% 
+  dplyr::select(-c(Date_of_Run, Methods_Deviation, Method_Notes, duplicate, Sample_ID)) %>% 
+  relocate(Sample_Name, .before = NPOC_mg_C_per_L)
+
+## ECA C/N
+
+cn_all = read.csv(paste0("CN/02_FormattedData/ECA_CN_",cn.date,".csv")) %>% 
+  mutate(Sample_Name  = str_replace(sample_id, "SCN", "INC")) %>% 
+  separate(Sample_Name, c("Parent_ID", "Rep"), remove = TRUE, sep = "_INC") %>% 
+  unite(Sample_Name, c("parent_id", "Rep"), sep = "_INC") %>% 
+  dplyr::select(-c(sample_id, Parent_ID))
+##Start Merging Individual data
+
+all_data <- left_join(all_respiration, all_iron, by = "Sample_Name") %>%
+  left_join(grav_inc, by = "Sample_Name") %>% 
+  left_join(atp_all, by = "Sample_Name") %>% 
+  left_join(npoc_tn_all, by = "Sample_Name") %>% 
+  left_join(cn_all, by = "Sample_Name") %>% 
   separate(Sample_Name, c("EC", "kit", "INC"), sep = "_", remove = FALSE) %>%
   unite(Sample_ID, c("EC", "kit")) %>% 
   left_join(grain_all, by = "Sample_ID") %>% 
   left_join(mean_ssa, by = "Sample_ID") %>% 
-  left_join(chem_all, by = "Sample_Name") %>% 
-  left_join(grav_inc, by = "Sample_Name") %>% 
-  mutate(Fe_mg_per_kg = Fe_mg_per_L * (mass_water/Dry_Sediment_Mass_g)) %>% 
-  relocate(Fe_mg_per_kg, .after = Fe_mg_per_L) %>% 
-  mutate(Initial_Gravimetric_Water = Initial_Water_mass_g/Dry_Sediment_Mass_g) %>% 
-  mutate(Final_Gravimetric_Water = Final_Water_mass_g/Dry_Sediment_Mass_g) %>% 
-  mutate(Lost_Gravimetric_Water = Initial_Gravimetric_Water - Final_Gravimetric_Water) %>% 
-dplyr::select(-c(Methods_Deviation, ECA, kit, Analysis, INC, Treat, mass_water)) 
- 
-write.csv(all_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data.csv")  
+  mutate(Lost_Gravimetric_Water = Initial_Gravimetric_Moisture - Final_Gravimetric_Moisture)%>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = if_else(Respiration_Rate_mg_DO_per_L_per_H == -9999, -9999,abs(Respiration_Rate_mg_DO_per_L_per_H))) %>%
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Respiration_Rate_mg_DO_per_kg_per_H == -9999, -9999, abs(Respiration_Rate_mg_DO_per_kg_per_H)))%>% 
+  filter(!grepl("EC_052|EC_053|EC_057|EC_023", Sample_Name))%>% #remove NEON sites after 1st incubation, no gravimetric moisture (EC_023)
+  filter(!grepl("INC_005|INC_Method_002|INC_008|INC_QA_004|INC_Method_001", Methods_Deviation)) %>% #remove samples with too much water (EC_011/012-W), missing replicates (EC_072-W5/D5), spilled sample (EC_041-W4), overexposed samples (EC_027, EC_013, EC_014), less sediment in sample (EC_012-D5), no gravimetric water (EC_023)
+  mutate(Fe_mg_per_L = if_else(grepl("SFE_Below", Fe_mg_per_L), "0.001", Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_L = if_else(grepl("SFE_Above", Fe_mg_per_L), str_extract(Fe_mg_per_L, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_L = as.numeric(Fe_mg_per_L)) %>%
+  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Above", Fe_mg_per_kg), str_extract(Fe_mg_per_kg, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_kg)) %>% 
+  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Below", Fe_mg_per_kg), as.numeric(Fe_mg_per_L * (Incubation_Water_Mass_g/Dry_Sediment_Mass_g)), as.numeric(Fe_mg_per_kg))) %>%
+  mutate(Fe_mg_per_kg = as.numeric(Fe_mg_per_kg))
 
-summary_data <- all_data %>% 
-  separate(Sample_Name, c("Sample_Name", "Replicate"), sep = "-") %>% 
-  separate(Replicate, c("Treat", "Replicate"), sep = -1) %>% 
-  unite(Sample_Name, c("Sample_Name", "Treat"), sep = "-") %>% 
-  dplyr::select(-c(Replicate)) %>% 
-  drop_na() %>% 
-  filter(Respiration_Rate_mg_DO_per_L_per_H > -9999) %>% 
-  group_by(Sample_Name) %>% 
-  summarise_if(is.numeric, mean)
+write.csv(all_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data_05-29-2024.csv", row.names = FALSE)  
+
+# summary_data <- all_data %>% 
+#   separate(Sample_Name, c("Sample_Name", "Replicate"), sep = "-") %>% 
+#   separate(Replicate, c("Treat", "Replicate"), sep = -1) %>% 
+#   unite(Sample_Name, c("Sample_Name", "Treat"), sep = "-") %>% 
+#   dplyr::select(-c(Replicate)) %>% 
+#   drop_na() %>% 
+#   filter(Respiration_Rate_mg_DO_per_L_per_H > -9999) %>% 
+#   group_by(Sample_Name) %>% 
+#   summarise_if(is.numeric, mean)
+
+# cv = all_data %>% 
+#   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+#   mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+#   mutate(NPOC_mg_C_per_L = as.numeric(NPOC_mg_C_per_L)) %>% 
+#   mutate(TN_mg_N_per_L = as.numeric(TN_mg_N_per_L)) %>% 
+#   dplyr::select(-c(Incubation_Water_Mass_g, Dry_Sediment_Mass_g, Final_Water_mass_g, Initial_Water_mass_g)) %>% 
+#   group_by(Sample_ID, Rep) %>%
+#   summarise(across(where(is.numeric),
+#                    list(mean = ~mean(.x, na.rm = TRUE), 
+#                         sd = ~sd(.x, na.rm = TRUE), 
+#                         cv = ~(sd(.x, na.rm = TRUE)/mean(.x, na.rm = TRUE))*100)))
+# 
+# ggplot(cv, aes(x = TN_mg_N_per_L_cv)) + 
+#   geom_histogram()
+
+medians = all_data %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+  mutate(Rep = if_else(grepl("D", Rep), "Dry", "Wet")) %>%
+  mutate(NPOC_mg_C_per_L = as.numeric(NPOC_mg_C_per_L)) %>% 
+  mutate(TN_mg_N_per_L = as.numeric(TN_mg_N_per_L)) %>% 
+  dplyr::select(-c(Incubation_Water_Mass_g, Dry_Sediment_Mass_g, Final_Water_mass_g, Initial_Water_mass_g)) %>% 
+  group_by(Sample_ID, Rep) %>%
+  summarise(across(where(is.numeric), ~median(.x, na.rm = TRUE))) %>% 
+  rename_with(.cols = c(SpC:Lost_Gravimetric_Water), .fn = ~ paste0("median_", .x)) 
   
-write.csv(summary_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Summary_ECA_Data.csv") 
+write.csv(medians,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-29_Medians_ECA_Data.csv") 
   
 
-effect_data <- summary_data %>% 
-  separate(Sample_Name, c("Sample_Name", "Treat"), sep = "-") %>% 
-  filter(Sample_Name != "EC_011_INC") %>% 
-  filter(Sample_Name != "EC_012_INC") %>% 
-  filter(Sample_Name != "EC_021_INC") %>% 
-  group_by(Sample_Name) %>% 
-  mutate(Effect_Size_mg_per_L = (abs(Respiration_Rate_mg_DO_per_L_per_H[Treat == "W"]) - abs(Respiration_Rate_mg_DO_per_L_per_H[Treat == "D"]))) %>% 
-  mutate(Effect_Size_mg_per_kg = (abs(Respiration_Rate_mg_DO_per_kg_per_H[Treat == "W"]) - abs(Respiration_Rate_mg_DO_per_kg_per_H[Treat == "D"]))) %>% 
-  mutate(Fe_Difference_mg_per_L = Fe_mg_per_L[Treat == "W"] - Fe_mg_per_L[Treat == "D"]) %>% 
-  mutate(Fe_Difference_mg_per_kg = Fe_mg_per_kg[Treat == "W"] - Fe_mg_per_kg[Treat == "D"]) %>% 
-  mutate(SpC_Difference = SpC[Treat == "W"] - SpC[Treat == "D"]) %>% 
-  mutate(pH_Difference = pH[Treat == "W"] - pH[Treat == "D"]) %>% 
-  mutate(Temp_Difference = Temp[Treat == "W"] - Temp[Treat == "D"]) %>% 
-  mutate(Initial_Grav_Water_Difference = Initial_Gravimetric_Water[Treat == "W"] - Initial_Gravimetric_Water[Treat == "D"]) %>% 
-  mutate(Final_Grav_Water_Difference = Final_Gravimetric_Water[Treat == "W"] - Final_Gravimetric_Water[Treat == "D"]) %>% 
-  mutate(Final_Grav_Water_Difference = Final_Gravimetric_Water[Treat == "W"] - Final_Gravimetric_Water[Treat == "D"]) %>% 
-  distinct(Sample_Name, .keep_all = TRUE) %>% 
-  dplyr::select(c(Sample_Name, Effect_Size_mg_per_L, Effect_Size_mg_per_kg, Fe_Difference_mg_per_L, Fe_Difference_mg_per_kg, SpC_Difference, pH_Difference, Temp_Difference, Initial_Grav_Water_Difference, Final_Grav_Water_Difference))
+effect_data <- medians %>% 
+  #separate(Sample_Name, c("Sample_Name", "Treat"), sep = "-") %>% 
+  filter(Sample_ID != "EC_011_INC") %>% 
+  filter(Sample_ID != "EC_012_INC") %>% 
+  relocate(median_Initial_Gravimetric_Moisture:median_Final_Gravimetric_Moisture, .after = median_Lost_Gravimetric_Water) %>% 
+  #filter(Sample_Name != "EC_021_INC") %>% 
+  group_by(Sample_ID) %>% 
+  mutate(across(c(median_SpC:median_tn_percent), ~. [Rep == "Wet"] - .[Rep  == "Dry"])) %>% 
+  rename_with(.cols = c(median_SpC:median_tn_percent), .fn = ~ paste0("diff_", .x)) %>% 
+  distinct(Sample_ID, .keep_all = TRUE) %>% 
+  rename(median_Dry_Initial_Gravimetric_Moisture = median_Initial_Gravimetric_Moisture ) %>% 
+  rename(median_Dry_Final_Gravimetric_Moisture = median_Final_Gravimetric_Moisture ) %>% 
+  rename(median_Dry_Lost_Gravimetric_Moisture = median_Lost_Gravimetric_Water)
+  
 
-write.csv(effect_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_ECA_Data.csv") 
+write.csv(effect_data,"C:/GitHub/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-29_Effect_Median_ECA_Data.csv") 

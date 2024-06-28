@@ -3,6 +3,8 @@
 library(dplyr)
 library(tidyverse)
 library(corrplot)
+library(glmnet)
+library(readxl)
 
 rm(list=ls());graphics.off()
 
@@ -12,14 +14,17 @@ rm(list=ls());graphics.off()
 all_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/All_ECA_Data.csv",header = TRUE) %>% 
   dplyr::select(-c(X))
 
-#Summary Data 
+#ATP data
 
-sum_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Summary_ECA_Data.csv",header = TRUE) %>% 
-  dplyr::select(-c(X))
+atp <- read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/ATP/03_ProcessedData/EC_ATP_ReadyForBoye_01-26-2024.csv") %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "ATP", "INC"))
 
-#Effect Size Data
-effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/Effect_ECA_Data.csv",header = TRUE) %>% 
-  dplyr::select(-c(X))
+all_data <- left_join(all_data, atp, by = "Sample_Name")
+
+
+effect_scale <- effect_data %>% 
+  column_to_rownames(var = "Sample_Name") %>% 
+  scale()
 
 ## Start SA
 
@@ -55,10 +60,10 @@ colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_
 unique.samples = unique(slope.outliers$kit_treat)
 
 #try 0, 10, 30, 50, 100, export histograms of removals, effect sizes
-cv.threshold = 300
+cv.threshold = 50
 
 #try keeping n = 3,4 samples
-rem.threshold = 4
+rem.threshold = 3
 
 for (i in 1:length(unique.samples)) {
   
@@ -132,8 +137,9 @@ slope.final.flag <- slope.final %>%
   rename(Respiration_Rate_mg_DO_per_kg_per_H = slope.temp) %>% 
   relocate(Respiration_Rate_mg_DO_per_kg_per_H, .after = Sample_Name)
 
-cv.threshold = "No_Removals"
+cv.threshold = 50
 rem.threshold = 3
+
 
 #Write data frame with removed respiration rates
 
@@ -142,12 +148,16 @@ write.csv(slope.final.flag, paste0("C:/Github/ECA_Multireactor_Incubations/Data/
 ## All Samples ####
 
 ##Merge removed samples with other data
-corr_samples <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
-  dplyr::select(-c(Respiration_Rate_mg_DO_per_L_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g, Fe_mg_per_L, Percent_Tot_Sand)) %>% 
+corr_samples <- left_join(all_data, slope.final.flag, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
+  mutate(flag = if_else(is.na(Mean_Slope_All_L),  "Remove Outlier", "N/A")) %>% 
+  filter(flag != "Remove Outlier") %>% 
+  dplyr::select(-c(Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, flag, Sample_ID, Mean_Slope_Removed, cv_after_removal, Dry_Sediment_Mass_g, Initial_Water_mass_g, Final_Water_mass_g, Fe_mg_per_kg, Percent_Tot_Sand, Material, Methods_Deviation, ATP_nanomol_per_L)) %>% 
   drop_na() %>% 
-  mutate(Respiration_Rate_mg_DO_per_kg_per_H = abs(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  rename(`Respiration (mg/kg)` = Respiration_Rate_mg_DO_per_kg_per_H) %>% 
-  rename(`Fe (mg/kg)` = Fe_mg_per_kg) %>% 
+  filter(ATP_picomol_per_g != -9999) %>% 
+  filter(Respiration_Rate_mg_DO_per_L_per_H != -9999) %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = abs(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  rename(`Respiration (mg/L)` = Respiration_Rate_mg_DO_per_L_per_H) %>% 
+ # rename(`Fe (mg/kg)` = Fe_mg_per_kg) %>% 
     rename(`% Fine Sand` = Percent_Fine_Sand) %>% 
     rename(`% Med. Sand` = Percent_Med_Sand) %>% 
     rename(`% Coarse Sand` = Percent_Coarse_Sand) %>% 
@@ -159,6 +169,7 @@ corr_samples <- left_join(slope.final.flag, all_data, by = c("Sample_Name", "Res
     rename(`LostGrav.Moi.` = Lost_Gravimetric_Water) %>% 
 column_to_rownames("Sample_Name")
 
+#####
 ## Make histogram of all data
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/All_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
@@ -223,8 +234,8 @@ dev.off()
 ## Log All Samples ####
 
 log_corr_samples <- corr_samples %>% 
-  mutate(`Log Respiration (mg/kg)` = log10(`Respiration (mg/kg)` + 0.5*min(`Respiration (mg/kg)`[`Respiration (mg/kg)` != min(`Respiration (mg/kg)`)]))) %>% 
-  mutate(`Log Fe (mg/kg)` = log10(`Fe (mg/kg)` + 0.5*min(`Fe (mg/kg)`[`Fe (mg/kg)` != min(`Fe (mg/kg)`)]))) %>% 
+  mutate(`Log Respiration (mg/L)` = log10(`Respiration (mg/L)` + 0.5*min(`Respiration (mg/L)`[`Respiration (mg/L)` != min(`Respiration (mg/L)`)]))) %>% 
+  mutate(`Log Fe (mg/L)` = log10(Fe_mg_per_L + 0.5*min(Fe_mg_per_L[Fe_mg_per_L != min(Fe_mg_per_L)]))) %>% 
   mutate(`Log % Fine Sand` = log10(`% Fine Sand` + 0.5*min(`% Fine Sand`))) %>% 
   mutate(`Log % Med. Sand` = log10(`% Med. Sand` + 0.5*min(`% Med. Sand`))) %>% 
   mutate(`Log % Coarse Sand` = log10(`% Coarse Sand` + 0.5*min(`% Coarse Sand`))) %>% 
@@ -238,7 +249,8 @@ log_corr_samples <- corr_samples %>%
   mutate(`Log Fin.Grav.Moi.` = log10(`Fin.Grav.Moi.` + 0.5*min(`Fin.Grav.Moi.`))) %>% 
   mutate(`Log Fin.Grav.Moi.` = log10(`Fin.Grav.Moi.` + 0.5*min(`Fin.Grav.Moi.`))) %>% 
   mutate(`Log LostGrav.Moi.` = log10(`LostGrav.Moi.` + 0.5*min(`LostGrav.Moi.`))) %>% 
-   dplyr::select(c(`Log Respiration (mg/kg)`, `Log Fe (mg/kg)`, `Log % Fine Sand`, `Log % Med. Sand`, `Log % Coarse Sand`, `Log % Clay`, `Log % Silt`, `Log SSA`, `Log SpC`, `Log Temp`, `Log pH`, `Log In.Grav.Moi.`, `Log Fin.Grav.Moi.`, `Log LostGrav.Moi.`))
+  mutate(`Log ATP (pmol/g)` = log10(ATP_picomol_per_g + 0.5*min(ATP_picomol_per_g))) %>% 
+   dplyr::select(c(`Log Respiration (mg/L)`, `Log Fe (mg/L)`, `Log ATP (pmol/g)`, `Log % Fine Sand`, `Log % Med. Sand`, `Log % Coarse Sand`, `Log % Clay`, `Log % Silt`, `Log SSA`, `Log SpC`, `Log Temp`, `Log pH`, `Log In.Grav.Moi.`, `Log Fin.Grav.Moi.`, `Log LostGrav.Moi.`))
 
 # histogram of log transformed samples (log + 1/2 of minimum to get at 0 values)
 
@@ -352,29 +364,31 @@ dev.off()
 
 ## Means ####
 
-means <- corr_samples %>% 
+mean_resp <- corr_samples %>%
   rownames_to_column("Sample_Name") %>% 
+  select(c(Sample_Name, `Respiration (mg/L)`)) %>% 
   separate(Sample_Name, c("EC", "kit", "Treat"), remove = FALSE) %>% 
   mutate(Treat = case_when(grepl("W",Sample_Name)~"Wet",
                            grepl("D", Sample_Name) ~"Dry")) %>% 
   group_by(kit, Treat) %>% 
-  summarise(across(where(is.numeric), list(mean = mean), na.rm = TRUE))%>% 
+  summarise(across(where(is.numeric), list(mean = mean), na.rm = TRUE)) %>% 
+  unite(kit_treat, c("kit", "Treat")) 
+
+means <- all_data %>% 
+  select(c(Sample_Name, Fe_mg_per_L, ATP_picomol_per_g, SpC, Temp, pH, Initial_Gravimetric_Water, Final_Gravimetric_Water, Lost_Gravimetric_Water, Percent_Fine_Sand, Percent_Med_Sand, Percent_Coarse_Sand, Percent_Clay, Percent_Silt, average_ssa)) %>% 
+  filter(ATP_picomol_per_g != -9999) %>% 
+  separate(Sample_Name, c("EC", "kit", "Treat"), remove = FALSE) %>% 
+  mutate(Treat = case_when(grepl("W",Sample_Name)~"Wet",
+                           grepl("D", Sample_Name) ~"Dry")) %>% 
+  group_by(kit, Treat) %>% 
+  summarise(across(where(is.numeric), list(mean = mean), na.rm = TRUE)) %>% 
   unite(kit_treat, c("kit", "Treat")) %>% 
-  rename(`Mean Respiration (mg/kg)` = `Respiration (mg/kg)_mean`) %>% 
-  rename(`Mean Fe (mg/kg)` = `Fe (mg/kg)_mean`) %>% 
-  rename(`% Fine Sand` = `% Fine Sand_mean`) %>% 
-  rename(`% Med. Sand` = `% Med. Sand_mean`) %>% 
-  rename(`% Coarse Sand` = `% Coarse Sand_mean`) %>% 
-  rename(`% Clay` = `% Clay_mean`) %>% 
-  rename(`% Silt` = `% Silt_mean`) %>% 
-  rename(SSA = SSA_mean) %>% 
-  rename(`Mean pH` = pH_mean) %>% 
-  rename(`Mean SpC` = SpC_mean) %>% 
-  rename(`Mean Temp` = Temp_mean) %>% 
-  rename(`Mean In.Grav.Moi.` = In.Grav.Moi._mean) %>% 
-  rename(`Mean Fin.Grav.Moi.` = Fin.Grav.Moi._mean) %>% 
-  rename(`Mean LostGrav.Moi.` = LostGrav.Moi._mean) %>% 
-  column_to_rownames("kit_treat")
+  left_join(mean_resp, by = "kit_treat") %>% 
+  drop_na()
+
+
+
+  
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Mean_Samples_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
@@ -396,7 +410,7 @@ dev.off()
 
 ## Log Mean Samples ####
 log_means <- means %>% 
-  mutate(`Log Mean Respiration (mg/kg)` = log10(`Mean Respiration (mg/kg)` + 0.5*min(`Mean Respiration (mg/kg)`[`Mean Respiration (mg/kg)` != min(`Mean Respiration (mg/kg)`)]))) %>% 
+  mutate(`Log Mean Respiration (mg/L)` = log10(`Mean Respiration (mg/L)` + 0.5*min(`Mean Respiration (mg/kg)`[`Mean Respiration (mg/kg)` != min(`Mean Respiration (mg/kg)`)]))) %>% 
   mutate(`Log Mean Fe (mg/kg)` = log10(`Mean Fe (mg/kg)` + 0.5*min(`Mean Fe (mg/kg)`[`Mean Fe (mg/kg)` != min(`Mean Fe (mg/kg)`)]))) %>% 
   mutate(`Log % Fine Sand` = log10(`% Fine Sand` + 0.5*min(`% Fine Sand`))) %>% 
   mutate(`Log % Med. Sand` = log10(`% Med. Sand` + 0.5*min(`% Med. Sand`))) %>% 
@@ -535,25 +549,29 @@ dev.off()
 
 #####
 effect <- means %>% 
-  rownames_to_column("kit_treat") %>% 
+ # rownames_to_column("kit_treat") %>% 
   separate(kit_treat, c("kit", "treat"), remove = FALSE) %>% 
   group_by(kit) %>% 
   filter(n() >= 2) %>% 
   ungroup() %>% 
   group_by(kit) %>% 
-  relocate(c(`% Fine Sand`:SSA), .after = `Mean LostGrav.Moi.`) %>% 
+ # relocate(c(`% Fine Sand`:SSA), .after = `ATP_picomol_per_g_mean`) %>% 
+  relocate(c(Percent_Fine_Sand_mean:average_ssa_mean), .after = `Respiration (mg/L)_mean`) %>% 
+  rename(`Mean Respiration (mg/L)` = `Respiration (mg/L)_mean`) %>% 
+  relocate(`Mean Respiration (mg/L)`, .after= treat) %>% 
   summarise(
-    across(`Mean Respiration (mg/kg)`:`Mean LostGrav.Moi.`, diff), 
-    across(`% Fine Sand`:SSA, mean))%>% 
+    across(`Mean Respiration (mg/L)`:`Lost_Gravimetric_Water_mean`, diff), 
+    #across(`% Fine Sand`:SSA, mean))%>% 
+    across(Percent_Fine_Sand_mean:average_ssa_mean, mean))%>% 
   column_to_rownames("kit") %>% 
-  rename(`Effect Size` = `Mean Respiration (mg/kg)`) %>% 
-  rename(`Fe (mg/kg) Diff.` = `Mean Fe (mg/kg)`) %>% 
-  rename(`SpC Diff.` = `Mean SpC`) %>% 
-  rename(`Temp Diff.` = `Mean Temp`) %>% 
-  rename(`pH Diff.` = `Mean pH`) %>% 
-  rename(`In.Grav.Moi. Diff.` = `Mean In.Grav.Moi.`) %>% 
-  rename(`Fin.Grav.Moi. Diff.` = `Mean Fin.Grav.Moi.`) %>%
-  rename(`LostGrav.Moi. Diff.` = `Mean LostGrav.Moi.`)
+  rename(`Effect Size` = `Mean Respiration (mg/L)`) %>% 
+  rename(Fe_mg_per_L_diff = Fe_mg_per_L_mean) %>% 
+  rename(`SpC Diff.` = SpC_mean) %>% 
+  rename(`Temp Diff.` = Temp_mean) %>% 
+  rename(`pH Diff.` = pH_mean) %>% 
+  rename(`In.Grav.Moi. Diff.` =Initial_Gravimetric_Water_mean) %>% 
+  rename(`Fin.Grav.Moi. Diff.` = Final_Gravimetric_Water_mean) %>%
+  rename(`LostGrav.Moi. Diff.` = Lost_Gravimetric_Water_mean)
 
 #effect_corr <- cor(effect, method = "spearman")
 
@@ -575,25 +593,58 @@ pairs(effect, lower.panel = panel.smooth,upper.panel = panel.cor.spear, gap = 0,
 
 dev.off()
 
-log_effect <- log_means %>% 
-  rownames_to_column("kit_treat") %>% 
-  separate(kit_treat, c("kit", "treat")) %>% 
-  group_by(kit) %>%   filter(n() >= 2) %>% 
-  ungroup() %>% 
-  group_by(kit) %>% 
-  relocate(c(`Log % Fine Sand`:`Log SSA`), .after = `Log Mean LostGrav.Moi.`) %>% 
-  summarise(
-    across(`Log Mean Respiration (mg/kg)`:`Log Mean LostGrav.Moi.`, diff), 
-    across(`Log % Fine Sand`:`Log SSA`, mean))%>% 
-  column_to_rownames("kit") %>% 
-  rename(`Log Effect Size` = `Log Mean Respiration (mg/kg)`) %>% 
-  rename(`Log Fe (mg/kg) Diff.` = `Log Mean Fe (mg/kg)`) %>% 
-  rename(`Log SpC Diff.` = `Log Mean SpC`) %>% 
-  rename(`Log Temp Diff.` = `Log Mean Temp`) %>% 
-  rename(`Log pH Diff.` = `Log Mean pH`) %>% 
-  rename(`Log In.Grav.Moi. Diff.` = `Log Mean In.Grav.Moi.`) %>% 
-  rename(`Log Fin.Grav.Moi. Diff.` = `Log Mean Fin.Grav.Moi.`) %>%
-  dplyr::select(-c(`Log Mean LostGrav.Moi.`))
+## Trying to deal with negative values by adding minimum + 1 to all columns 
+
+neg_cols <- c("Effect Size", "Fe_mg_per_L_diff", "SpC Diff.", "Temp Diff.", "pH Diff.", "ATP_picomol_per_g_mean")
+
+silt <- "Percent_Silt_mean"
+
+all_others <- c("Effect Size", "Fe_mg_per_L_diff", "SpC Diff.", "Temp Diff.", "pH Diff.", "ATP_picomol_per_g_mean","Percent_Fine_Sand_mean", "Percent_Med_Sand_mean", "Percent_Coarse_Sand_mean", "Percent_Clay_mean", "average_ssa_mean", "In.Grav.Moi. Diff.", "Fin.Grav.Moi. Diff.")
+  
+  #c("Effect Size", "Fe_mg_per_L_diff", "SpC Diff.", "Temp Diff.", "pH Diff.", "ATP_picomol_per_g_mean","% Fine Sand", "% Med. Sand", "% Coarse Sand", "% Clay", "SSA", "In.Grav.Moi. Diff.", "Fin.Grav.Moi. Diff.")
+
+log_effect <- effect %>% 
+  mutate(across(all_of(neg_cols), ~. + (abs((min(.))))+ 1)) %>% 
+  mutate(`% Silt` = log10(`Percent_Silt_mean` + 0.5*min(`Percent_Silt_mean`[`Percent_Silt_mean` != min(`Percent_Silt_mean`)]))) %>% 
+  mutate(across(all_of(all_others), ~log10(.))) %>% 
+  select(-c(`LostGrav.Moi. Diff.`)) %>% 
+  rename_with(~paste0("log_", .), everything())
+
+cube_root <- function(x) sign(x) * (abs(x))^(1/3)
+  
+cube_root_effect = effect %>% 
+  mutate_all(cube_root) %>% 
+  rename_all(~ paste0(., "_cube")) 
+
+ggplot(gather(cube_root_effect, cols, value), aes(x = value)) + 
+  geom_histogram() + 
+  facet_wrap(.~cols, scales = 'free_x')
+
+ggplot(gather(effect, cols, value), aes(x = value)) + 
+  geom_histogram() + 
+  facet_wrap(.~cols, scales = 'free_x')
+
+cube_root_comp = cube_root_effect %>% 
+  rownames_to_column("Sample_Name") %>% 
+  left_join(effect_comp, by = "Sample_Name")
+
+log_effect_only = effect %>% 
+  mutate(log_effect = log10(`Effect Size`))
+
+ggplot(log_effect_only, aes(x = `Effect Size`, y = log_effect)) +
+  geom_point()
+
+ggplot(cube_root_comp, aes(x = `Effect Size`, y = `Effect Size_cube`)) + 
+  geom_point()
+
+ggplot(cube_root_comp, aes(x = `Effect Size_cube`))+
+  geom_histogram()
+
+cube_root_hist = cube_root_comp %>% 
+  column_to_rownames("Sample_Name")
+
+
+
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Data/Effect Size Sensitivity Analysis/DO_per_kg/", cv.threshold, "_perc_CV/n=", rem.threshold,"/Log_Effect_Histogram_CV_", cv.threshold, "percent_Removed.png"), width = 8, height = 8, units = "in", res = 300)
 
@@ -667,6 +718,3 @@ pairs(wet_dry_effect, lower.panel = panel.smooth,upper.panel = panel.cor.spear, 
 #corrplot(effect_corr,type = "upper", tl.col = "black", tl.cex = 1.2, cl.cex = 1,  title = "Effect Correlation")
 
 dev.off()
-
-
-
