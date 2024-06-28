@@ -14,7 +14,7 @@ library(readxl)
 
 pnnl.user = 'guil098'
 
-input.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Data Generation and Files/ECA/SSA/01_RawData/2023_Data_Raw_SSA_ECA_EC.xlsx")
+input.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Data Generation and Files/ICON_Modex_SSS/16_SSA/01_RawData/2023_Data_Raw_SSA_RC4_CM.xlsx")
 
 ssa <- read_excel(input.path) %>% 
   mutate(Parent_ID = str_extract(Sample_ID, ".{5}(?=_)")) %>% 
