@@ -53,10 +53,6 @@ cube_effect_data_corr = cube_effect_data %>%
   relocate(Cube_Effect_Size, .before = Cube_SpC_Diff)  %>% 
   filter(Cube_Fe_mg_kg_Diff > -1)
 
-ggplot(cube_effect_data_corr, aes(x = Cube_Effect_Size, y = Cube_ATP_pmol_g_Diff)) +
-  geom_point() +
-  geom_smooth()
-
 ## Run PCA without effect size ####
 cube_data_pca = cube_effect_data_corr %>% 
   select(-c(Cube_Effect_Size))
@@ -200,6 +196,117 @@ cube_pca = fviz_pca_biplot(cube_effect_pca, col.var = "black",geom = "point"
 cube_pca
 
 dev.off()
+
+## Pearson Correlation Matrix ####
+scale_cube_effect_corr = as.data.frame(scale(cube_effect_data_corr))
+
+cube_effect_samples_corr_pearson <- cor(scale_cube_effect_corr, method = "pearson")
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Pearson_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
+# 
+
+corrplot(cube_effect_samples_corr_pearson,type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Effect Samples Pearson Correlation")
+# 
+dev.off()
+
+## Loop through coefficients to choose for LASSO
+
+# 1) Pivot data frame and sort highest to lowest
+
+
+
+pearson_df <- as.data.frame(cube_effect_samples_corr_pearson)
+
+row_names_pearson <- rownames(pearson_df)
+
+pearson_df$Variable <- row_names_pearson
+
+# Melt the dataframe for plotting
+pearson_melted <- reshape2::melt(pearson_df, id.vars = "Variable") %>% 
+  filter(value != 1) %>% 
+  mutate(value = abs(value)) %>% 
+  filter(!grepl("Effect", Variable))
+
+effect_melted <- pearson_melted %>% 
+  filter(grepl("Effect", variable))
+
+choose_melted <- pearson_melted %>% 
+  filter(!grepl("Effect", variable)) %>%
+  #distinct(value, .keep_all = TRUE) %>% 
+  left_join(effect_melted, by = "Variable") %>% 
+  rename(Variable_1 = Variable) %>% 
+  rename(Variable_2 = variable.x) %>% 
+  rename(Correlation = value.x) %>% 
+  rename(Variable_1_Effect_Correlation = value.y) %>% 
+  select(-c(variable.y)) %>% 
+  left_join(effect_melted, by = c("Variable_2" = "Variable")) %>% 
+  rename(Variable_2_Effect_Correlation = value) %>% 
+  select(-c(variable))
+
+loop_melt = choose_melted %>% 
+  arrange(desc(Correlation))
+
+## Start loop to remove highly correlated (> 0.5)
+effect_filter = function(loop_melt) {
+  
+  rows_to_keep = rep(TRUE, nrow(loop_melt))
+  
+  for (i in seq_len(nrow(loop_melt))) {
+    
+    if (!rows_to_keep[i]) next
+    
+    row = loop_melt[i, ]
+    
+    if (row$Correlation < 0.5) next
+    
+    if(row$Variable_1_Effect_Correlation >= row$Variable_2_Effect_Correlation) {
+      
+      var_to_keep = row$Variable_1
+      var_to_remove = row$Variable_2
+      
+    } else {
+      
+      var_to_keep = row$Variable_2
+      var_to_remove = row$Variable_1
+      
+    }
+    
+    loop_melt$Variable_to_Keep[i] = var_to_keep
+    loop_melt$Variable_to_Remove[i] = var_to_remove
+   
+    for (j in seq(i + 1, nrow(loop_melt))) {
+      
+      if(loop_melt$Variable_1[j] == var_to_remove || loop_melt$Variable_2[j] == var_to_remove) {
+        
+        rows_to_keep[j] = FALSE
+        
+      }
+      
+    }
+     
+    
+  }
+  
+  return(loop_melt[rows_to_keep, ])
+  
+}
+  
+filtered_data = effect_filter(loop_melt) 
+
+removed_variables = filtered_data %>% 
+  distinct(Variable_to_Remove)
+
+removed_variables = c(removed_variables)
+
+removed_data_1 = filtered_data %>% 
+  select(c(Variable_1))
+    
+removed_data_1 = removed_data_1[!removed_data_1$Variable_1 %in% removed_variables$Variable_to_Remove, ]
+
+removed_data_2 = filtered_data %>% 
+  select(c(Variable_2)) 
+
+removed_data_2 = removed_data_2[!removed_data_2$Variable_2 %in% removed_variables$Variable_to_Remove, ]
 
 ## LASSO VARIABLES ####
 
