@@ -202,18 +202,31 @@ scale_cube_effect_corr = as.data.frame(scale(cube_effect_data_corr))
 
 cube_effect_samples_corr_pearson <- cor(scale_cube_effect_corr, method = "pearson")
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Pearson_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
-# 
+# png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Pearson_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
 
 corrplot(cube_effect_samples_corr_pearson,type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Effect Samples Pearson Correlation")
+ 
+#dev.off()
+
+# make one line correlation matrix with just effect size
+
+corr_effect = matrix(cube_effect_samples_corr_pearson[1, ], nrow = 1)
+
+
+colnames(corr_effect) = colnames(cube_effect_samples_corr_pearson)
+
+rownames(corr_effect) = rownames(cube_effect_samples_corr_pearson)[1]
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Pearson_Correlation_Matrix_One_Line.png"), width = 12, height = 12, units = "in", res = 300)
+# 
+
+corrplot(corr_effect, type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1,  title = "Effect Samples Pearson Correlation", diag = FALSE, is.corr = FALSE, cl.pos = 'n')
 # 
 dev.off()
 
 ## Loop through coefficients to choose for LASSO
 
 # 1) Pivot data frame and sort highest to lowest
-
-
 
 pearson_df <- as.data.frame(cube_effect_samples_corr_pearson)
 
@@ -292,6 +305,10 @@ effect_filter = function(loop_melt) {
 }
   
 filtered_data = effect_filter(loop_melt) 
+
+keep = filtered_data %>% 
+  filter(Correlation > 0.5) %>% 
+  anti_join(filtered_data, select(filtered_data, Variable_to_Remove), by = c("Variable_to_Keep" = "Variable_to_Remove"))
 
 removed_variables = filtered_data %>% 
   distinct(Variable_to_Remove)
