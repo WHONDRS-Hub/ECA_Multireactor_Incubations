@@ -224,7 +224,7 @@ corrplot(corr_effect, type = "upper", method = "number", tl.col = "black", tl.ce
 # 
 dev.off()
 
-## Loop through coefficients to choose for LASSO
+## Loop through coefficients to choose for LASSO ####
 
 # 1) Pivot data frame and sort highest to lowest
 
@@ -241,10 +241,13 @@ pearson_melted <- reshape2::melt(pearson_df, id.vars = "Variable") %>%
   filter(!grepl("Effect", Variable))
 
 effect_melted <- pearson_melted %>% 
-  filter(grepl("Effect", variable))
+  filter(grepl("Effect", variable)) %>% 
+  filter(!grepl("Silt", Variable))
 
 choose_melted <- pearson_melted %>% 
   filter(!grepl("Effect", variable)) %>%
+  filter(!grepl("Silt", variable)) %>% 
+  filter(!grepl("Silt", Variable)) %>% #try removing silt (0 values)
   #distinct(value, .keep_all = TRUE) %>% 
   left_join(effect_melted, by = "Variable") %>% 
   rename(Variable_1 = Variable) %>% 
@@ -270,7 +273,7 @@ effect_filter = function(loop_melt) {
     
     row = loop_melt[i, ]
     
-    if (row$Correlation < 0.5) next
+    if (row$Correlation < 0.7) next
     
     if(row$Variable_1_Effect_Correlation >= row$Variable_2_Effect_Correlation) {
       
@@ -306,45 +309,42 @@ effect_filter = function(loop_melt) {
   
 filtered_data = effect_filter(loop_melt) 
 
-keep = filtered_data %>% 
-  filter(Correlation > 0.5) %>% 
-  anti_join(filtered_data, select(filtered_data, Variable_to_Remove), by = c("Variable_to_Keep" = "Variable_to_Remove"))
-
+# pull out variables to remove
 removed_variables = filtered_data %>% 
   distinct(Variable_to_Remove)
 
-removed_variables = c(removed_variables)
+# pull out all variables 
+all_variables = effect_melted %>% 
+  select(c(Variable))
 
-removed_data_1 = filtered_data %>% 
-  select(c(Variable_1))
-    
-removed_data_1 = removed_data_1[!removed_data_1$Variable_1 %in% removed_variables$Variable_to_Remove, ]
+# remove variables from all variables to get variables to keep for LASSO 
+kept_variables = effect_melted[!(effect_melted$Variable %in% removed_variables$Variable_to_Remove), ] #keeps SpC, Temp, pH, ATP, NPOC, TN (ext), TOC, TN (solid), med sand, silt
 
-removed_data_2 = filtered_data %>% 
-  select(c(Variable_2)) 
-
-removed_data_2 = removed_data_2[!removed_data_2$Variable_2 %in% removed_variables$Variable_to_Remove, ]
+# if silt is removed, keeps SpC, Temp, pH, ATP, NPOC, TOC, TN (solid), med sand, fine sand, lost grav. moisture
 
 ## LASSO VARIABLES ####
 
-cube_variables = cube_effect_data_corr %>% 
-  select(c(Cube_Effect_Size, Cube_SpC_Diff, Cube_pH_Diff, Cube_Temp_Diff, Cube_Fe_mg_kg_Diff, Cube_ATP_pmol_g_Diff, Cube_NPOC_mg_C_per_kg_Diff, Cube_TN_mg_N_per_kg_Diff, Cube_TOC_Percent_Diff, Cube_TN_Percent_Diff, Cube_Fine_Sand, Cube_Tot_Sand, Cube_Dry_LostGravMoi))
+# Keep variables selected from down-selected correlation matrix and add Cube_Effect_Size
+col_to_keep = unique(kept_variables$Variable)
+col_to_keep = c(col_to_keep, "Cube_Effect_Size")
 
-## LASSO with PCA Loadings ####
+cube_variables = cube_effect_data_corr[, col_to_keep, drop = FALSE]
+
+## LASSO with Correlation Matrix Selected Variables ####
 set.seed(42)
-## Set response variable (Cube_Effect_Size)
+## Set response variable (Cube_Effect_Size) and scale
 yvar <- data.matrix(scale(cube_variables$Cube_Effect_Size, center = TRUE, scale = TRUE))
-#yvar <- data.matrix(cube_effect_data_corr$Cube_Effect_Size)
 mean(yvar)
 sd(yvar)
 
-## Set predictor variables
-pca_scores = as.data.frame(scale(cube_effect_pca$x, center = TRUE, scale = TRUE))
-#pca_scores = as.data.frame(cube_effect_pca$x)
-mean(pca_scores$PC1)
-sd(pca_scores$PC1)
+## Set predictor variables and scale
+exclude_col = "Cube_Effect_Size"
 
-xvars <- scale(cube_variables[, c("Cube_SpC_Diff",  "Cube_pH_Diff", "Cube_Temp_Diff", "Cube_Fe_mg_kg_Diff", "Cube_ATP_pmol_g_Diff", "Cube_NPOC_mg_C_per_kg_Diff", "Cube_TN_mg_N_per_kg_Diff", "Cube_TOC_Percent_Diff", "Cube_TN_Percent_Diff", "Cube_Fine_Sand", "Cube_Tot_Sand", "Cube_Dry_LostGravMoi")], center = T, scale = T)
+x_cube_variables = as.data.frame(scale(cube_variables[, !(names(cube_variables) %in% exclude_col)], center = T, scale = T))
+#mean(x_cube_variables$Cube_SpC_Diff)
+#sd(x_cube_variables$Cube_SpC_Diff)
+
+xvars <- data.matrix(x_cube_variables)
 
 lasso = cv.glmnet(xvars, yvar, alpha = 1, nfolds = 5,
                   ,standardize = FALSE, standardize.response = FALSE, intercept = FALSE
@@ -374,3 +374,44 @@ rsq = 1 - sse/sst
 
 rsq
 
+## LASSO with all variables to check for collinearity effects ####
+
+## Set response variable (Cube_Effect_Size) and scale
+yvar <- data.matrix(scale(cube_effect_data_corr$Cube_Effect_Size, center = TRUE, scale = TRUE))
+mean(yvar)
+sd(yvar)
+
+## Set predictor variables and scale
+x_cube_variables =  as.data.frame(scale(cube_effect_data_corr[, !(names(cube_effect_data_corr) %in% exclude_col)], center = T, scale = T))
+#mean(x_cube_variables$Cube_SpC_Diff)
+#sd(x_cube_variables$Cube_SpC_Diff)
+
+xvars <- data.matrix(x_cube_variables)
+
+lasso = cv.glmnet(xvars, yvar, alpha = 1, nfolds = 5,
+                  ,standardize = FALSE, standardize.response = FALSE, intercept = FALSE
+                  #,standardize = TRUE, standardize.response = TRUE, intercept = FALSE
+                  # , standardize = TRUE, standardize.response = FALSE, intercept = FALSE
+)
+
+best_lambda <- lasso$lambda.min
+best_lambda
+
+plot(lasso)
+
+best_lasso_model <- glmnet(xvars, yvar, alpha = 1, lambda = best_lambda, family = "gaussian",
+                           , standardize = FALSE, standardize.response = FALSE, intercept = FALSE
+                           #  , standardize = TRUE, standardize.response = TRUE, intercept = FALSE
+                           #, standardize = TRUE, standardize.response = FALSE, intercept = FALSE
+)
+
+lasso_coefs = coef(best_lasso_model)
+
+yvar_predict <- predict(best_lasso_model, s = best_lambda, newx = xvars)
+
+sst <- sum((yvar - mean(yvar))^2)
+sse <- sum((yvar_predict - yvar)^2)
+
+rsq = 1 - sse/sst
+
+rsq
