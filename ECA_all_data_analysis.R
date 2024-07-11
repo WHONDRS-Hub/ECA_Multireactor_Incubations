@@ -21,8 +21,8 @@ all_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/A
 
 #Summary Data 
 
-sum_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-29_Medians_ECA_Data.csv",header = TRUE) %>% 
-  select(-c(X))
+sum_data <- read.csv("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/Sample_Data/EC_Sediment_Sample_Data_Summary.csv", skip = 2) %>%   slice(-1:-11) %>% 
+  select(-c(Field_Name))
 
 #Effect Size Data
 effect_data <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/Cleaned Data/2024-05-29_Effect_Median_ECA_Data.csv",header = TRUE) %>% 
@@ -59,6 +59,16 @@ clean_all_data = all_data %>%
   filter(Respiration_Rate_mg_DO_per_kg_per_H != 9999) %>% 
   mutate(Treat = case_when(grepl("W",INC)~"Wet",
                            grepl("D", INC) ~"Dry")) 
+
+atp_real = clean_all_data %>% 
+  mutate(Type = ifelse(Respiration_Rate_mg_DO_per_kg_per_H < 90, "real", "theoretical"))
+
+ggplot(atp_real, aes(y = ATP_picomol_per_g, x = Type, fill = Type)) +
+  geom_boxplot() +
+  geom_jitter(color = "black")
+
+ggplot(cube_all_data, aes(x = cube_Respiration_Rate_mg_DO_per_kg_per_H)) +
+  geom_histogram(position = "identity", alpha = 0.8, aes(fill = Treat))
 
 cube_all_data = clean_all_data %>% 
   mutate(across(where(is.numeric), cube_root)) %>% 
