@@ -15,42 +15,49 @@ library(ggpmisc)
 
 rm(list=ls());graphics.off()
 
-# Set working directory to data file
-#Example:
-pnnl.user = 'laan208'
+# Read in all data
+setwd(paste0("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/Sample_Data/"))
 
-# choose file dates to read in 
-
-respiration.date = '2024-05-29'
-#respiration.summary = '2024-03-05'
-grav.date = '2024-04-26'
-grav.summary = '2024-04-26'
-fe.date = '04-12-2024'
-#fe.summary = '03-05-2024'
-atp.date = '01-26-2024'
-#atp.summary = '03-05-2024'
-npoc.tn.date = '2024-03-01'
-cn.date = '05-23-2024'
-
-#Read in all data
-setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
+## Data from ECA DP ####
 
 #All Respiration Rates
 # Remove NEON samples - 52, 53, 57
-all_respiration <- read.csv(paste0("INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",respiration.date,".csv")) %>% 
-  dplyr::select(c(Sample_Name, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) 
-
-#mean_respiration <- read.csv(paste0("INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_",respiration.summary,".csv"))
+all_respiration <- read.csv("EC_Sediment_SpC_pH_Temp_Respiration.csv", skip =2) %>% 
+  slice(-1:-11, -572) %>% 
+  select(c(Sample_Name, SpC_microsiemens_per_cm, pH, Temperature_degC, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) 
 
 #ECA Iron
-all_iron <- read_csv(paste0("Fe/03_ProcessedData/EC_ReadyForBoye_",fe.date,".csv")) %>% 
+all_iron <- read.csv("EC_Sediment_Fe.csv", skip =2) %>% 
+  slice(-1:-11, -572) %>% 
   mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC")) %>% 
-  dplyr::select(-c(Methods_Deviation))
-  
+  dplyr::select(c(Sample_Name, Fe_mg_per_kg, Fe_mg_per_L, Methods_Deviation))
 
-#mean_iron <- read_csv(paste0("Fe/03_ProcessedData/EC_SFE_Summary_ReadyForBoye_",fe.summary,".csv")) %>% 
-  #select(-c(Material)) %>% 
-  #mutate(Sample_Name = str_replace(Sample_Name, "SFE", "INC"))
+
+#Gravimetric Moisture
+grav_inc <- read.csv("EC_Sediment_Gravimetric_Moisture.csv", skip = 2) %>% 
+  slice(-1:-11, -572) %>% 
+  dplyr::select(c(Sample_Name, Initial_Water_Mass_g, Final_Water_Mass_g, Dry_Sediment_Mass_g, X62948_Initial_Gravimetric_Moisture_g_per_g, X62948_Final_Gravimetric_Moisture_g_per_g, Incubation_Water_Mass_g, Methods_Deviation)) 
+
+## ECA ATP ####
+atp_all = read.csv("EC_Sediment_Atp.csv", skip = 2) %>% 
+  slice(-1:-11, -572) %>% 
+  dplyr::select(c(Sample_Name, ATP_nanomoles_per_L, ATP_picomoles_per_g, Methods_Deviation)) %>% 
+  mutate(Sample_Name  = str_replace(Sample_Name, "ATP", "INC"))
+
+## ECA NPOC/TN ####
+
+npoc_tn_all = read.csv("EC_Sediment_NPOC_TN.csv", skip = 2) %>% 
+  slice(-1:-11, -572) %>% 
+  mutate(Sample_Name  = str_replace(Sample_Name, "SIR", "INC")) %>% 
+  dplyr::select(c(Sample_Name, Extractable_NPOC_mg_per_L, Extractable_TN_mg_per_L, Extractable_NPOC_mg_per_kg, Extractable_TN_mg_per_kg, Methods_Deviation))
+
+## ECA C/N
+cn_all = read.csv("EC_Sediment_CN.csv", skip = 2) %>% 
+  slice(-1:-11, -572) %>% 
+  mutate(Sample_Name  = str_replace(Sample_Name, "SCN", "INC")) %>% 
+  select(c(Sample_Name, X01395_C_percent_per_mg, X01397_N_percent_per_mg, Methods_Deviation))
+  
+## Data from ICON DP ####
 
 #ICON Grain Size
 grain <- read.csv("C:/Github/ECA_Multireactor_Incubations/Data/v3_CM_SSS_Sediment_Grain_Size.csv", skip = 2, header = TRUE)
@@ -82,32 +89,6 @@ mean_ssa <- ssa_clean %>%
   group_by(Sample_ID) %>%
   summarise(mean_ssa = mean(Specific_Surface_Area_m2_per_g, na.rm = TRUE))
 
-#Gravimetric Moisture
-
-grav_inc <- read.csv(paste0("INC/03_ProcessedData/EC_Drying_Masses_Summary_ReadyForBoye_on_",grav.summary,".csv")) %>% 
-  dplyr::select(-c(Methods_Deviation)) 
-
-## ECA ATP ####
-atp_all = read.csv(paste0("ATP/03_ProcessedData/EC_ATP_ReadyForBoye_",atp.date,".csv")) %>% 
-  dplyr::select(-c(Material, Methods_Deviation)) %>% 
-  mutate(Sample_Name  = str_replace(Sample_Name, "ATP", "INC"))
-
-#atp_summary = read.csv(paste0("ATP/03_ProcessedData/EC_ATP_Summary_ReadyForBoye_",atp.summary,".csv"))
-
-## ECA NPOC/TN ####
-
-npoc_tn_all = read.csv(paste0("Boye_Files/EC/EC_NPOC_TN_Check_for_Duplicates_",npoc.tn.date,"_by_laan208.csv")) %>% 
-  mutate(Sample_Name  = str_replace(Sample_ID, "SIR", "INC")) %>% 
-  dplyr::select(-c(Date_of_Run, Methods_Deviation, Method_Notes, duplicate, Sample_ID)) %>% 
-  relocate(Sample_Name, .before = NPOC_mg_C_per_L)
-
-## ECA C/N
-
-cn_all = read.csv(paste0("CN/02_FormattedData/ECA_CN_",cn.date,".csv")) %>% 
-  mutate(Sample_Name  = str_replace(sample_id, "SCN", "INC")) %>% 
-  separate(Sample_Name, c("Parent_ID", "Rep"), remove = TRUE, sep = "_INC") %>% 
-  unite(Sample_Name, c("parent_id", "Rep"), sep = "_INC") %>% 
-  dplyr::select(-c(sample_id, Parent_ID))
 ##Start Merging Individual data
 
 all_data <- left_join(all_respiration, all_iron, by = "Sample_Name") %>%
