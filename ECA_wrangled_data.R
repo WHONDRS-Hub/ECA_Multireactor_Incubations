@@ -100,7 +100,7 @@ all_data <- left_join(all_respiration, all_iron, by = "Sample_Name") %>%
   unite(Sample_ID, c("EC", "kit")) %>% 
   left_join(grain_all, by = "Sample_ID") %>% 
   left_join(mean_ssa, by = "Sample_ID") %>% 
-  mutate(Lost_Gravimetric_Water = Initial_Gravimetric_Moisture - Final_Gravimetric_Moisture)%>% 
+  mutate(Lost_Gravimetric_Water = X62948_Initial_Gravimetric_Moisture_g_per_g - X62948_Final_Gravimetric_Moisture_g_per_g)%>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = if_else(Respiration_Rate_mg_DO_per_L_per_H == -9999, -9999,abs(Respiration_Rate_mg_DO_per_L_per_H))) %>%
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Respiration_Rate_mg_DO_per_kg_per_H == -9999, -9999, abs(Respiration_Rate_mg_DO_per_kg_per_H)))%>% 
   filter(!grepl("EC_052|EC_053|EC_057|EC_023", Sample_Name))%>% #remove NEON sites after 1st incubation, no gravimetric moisture (EC_023)
