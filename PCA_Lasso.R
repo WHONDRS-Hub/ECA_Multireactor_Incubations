@@ -224,7 +224,7 @@ corrplot(corr_effect, type = "upper", method = "number", tl.col = "black", tl.ce
 # 
 dev.off()
 
-## Loop through coefficients to choose for LASSO ####
+## Downselected LASSO - Loop through coefficients to choose for LASSO ####
 
 # 1) Pivot data frame and sort highest to lowest
 
@@ -246,7 +246,7 @@ effect_melted <- pearson_melted %>%
 
 choose_melted <- pearson_melted %>% 
   filter(!grepl("Effect", variable)) %>%
-  filter(!grepl("Silt", variable)) %>% 
+  filter(!grepl("Silt", variable)) %>%
   filter(!grepl("Silt", Variable)) %>% #try removing silt (0 values)
   #distinct(value, .keep_all = TRUE) %>% 
   left_join(effect_melted, by = "Variable") %>% 
@@ -262,6 +262,9 @@ choose_melted <- pearson_melted %>%
 loop_melt = choose_melted %>% 
   arrange(desc(Correlation))
 
+# Pearson correlation coefficient to remove above
+correlation = 0.7
+
 ## Start loop to remove highly correlated (> 0.5)
 effect_filter = function(loop_melt) {
   
@@ -273,7 +276,7 @@ effect_filter = function(loop_melt) {
     
     row = loop_melt[i, ]
     
-    if (row$Correlation < 0.7) next
+    if (row$Correlation < correlation) next
     
     if(row$Variable_1_Effect_Correlation >= row$Variable_2_Effect_Correlation) {
       
