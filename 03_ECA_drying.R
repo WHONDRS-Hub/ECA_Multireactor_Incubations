@@ -1,5 +1,6 @@
 ## This script is for getting dry sediment mass, wet sediment mass, water mass, and gravimetric water over the 21 day ECA incubation
 
+## This file currently using published moisture tin data - will need to be updated if calculating these values before publishing
 
 ## Read in Libraries ####
 library(readxl);library(tidyverse)
@@ -9,47 +10,33 @@ rm(list=ls());graphics.off()
 ## Inputs for Data ####
 pnnl.user = 'laan208'
 study.code = 'EC'
-date = '2024-04-19' #Date of Moisture Tin File
+#date = '2024-04-19' #Date of Moisture Tin File, use for analyzing data before publishing
 year = '2022' # Year of ECA incubation
   
 
 ## Pull in Data ####
 
-## Moisture tin data
-dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/MOI/03_ProcessedData/",study.code,"_MOI_ReadyForBoye_",date,".csv"))
-
-# For ECA moisture tins after being moved to ICON folder
-#dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ICON_ModEx_SSS/20_MOI/03_ProcessedData/",study.code,"_MOI_ReadyForBoye_",date,".csv"))
+## Moisture tin data already summarized
+dry_wt <- read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/v3_CM_SSS_Sediment_Sample_Data_Summary.csv", skip = 2) %>% 
+  slice(-1:-11, -495) %>% 
+  select(c(Sample_Name, Mean_62948_Gravimetric_Moisture_g_per_g))
 
 ## 21 day incubation data 
 moisture <- read_xlsx(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/01_RawData/",year,"_Data_Raw_INC_ECA_",study.code,".xlsx"))
-
 
 ## Clean Data ####
 
 ## Moisture tins: 
 
-# Calculate average gram of wet sediment divided by average gram of dry sediment per Site
-
-# For EC samples, uncomment "filter(is.na(flag))" so that outliers are removed
-
-# For EC samples, change EC to CM, as they are published in ICON ModEx data package
-
-# For EV samples, change to AV1?
-
-# For EV samples, remove EV_020_INC-3 for spilling
+# Rearrange gravimetric moisture to calculate average gram of wet sediment (water mass + 1 g dry sediment mass) divided by average gram of dry sediment per Site. This makes it possible to calculate dry sediment mass and water mass from wet sediment mass
 
 dry_wt_averages <- dry_wt %>% 
- # filter(is.na(flag)) %>%  
-  filter(Gravimetric_Moisture != -9999) %>% 
-  separate(Sample_Name, c("EC", "Site", "Rep"), sep = "_", remove = FALSE) %>% 
-  unite(Sample_ID, c("EC", "Site")) %>% 
-  group_by(Sample_ID) %>% 
-  mutate(average_grav = mean(Gravimetric_Moisture)) %>% 
-  mutate(cv = (sd(Gravimetric_Moisture)/mean(Gravimetric_Moisture))*100)%>% 
-  distinct(Sample_ID, .keep_all = TRUE) %>% 
-  select(c(Sample_ID, average_grav)) %>% mutate(average_wet_g_by_dry_g = 1 + (average_grav)) %>% 
-  mutate(Sample_ID = str_replace(Sample_ID, "CM", "EC"))
+  filter(grepl("CM", Sample_Name)) %>% 
+  filter(Mean_62948_Gravimetric_Moisture_g_per_g != -9999) %>% 
+  mutate(average_wet_g_by_dry_g = 1 + as.numeric((Mean_62948_Gravimetric_Moisture_g_per_g))) %>% 
+  mutate(Sample_ID = str_replace(Sample_Name, "_Sediment", "")) %>% 
+  mutate(Sample_ID = str_replace(Sample_ID, "CM", "EC")) %>% 
+  select(-c(Sample_Name))
   
 
 ## 21 Day Incubation
@@ -60,12 +47,12 @@ all_moisture = moisture %>%
   mutate(Date = as.Date(Date)) %>% 
   mutate(Sample_weight_Fill_g = as.numeric(Sample_weight_Fill_g)) %>% 
   select(c(Sample_Name, Date, Tare_weight_g, Sample_weight_g, Sample_weight_Fill_g)) %>% 
-  filter(!grepl("EC_01|EC_02|EC_03|EC_06|EC_07|EC_04|EC_08|EC_10|EC_15", Sample_Name)) %>% 
+  filter(!grepl("EC_01|EC_02|EC_03|EC_06|EC_07|EC_04|EC_08|EC_10|EC_15", Sample_Name)) %>% # these are jar samples
  filter(!(Date == "2022-11-23" & grepl("EC_37", Sample_Name))) %>%
  filter(!(Date == "2022-11-23" & grepl("EC_38", Sample_Name))) %>%
  filter(!(Date == "2022-09-28" & grepl("EC_21", Sample_Name))) %>%
  filter(!(Date == "2022-09-28" & grepl("EC_33", Sample_Name))) %>%
- filter(Sample_Name != "EC_72_INC-D5") %>%
+ filter(Sample_Name != "EC_72_INC-D5") %>% # don't have these replicates
  filter(Sample_Name != "EC_72_INC-W5")  %>%
   separate(Sample_Name, into = c("EC", "Site", "INC"), sep = "_", remove = FALSE)
 
@@ -88,9 +75,8 @@ for (i in 1:nrow(all_moisture)){
 
 merged <- all_moisture %>% 
   unite(Sample_ID, c("EC", "Site")) %>% 
-  unite(Sample_Name, c("Sample_ID", "INC"), sep = "_", remove = FALSE) %>%  
-  left_join(dry_wt_averages, by = "Sample_ID") %>% 
-  distinct(Sample_Name, Date, .keep_all = TRUE)
+  unite(Sample_Name, c("Sample_ID", "INC"), remove = FALSE) %>% 
+  left_join(dry_wt_averages, by = "Sample_ID") 
 
 ## All Samples - wet and dry (all dates) ####
 
@@ -101,10 +87,6 @@ location = c("-W1", "-W2", "-W3", "-W4", "-W5", "-D1", "-D2", "-D3", "-D4", "-D5
 wet_dry <- as.data.frame(matrix(NA, ncol = 9, nrow =1))
 
 colnames(wet_dry) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g", "Water_added_g", "Water_total_g", "Gravimetric_Moisture")
-
-all_dates = as.data.frame(matrix(NA, ncol = 9, nrow = length(unique(all_moisture$Sample_Name))))
-
-colnames(all_dates) = c("Sample_Name","Date",  "Tare_weight_g", "Sample_weight_g","Sample_weight_Fill_g", "Dry_weight_sed_g","Water_added_g", "Water_total_g", "Gravimetric_Moisture")
 
 for (i in 1:length(location)){
   
@@ -241,7 +223,7 @@ final_wet_dry <- wet_dry %>%
   mutate(Dry_Sediment_Mass_g = if_else(is.na(Dry_Sediment_Mass_g), -9999, Dry_Sediment_Mass_g)) %>% 
   mutate(Total_Water_Mass_g = if_else(is.na(Total_Water_Mass_g), -9999, Total_Water_Mass_g)) 
 
-## Export File 
+## Export File (all dates)
 
 write.csv(final_wet_dry,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/",study.code,"_Drying_Masses_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)  
 
@@ -251,15 +233,13 @@ ggplot(final_wet_dry, aes(x = Dry_Sediment_Mass_g))+
 
 ## Start Summary File ####
 
+## Start loop (similar to above) to only pull out Initial water mass/gravimetric moisture (first day of incubation) and final water mass/gravimetric moisture (last day of incubation)
+
 location = c("-W1", "-W2", "-W3", "-W4", "-W5", "-D1", "-D2", "-D3", "-D4", "-D5")
 
 water_mass <- as.data.frame(matrix(NA, ncol = 6, nrow =1))
 
 colnames(water_mass) = c("Sample_Name", "Initial_Water_mass_g", "Final_Water_mass_g", "Dry_Sediment_Mass_g", "Initial_Gravimetric_Moisture", "Final_Gravimetric_Moisture")
-
-summary_file = as.data.frame(matrix(NA, ncol = 6, nrow = length(unique(final_wet_dry$Sample_Name))))
-
-colnames(summary_file) = c("Sample_Name", "Initial_Water_mass_g", "Final_Water_mass_g", "Dry_Sediment_Mass_g", "Initial_Gravimetric_Moisture", "Final_Gravimetric_Moisture")
 
 for (i in 1:length(location)){
   
@@ -267,21 +247,25 @@ for (i in 1:length(location)){
   
   colnames(summary_file) = c("Sample_Name", "Initial_Water_mass_g", "Final_Water_mass_g", "Dry_Sediment_Mass_g", "Initial_Gravimetric_Moisture", "Final_Gravimetric_Moisture")
   
+  # Subset by replicate
   summary_location_subset = final_wet_dry[grep(location[i],final_wet_dry$Sample_Name),]
   
+  # Note unique samples
   unique.incubations = unique(summary_location_subset$Sample_Name)
   
   for (j in 1:length(unique.incubations)){
     
+    #subset by site
     summary_site_subset = subset(summary_location_subset, summary_location_subset$Sample_Name == unique.incubations[j])
     
+    #put in chronological order 
     summary_site_subset <- summary_site_subset[with(summary_site_subset, order(Date)),]
     
     summary_site_subset <- summary_site_subset %>% 
-      mutate(Initial_Water_mass_g = first(Total_Water_Mass_g)) %>% 
-      mutate(Final_Water_mass_g = last(Total_Water_Mass_g)) %>% 
-      mutate(Initial_Gravimetric_Moisture = first(Gravimetric_Moisture)) %>% 
-      mutate(Final_Gravimetric_Moisture = last(Gravimetric_Moisture)) %>% 
+      mutate(Initial_Water_mass_g = first(Total_Water_Mass_g)) %>% # pull out initial water mass from first day of incubations
+      mutate(Final_Water_mass_g = last(Total_Water_Mass_g)) %>% # pull out final water mass from last day of incubations
+      mutate(Initial_Gravimetric_Moisture = first(Gravimetric_Moisture)) %>% # pull out initial gravimetric moisture from first day of incubations
+      mutate(Final_Gravimetric_Moisture = last(Gravimetric_Moisture)) %>%  # pull out final gravimetric moisture from last day of incubations
       select(c(Sample_Name, Initial_Water_mass_g, Final_Water_mass_g, Dry_Sediment_Mass_g, Initial_Gravimetric_Moisture, Final_Gravimetric_Moisture)) %>% 
       filter(row_number()==1)
     
@@ -295,5 +279,7 @@ for (i in 1:length(location)){
     
 water_mass <- water_mass %>% 
   drop_na(Sample_Name)
+
+# Export file
 
 write.csv(water_mass,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/",study.code,"_Drying_Masses_Summary_ReadyForBoye_on_",Sys.Date(),".csv"), row.names = F)
