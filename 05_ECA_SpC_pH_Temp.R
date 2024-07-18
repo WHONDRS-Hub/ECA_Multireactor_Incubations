@@ -1,21 +1,15 @@
-# library(lubridate);library(writexl);library(raster);library(devtools)
-# library(readxl)
-# library(corrplot)
-# library(corrr)
-# library(vegan)
-# library(FactoMineR)
-# library(factoextra)
+## Pull out SpC, pH, and Temp values from ECA Mapping Files
 library(readxl)
 library(tidyverse)
 library(dplyr)
 
 rm(list=ls());graphics.off()
 
-# Set working directory to data file
-#Example:
+# Set user inputs
 pnnl.user = 'laan208'
+study.code = 'EC'
 
-#Read in all data
+# Set working directory to data file
 setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
 
 #All incubation pH, SpC, temp
@@ -26,13 +20,13 @@ import_data = function(chemistry){
   #pull a list of files in target folder with correct pattern
   #read all files and combine
   
-  map.file <-  list.files(chemistry, recursive = T, pattern = "\\.xlsx$",full.names = T)
+  map.file <-  list.files(chemistry, recursive = T, pattern = "Mapping.xlsx$",full.names = T)
   
-  map.file <- map.file[grepl("EV", map.file)]
+  map.file <- map.file[grepl(study.code, map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
   
-  for (i in 1:length(mapping)){mapping[[i]] <- cbind(mapping[[i]], map.file[i])}
+    for (i in 1:length(mapping)){mapping[[i]] <- cbind(mapping[[i]], map.file[i])}
   
   all.map <- 
     do.call(rbind,mapping)
@@ -40,6 +34,7 @@ import_data = function(chemistry){
 
 map = import_data(chemistry)
 
+# Add extra 0 to site name in mapping files and remove blanks
 all_chem <- map %>% 
   dplyr::select(c(Sample_ID, SpC, Temp, pH, Notes)) %>% 
   filter(!grepl("Blank", Sample_ID)) %>% 
@@ -60,6 +55,8 @@ for (i in 1:nrow(all_chem)){
   
 }
 
+
+# Add method deviations and material columns, look at CV of SpC, pH, and Temperatures
 all_chem_corr <- all_chem %>% 
   unite(Sample_ID, c("EC", "kit", "rep"), sep = "_") %>% 
   relocate(Sample_ID, .before = SpC) %>% 
@@ -80,6 +77,7 @@ all_chem_corr <- all_chem %>%
 chem_final <- all_chem_corr %>% 
   dplyr::select(c(Sample_Name, Material, SpC, Temp, pH, Methods_Deviation))
 
+# Export final file
 write.csv(chem_final, file.path(chemistry, "SpC_pH_Temp_Processed_Data/EV_SpC_pH_Temp_ReadyForBoye_04-19-2024.csv"), row.names = F)
 
 
