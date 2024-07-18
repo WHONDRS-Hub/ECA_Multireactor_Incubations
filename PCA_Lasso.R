@@ -241,13 +241,13 @@ pearson_melted <- reshape2::melt(pearson_df, id.vars = "Variable") %>%
   filter(!grepl("Effect", Variable))
 
 effect_melted <- pearson_melted %>% 
-  filter(grepl("Effect", variable)) %>% 
+  filter(grepl("Effect", variable)) %>%
   filter(!grepl("Silt", Variable))
 
 choose_melted <- pearson_melted %>% 
   filter(!grepl("Effect", variable)) %>%
-  filter(!grepl("Silt", variable)) %>%
-  filter(!grepl("Silt", Variable)) %>% #try removing silt (0 values)
+ filter(!grepl("Silt", variable)) %>%
+ filter(!grepl("Silt", Variable)) %>% #try removing silt (0 values)
   #distinct(value, .keep_all = TRUE) %>% 
   left_join(effect_melted, by = "Variable") %>% 
   rename(Variable_1 = Variable) %>% 
@@ -366,7 +366,8 @@ best_lasso_model <- glmnet(xvars, yvar, alpha = 1, lambda = best_lambda, family 
                            #, standardize = TRUE, standardize.response = FALSE, intercept = FALSE
 )
 
-lasso_coefs = coef(best_lasso_model)
+#lasso_coefs = coef(best_lasso_model)
+coef(best_lasso_model)
 
 yvar_predict <- predict(best_lasso_model, s = best_lambda, newx = xvars)
 
