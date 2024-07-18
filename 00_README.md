@@ -14,16 +14,16 @@
 
    b. **You:** Add other deviations to the Raw DO .csv after it is exported
 
-3. Run 02a_ECA_MOI_Tins\
-   Note: This is done internally at PNNL
+3. Run 01a_ECA_MOI_Tins\
+   Note: This is done internally at PNNL. Script is located in the river-corridors-sfa/QAQC_scripts folder. Alternatively, this data may have already been published and you can pull from ESS-DIVE.
    
-   a. **Script:** Calculates gravimetric moisture from individual moisture tins taken right before optode incubations. Checks CV of replicates. If CV is high, run 02b_ECA_MOI_outliers.
-       Note: 02b_ECA_MOI_outliers was written for ECA_EC samples. You may need to manually change this script to fit your data.
+   a. **Script:** Calculates gravimetric moisture from individual moisture tins taken right before optode incubations. Checks CV of replicates. If CV is high, run 01b_ECA_MOI_outliers.
+       Note: 01b_ECA_MOI_outliers was written for ECA_EC samples. You may need to manually change this script to fit your data.
    
    b. **You:** Check for deviations manually (e.g. spills) to make sure that you are calculating correct gravimetric moisture. Add other deviations to the moisture tin .csv after it is exported
 
 4. Run 03_ECA_drying\
-   Note: This is done internally at PNNL
+   Note: This is done internally at PNNL. Moisture tin data will need to be located in Data folder on Github.
    
    a. **Script:** Calculates wet sediment mass, dry sediment mass, added water, total water, and gravimetric moisture for each day when samples were weighed over 21-day incubation. Also calculates summary file for initial water mass, final water mass, dry sediment mass, initial gravimetric moisture, and final gravimetric moisture for each sample.
 
