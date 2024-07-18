@@ -8,10 +8,14 @@ output: html_document
 ## Maggi Laan (maggi.laan@pnnl.gov)
 ## Code used for calculating rates and effect sizes from dissolved oxygen concentraition data from ECA Multireactor Incubations
 
+## Inputs to this file are Raw DO from optode experiments and estimated dry sediment masses, total water during 2 hour incubation, and SpC, pH, and temperature values from incubation
+
+## Outputs are respiration rates (slope of oxygen consumption over 2 hour incubation) with SpC, pH, and Temperature added 
+
 ## To Do:
 # Change drying masses to published file
-# add deviation of modelled water?
-# Positive or negative slopes?
+# Change raw DO to published file
+
   
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -130,10 +134,6 @@ colnames(respiration) = c("Sample_Name","slope_of_the_regression", "rate_mg_per_
 
 location = c("-W1", "-W2", "-W3","-W4", "-W5","-D1", "-D2", "-D3", "-D4", "-D5")
 
-rate = as.data.frame(matrix(NA, ncol = 14, nrow = length(unique(samples$Sample_Name))))
-
-colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h", "R_squared", "R_squared_adj", "p_value", "total_incubation_time_min", "breusch_p_value", "slope_ratio", "0_min_concentration", "2_min_concentration", "last_concentration", "theoretical")
-
 for (i in 1:length(location)){
   
   ## Subset by replicate
@@ -171,7 +171,7 @@ for (i in 1:length(location)){
     
     low.slope = fit_low$coefficients[[2]]
     
-    # Remove samples if at >6 minutes, they are below the DO threshold. This is removing low values from the back end of curves
+    # Remove samples if at > 4 minutes, they are below the DO threshold. This is removing low values from the back end of curves
     
     data_site_subset_thresh = data_site_subset_low %>% 
       filter(!(Elapsed_Minute > 4 & DO_mg_per_L < do.thresh)) 
@@ -575,8 +575,6 @@ respiration = respiration[-1,]
 ## Pull in solid:solution ratio data for mg/kg calculations
 solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EC_Drying_Masses_Summary_ReadyForBoye_on_2024-04-26.csv"))
 
-#01-29-2024
-
 ## Pull in SpC, Temp, pH for these samples
 chem <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/SpC_pH_Temp_Processed_Data/EC_SpC_pH_Temp_ReadyForBoye_10-03-2023.csv"))
 
@@ -599,52 +597,29 @@ all.samples <-  left_join(removed, respiration, by = "Sample_Name") %>%
 
 
 ## Get respiration data in Boye format
-# Make positive slopes 0
-# Join solid:solution ratio and calculate mg/kg values
 boye <- all.samples %>% 
-  mutate(p_value = round(p_value, 4)) %>%
-  mutate(`2_min_concentration` = round(`2_min_concentration`, 4)) %>% 
-  mutate(slope_of_the_regression = if_else(slope_of_the_regression >0,0,slope_of_the_regression)) %>%
-  mutate(rate_mg_per_L_per_min = if_else(slope_of_the_regression >=0,0,rate_mg_per_L_per_min )) %>%
-  mutate(rate_mg_per_L_per_h = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_h)) %>% 
-  mutate(rate_mg_per_L_per_h = if_else(is.na(rate_mg_per_L_per_h), 9999, rate_mg_per_L_per_h)) %>%
-  mutate(R_squared = if_else(is.na(R_squared), -9999, R_squared)) %>% 
-  mutate(R_squared_adj = if_else(is.na(R_squared_adj), -9999, R_squared_adj)) %>% 
-  mutate(p_value = if_else(is.na(p_value ), -9999, p_value )) %>% 
-  mutate(total_incubation_time_min = if_else(is.na(total_incubation_time_min), -9999, total_incubation_time_min)) %>% 
-  mutate(`2_min_concentration` = if_else(is.na(`2_min_concentration`), -9999, `2_min_concentration`)) %>% 
-  mutate(number_of_points = if_else(is.na(number_of_points), as.numeric(-9999), as.numeric(number_of_points))) %>% 
-  mutate(no_points_rem = if_else(is.na(no_points_rem), -9999, no_points_rem)) %>% 
-  mutate(Methods_Deviation = if_else(is.na(Methods_Deviation.theoretical), Methods_Deviation, paste(Methods_Deviation, Methods_Deviation.theoretical, sep = "; "))) %>% 
-  dplyr::select(c(Sample_Name, rate_mg_per_L_per_h, R_squared, R_squared_adj, `p_value`, total_incubation_time_min, number_of_points, no_points_rem, `2_min_concentration`, Methods_Deviation, kit, Treat)) %>% 
-  mutate(rate_mg_per_L_per_h = rate_mg_per_L_per_h * -1) %>%
-  relocate(Methods_Deviation, .after = `2_min_concentration`) %>% 
-  rename(Respiration_Rate_mg_DO_per_L_per_H = rate_mg_per_L_per_h) %>% 
-  rename(Respiration_R_Squared = R_squared) %>% 
-  rename(Respiration_R_Squared_Adj = R_squared_adj) %>% 
-  rename(Respiration_p_value = p_value) %>% 
-  rename(Total_Incubation_Time_Min = total_incubation_time_min) %>% 
-  rename(Number_Points_In_Respiration_Regression = number_of_points) %>% 
-  rename(Number_Points_Removed_Respiration_Regression = no_points_rem) %>% 
-  rename(DO_Concentration_At_Incubation_Time_Zero = `2_min_concentration`) %>% 
-  mutate(Respiration_Rate_mg_DO_per_L_per_H = as.numeric(Respiration_Rate_mg_DO_per_L_per_H)) %>%
-  mutate_all(~gsub("N/A; |N/A ; ", "",.)) %>% 
-  dplyr::select(-c(kit, Treat)) %>% 
-  left_join(solid, by = "Sample_Name") %>% 
+  left_join(solid, by = "Sample_Name") %>% # Join solid:solution ratio 
   left_join(chem, by = "Sample_Name") %>% 
-  mutate(Respiration_Rate_mg_DO_per_L_per_H = as.numeric(Respiration_Rate_mg_DO_per_L_per_H)) %>%
-  mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Respiration_Rate_mg_DO_per_L_per_H > -9999, Respiration_Rate_mg_DO_per_L_per_H * (Incubation_Water_Mass_g/Dry_Sediment_Mass_g), -9999)) %>% 
+  mutate(rate_mg_per_L_per_h = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_h)) %>% #make positive slopes 0
+  mutate(rate_mg_per_L_per_h = if_else(is.na(rate_mg_per_L_per_h), 9999, rate_mg_per_L_per_h)) %>%
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = rate_mg_per_L_per_h * -1) %>% # make rates positice 
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Respiration_Rate_mg_DO_per_L_per_H > -9999, Respiration_Rate_mg_DO_per_L_per_H * (Incubation_Water_Mass_g/Dry_Sediment_Mass_g), -9999)) %>% # calculate mg DO/kg dry sediment values
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Incubation_Water_Mass_g == -9999, -9999, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  relocate(Respiration_Rate_mg_DO_per_kg_per_H, .after = Respiration_Rate_mg_DO_per_L_per_H) %>% 
-  relocate(Material, .after = Sample_Name) %>% 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = round(Respiration_Rate_mg_DO_per_kg_per_H, 3)) %>% 
-  relocate(SpC, .after = Material) %>% 
-  relocate(pH, .after = SpC) %>% 
-  relocate(Temp, .after = pH) %>% 
-  relocate(Methods_Deviation.x, .before = Methods_Deviation.y) %>% 
-  dplyr::select(-c(Initial_Water_mass_g, Final_Water_mass_g, Incubation_Water_Mass_g, Dry_Sediment_Mass_g)) # rename(Methods_Deviation = Methods_Deviation.x)
+  mutate(Respiration_R_Squared = if_else(is.na(R_squared), -9999, R_squared)) %>% 
+  mutate(Respiration_R_Squared_Adj = if_else(is.na(R_squared_adj), -9999, R_squared_adj)) %>%
+  mutate(p_value = if_else(is.na(p_value ), -9999, p_value)) %>%
+  mutate(Respiration_p_value = round(p_value, 4)) %>%
+  mutate(Total_Incubation_Time_Min = if_else(is.na(total_incubation_time_min), -9999, total_incubation_time_min)) %>% 
+  mutate(Number_Points_In_Respiration_Regression = if_else(is.na(number_of_points), as.numeric(-9999), as.numeric(number_of_points))) %>% 
+  mutate(Number_Points_Removed_Respiration_Regression = if_else(is.na(no_points_rem), -9999, no_points_rem)) %>% 
+  mutate(`2_min_concentration` = if_else(is.na(`2_min_concentration`), -9999, `2_min_concentration`)) %>%
+   mutate(DO_Concentration_At_Incubation_Time_Zero = round(`2_min_concentration`, 4)) %>% 
+  mutate(Methods_Deviation = if_else(is.na(Methods_Deviation.theoretical), Methods_Deviation, paste(Methods_Deviation, Methods_Deviation.theoretical, sep = "; "))) %>% 
+  mutate_all(~gsub("N/A; |N/A ; ", "",.)) %>%
+  dplyr::select(c(Sample_Name, Material, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Respiration_R_Squared, Respiration_R_Squared_Adj, Respiration_p_value, Total_Incubation_Time_Min, Number_Points_In_Respiration_Regression, Number_Points_Removed_Respiration_Regression, DO_Concentration_At_Incubation_Time_Zero, Methods_Deviation.x, Methods_Deviation.y, Methods_Deviation))
 
-boye_dev <- boye %>% 
+boye_dev <- boye_new %>% 
   separate(Methods_Deviation.y, c("MOI_1", "MOI_2"), sep = ";") %>% 
   mutate(MOI_1 = str_replace(MOI_1, "INC_QA_005", "N/A")) %>% 
   mutate(MOI_1 = str_replace(MOI_1, "MOI_002", "N/A")) %>% 
@@ -655,13 +630,16 @@ boye_dev <- boye %>%
   dplyr::select(-c(Methods_Deviation.x, Methods_Deviation, MOI_1, MOI_2, MOI_3)) %>% 
 rename(Methods_Deviation = Methods_Deviation.fin)
 
+write.csv(boye_dev, paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)
+
 ```
 ## Remove Outlier Samples 
 * A distance matrix is used to remove the replicate most unlike the others if the coefficient of variation is greater than 50%
 
 ```{r Remove Outliers}
+## Start of sensitivity analysis for which CV and n() is used to keep/remove replicates
 
-## Do not end up using these because we published as medians
+## Did not end up using these because we published as medians, but keeping here for consistency
 
 #Remove RR with -9999, calculate CV for replicates for mg/L and mg/kg values
 
@@ -791,56 +769,5 @@ eca_respiration_all_final = outliers_flag %>%
   mutate(Methods_Deviation)
   
 
-write.csv(eca_respiration_all_final, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-06-13.csv", row.names = F)
 
 ```
-
-```{r Summary File }
-## DO NOT USE, USED MEDIANS INSTEAD
-
-
-cv <- function(x) {
-  cv_value <- (sd(x) / mean(x)) * 100
-  return(cv_value)
-}
-
-eca_summary_all = eca_respiration_all_final %>% 
-  filter(Respiration_Rate_mg_DO_per_L_per_H != -9999) %>% 
-  separate(Sample_Name, c("Sample", "Rep"), sep = -1) %>% 
-  dplyr::select(c(Sample, Material, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  group_by(Sample) %>% 
-  summarise(across(where(is.numeric), list(mean = mean, sd = sd, cv = cv))) %>% 
-  mutate(round(across(where(is.numeric)), 3))
-
-eca_summary_best = eca_respiration_all_final %>% 
-  filter(Respiration_Rate_mg_DO_per_L_per_H != -9999) %>% 
-  filter(!grepl("RATE_CV_000", Methods_Deviation)) %>% 
-  separate(Sample_Name, c("Sample", "Rep"), sep = -1) %>% 
-  dplyr::select(c(Sample, Material,  Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  group_by(Sample) %>% 
-  summarise(across(where(is.numeric), list(best_mean = mean, best_sd = sd, best_cv = cv))) %>% 
-  mutate(round(across(where(is.numeric)), 3))
-
-eca_summary_join = left_join(eca_summary_all, eca_summary_best, by = "Sample") %>% 
-  rename(Mean_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_mean) %>% 
-    rename(SD_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_sd) %>% 
-  rename(Mean_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_mean) %>% 
-    rename(SD_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_sd) %>% 
-  rename(Best_Mean_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_best_mean) %>% 
-   rename(Best_SD_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_best_sd) %>% 
-  rename(Best_Mean_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_best_mean) %>% 
-rename(Best_SD_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_best_sd) %>% 
-  rename(Mean_SpC = SpC_mean) %>%
-  rename(SD_SpC = SpC_sd) %>%
-  rename(Mean_pH = pH_mean) %>% 
-  rename(SD_pH = pH_sd) %>% 
-  rename(Mean_Temp = Temp_mean) %>% 
-  rename(SD_Temp = Temp_sd) %>% 
-  rename(Sample_Name = Sample) %>% 
-  mutate(Material = "Sediment") %>% 
-  dplyr::select(c(Sample_Name, Material, Mean_SpC, SD_SpC, Mean_pH, SD_pH, Mean_Temp, SD_Temp, Mean_Respiration_Rate_mg_DO_per_L_per_H, SD_Respiration_Rate_mg_DO_per_L_per_H, Mean_Respiration_Rate_mg_DO_per_kg_per_H, SD_Respiration_Rate_mg_DO_per_kg_per_H, Best_Mean_Respiration_Rate_mg_DO_per_L_per_H, Best_SD_Respiration_Rate_mg_DO_per_L_per_H, Best_Mean_Respiration_Rate_mg_DO_per_kg_per_H, Best_SD_Respiration_Rate_mg_DO_per_kg_per_H))
-
-write.csv(eca_summary_join, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_2024-03-05.csv", row.names = F)
-
-```
-
