@@ -366,6 +366,8 @@ best_lasso_model <- glmnet(xvars, yvar, alpha = 1, lambda = best_lambda, family 
                            #, standardize = TRUE, standardize.response = FALSE, intercept = FALSE
 )
 
+best_lasso_model$
+
 #lasso_coefs = coef(best_lasso_model)
 coef(best_lasso_model)
 
@@ -377,6 +379,8 @@ sse <- sum((yvar_predict - yvar)^2)
 rsq = 1 - sse/sst
 
 rsq
+
+mse_lasso = mse(best_lasso_model)
 
 ## LASSO with all variables to check for collinearity effects ####
 
@@ -419,3 +423,16 @@ sse <- sum((yvar_predict - yvar)^2)
 rsq = 1 - sse/sst
 
 rsq
+
+
+## calculate VIF
+
+model = lm(Cube_Effect_Size ~ .,  data = cube_effect_data_corr)
+
+vif_values = vif(model)
+vif_values
+
+model_corr = lm(Cube_Effect_Size ~ Cube_SpC_Diff + Cube_pH_Diff + Cube_Temp_Diff + Cube_Fe_mg_kg_Diff + Cube_ATP_pmol_g_Diff + Cube_NPOC_mg_C_per_kg_Diff + Cube_TN_mg_N_per_kg_Diff + Cube_TOC_Percent_Diff + Cube_TN_Percent_Diff + Cube_Fine_Sand + Cube_Dry_LostGravMoi, data = cube_effect_data_corr)
+
+vif_corr = vif(model_corr)
+vif_corr
