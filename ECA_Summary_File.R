@@ -15,20 +15,24 @@ setwd("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders
 
 # Respiration -------------------------------------------------------------
 
-all_respiration <- read.csv("EC_Sediment_SpC_pH_Temp_Respiration.csv", skip = 2) %>% 
-  slice(-1:-11) %>% 
-  filter(Field_Name != "#End_Data") %>% 
-  dplyr::select(c(Sample_Name, SpC_microsiemens_per_cm, pH, Temperature_degC, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) %>% 
-  mutate(across(c(SpC_microsiemens_per_cm:Respiration_Rate_mg_DO_per_kg_per_H), as.numeric))
+all_respiration <- read.csv("C:/Users/laan208/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Half_LOD_2024-07-30.csv") %>% #, skip = 2) %>% 
+  #slice(-1:-11) %>% 
+  #filter(Field_Name != "#End_Data") %>% 
+  dplyr::select(c(Sample_Name, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) %>% 
+  mutate(across(c(SpC:Respiration_Rate_mg_DO_per_kg_per_H), as.numeric))
+  #dplyr::select(c(Sample_Name, SpC_microsiemens_per_cm, pH, Temperature_degC, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) %>% 
+ # mutate(across(c(SpC_microsiemens_per_cm:Respiration_Rate_mg_DO_per_kg_per_H), as.numeric))
 
 
 median_respiration = all_respiration %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
   #missing replicates (EC_072-W5/D5),  overexposed samples (EC_027, EC_013, EC_014), less sediment in sample (EC_012-D5)
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  mutate(SpC_microsiemens_per_cm = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, SpC_microsiemens_per_cm)) %>% 
+  mutate(SpC = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, SpC)) %>% 
+  # mutate(SpC_microsiemens_per_cm = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, SpC_microsiemens_per_cm)) %>% 
   mutate(pH = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, pH)) %>% 
-  mutate(Temperature_degC = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temperature_degC)) %>% 
+  mutate(Temp = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temp)) %>%
+ # mutate(Temperature_degC = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temperature_degC)) %>% 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
   mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
@@ -41,8 +45,9 @@ median_respiration = all_respiration %>%
   ungroup() %>% 
   group_by(Sample_ID, Rep) %>%
   mutate(Remove = ifelse(all(c_across(starts_with("n_")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
-  select(c(Sample_ID, Rep, Median_SpC_microsiemens_per_cm, Median_pH, Median_Temperature_degC, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H, Remove)) %>% 
-  unite(Sample_Name, c("Sample_ID", "Rep"))
+  select(c(Sample_ID, Rep, Median_SpC, Median_pH, Median_Temp, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H, Remove)) %>% 
+  # select(c(Sample_ID, Rep, Median_SpC_microsiemens_per_cm, Median_pH, Median_Temperature_degC, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H, Remove)) %>% 
+   unite(Sample_Name, c("Sample_ID", "Rep"))
 
 # Gravimetric Moisture ----------------------------------------------------
 
@@ -215,7 +220,7 @@ medians = left_join(median_respiration, median_grav, by = "Sample_Name") %>%
   rename(Median_Missing_Reps = remove_any_true) %>% 
   mutate(Median_Missing_Reps = if_else(is.na(Median_Missing_Reps), FALSE, Median_Missing_Reps))
   
-write.csv(medians,"Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/ECA_EC_Summary.csv") 
+write.csv(medians,"Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/ECA_EC_Summary_Half_LOD_Check.csv") 
 
 # Effect Size -------------------------------------------------------------
 
@@ -231,4 +236,4 @@ effect_data <- medians %>%
   mutate(Methods_Deviation = if_else(Effect_Size_Missing_Reps == TRUE, "EFFECT_001", "N/A")) %>% 
   select(-c(Treat, Effect_Size_Missing_Reps))
   
-write.csv(effect_data,"Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/ECA_EC_Effect_Size.csv") 
+write.csv(effect_data,"Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/ECA_EC_Effect_Size_Half_LOD_Check.csv") 

@@ -14,6 +14,11 @@ rm(list=ls());graphics.off()
 
 print.images = T
 
+# Functions ---------------------------------------------------------------
+
+# Transformation for normalization is cube root - have to cube root then add sign back to value to make it positive or negative
+cube_root <- function(x) sign(x) * (abs(x))^(1/3)
+
 # Read in/Merge Data ------------------------------------------------------------
 ## Individual Rate data for histograms
 all_data = read.csv("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/Sample_Data/EC_Sediment_SpC_pH_Temp_Respiration.csv", skip = 2) %>% 
@@ -32,10 +37,11 @@ cube_respiration = all_data %>%
 
 #change this to published data when ready
 
-effect = read.csv("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/Sample_Data/EC_Sediment_Effect_Size.csv", skip = 2) %>% 
-  filter(grepl("EC", Sample_Name)) %>% 
+effect = read.csv("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/ECA_EC_Effect_Size_Half_LOD_Check.csv") %>% #, skip = 2) %>% 
+  #filter(grepl("EC", Sample_Name)) %>% 
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  
-  select(-c(Field_Name, IGSN, Material, Methods_Deviation, Effect_Size_62948_Initial_Gravimetric_Moisture_g_per_g,Effect_Size_62948_Final_Gravimetric_Moisture_g_per_g))
+    select(-c(X, Methods_Deviation, Effect_Size_X62948_Initial_Gravimetric_Moisture_g_per_g,Effect_Size_X62948_Final_Gravimetric_Moisture_g_per_g))
+  #select(-c(Field_Name, IGSN, Material, Methods_Deviation, Effect_Size_62948_Initial_Gravimetric_Moisture_g_per_g,Effect_Size_62948_Final_Gravimetric_Moisture_g_per_g))
   
 ## Read in Median Data to get Dry moisture values
 
@@ -60,12 +66,10 @@ grain = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/v3_CM_SSS_Sediment
 
 effect_data = left_join(effect, grain, by = "Sample_Name") %>% 
   left_join(grav, by = "Sample_Name") %>% 
-  mutate_at(vars(Effect_Size_SpC_microsiemens_per_cm:Dry_Lost_Grav), as.numeric)  # make data numeric 
+  mutate_at(vars(Effect_Size_SpC:Dry_Lost_Grav), as.numeric)
+ # mutate_at(vars(Effect_Size_SpC_microsiemens_per_cm:Dry_Lost_Grav), as.numeric)  # make data numeric 
   
-# Functions ---------------------------------------------------------------
 
-# Transformation for normalization is cube root - have to cube root then add sign back to value to make it positive or negative
-cube_root <- function(x) sign(x) * (abs(x))^(1/3)
 
 # Transform Data ----------------------------------------------------------
 
@@ -78,16 +82,18 @@ cube_effect_data = effect_data %>%
   rename_with(where(is.numeric), .fn = ~ paste0("cube_", .x)) %>% 
   column_to_rownames("Sample_Name") %>% 
   select(-matches("per_L")) %>% # remove samples with per_L in sample name, we're using mg/kg values
-  rename(cube_Effect_SpC = cube_Effect_Size_SpC_microsiemens_per_cm) %>% 
+  rename(cube_Effect_SpC = cube_Effect_Size_SpC) %>% 
+  #rename(cube_Effect_SpC = cube_Effect_Size_SpC_microsiemens_per_cm) %>% 
   rename(cube_Effect_pH = cube_Effect_Size_pH) %>%
-  rename(cube_Effect_Temp = cube_Effect_Size_Temperature_degC) %>%
+  rename(cube_Effect_Temp = cube_Effect_Size_Temp) %>%
+ # rename(cube_Effect_Temp = cube_Effect_Size_Temperature_degC) %>%
   rename(cube_Effect_Respiration_mg_kg = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H) %>%
   rename(cube_Effect_Fe_mg_kg= cube_Effect_Size_Fe_mg_per_kg) %>%
   rename(cube_Effect_ATP_pmol_g = cube_Effect_Size_ATP_picomoles_per_g) %>%
   rename(cube_Effect_NPOC_mg_kg = cube_Effect_Size_Extractable_NPOC_mg_per_kg) %>% 
   rename(cube_Effect_TN_mg_kg = cube_Effect_Size_Extractable_TN_mg_per_kg) %>% 
-  rename(cube_Effect_TOC_percent = cube_Effect_Size_01395_C_percent_per_mg) %>%
-  rename(cube_Effect_TN_percent = cube_Effect_Size_01397_N_percent_per_mg) %>% 
+  rename(cube_Effect_TOC_percent = cube_Effect_Size_X01395_C_percent_per_mg) %>%
+  rename(cube_Effect_TN_percent = cube_Effect_Size_X01397_N_percent_per_mg) %>% 
   rename(cube_SSA = cube_Mean_Specific_Surface_Area_m2_per_g) %>% 
   relocate(cube_Effect_Respiration_mg_kg, .before = cube_Effect_SpC) %>% 
   filter(cube_Effect_Fe_mg_kg > -1) # remove Fe outlier for analysis
@@ -527,7 +533,7 @@ vif_corr
 
 ## Histogram of all Rates
 
-if (print.image == T) {
+if (print.images == T) {
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_All_Rates_Histogram.png"), width = 4, height = 4, units = "in", res = 300)
 
 all_cube_hist = ggplot(cube_respiration, aes(x = cube_Respiration_mg_kg)) +
@@ -555,6 +561,7 @@ dev.off()
 
 cube_effect_limits <- c(-12, 12)
 
+if (print.images == T) {
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Histogram.png"), width = 4, height = 4, units = "in", res = 300)
 
 cube_effect_hist = ggplot(cube_effect_data, aes(x = cube_Effect_Respiration_mg_kg))+
@@ -577,6 +584,7 @@ cube_effect_hist = ggplot(cube_effect_data, aes(x = cube_Effect_Respiration_mg_k
 
 
 cube_effect_hist
+}
 
 dev.off()
 
@@ -592,13 +600,13 @@ scale_map_label_image = image_annotate(scale_map_image, "C", size = 15, location
 
 # Read in Rate histograms figure .png
 
-rate_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-26_All_Rates_Histogram.png")
+rate_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_All_Rates_Histogram.png")
 
 rate_label_image = image_annotate(rate_image, "A", size = 65, location = "+30+20", color = "black")
 
 # Read in Effect Size Figure 
 
-effect_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-26_Cube_Median_Effect_Histogram.png")
+effect_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Cube_Median_Effect_Histogram.png")
 
 effect_label_image = image_annotate(effect_image, "B", size = 65, location = "+30+20", color = "black")
 
@@ -606,7 +614,7 @@ com_image = image_append(c(rate_label_image, effect_label_image))
 
 com_map_image = image_append(c(com_image, scale_map_label_image), stack = TRUE)
 
-image_write(com_map_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-26_Combined_map.png")
+image_write(com_map_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Combined_map.png")
 
 
 #Fe, Fine Sand most important
@@ -618,16 +626,18 @@ cube_effect_data_fe_inc = effect_data %>%
   rename_with(where(is.numeric), .fn = ~ paste0("cube_", .x)) %>% 
   column_to_rownames("Sample_Name") %>% 
   select(-matches("per_L")) %>% # remove samples with per_L in sample name, we're using mg/kg values
-  rename(cube_Effect_SpC = cube_Effect_Size_SpC_microsiemens_per_cm) %>% 
+  rename(cube_Effect_SpC = cube_Effect_Size_SpC) %>%
+ # rename(cube_Effect_SpC = cube_Effect_Size_SpC_microsiemens_per_cm) %>% 
   rename(cube_Effect_pH = cube_Effect_Size_pH) %>%
-  rename(cube_Effect_Temp = cube_Effect_Size_Temperature_degC) %>%
+  #rename(cube_Effect_Temp = cube_Effect_Size_Temperature_degC) %>%
+  rename(cube_Effect_Temp = cube_Effect_Size_Temp) %>%
   rename(cube_Effect_Respiration_mg_kg = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H) %>%
   rename(cube_Effect_Fe_mg_kg= cube_Effect_Size_Fe_mg_per_kg) %>%
   rename(cube_Effect_ATP_pmol_g = cube_Effect_Size_ATP_picomoles_per_g) %>%
   rename(cube_Effect_NPOC_mg_kg = cube_Effect_Size_Extractable_NPOC_mg_per_kg) %>% 
   rename(cube_Effect_TN_mg_kg = cube_Effect_Size_Extractable_TN_mg_per_kg) %>% 
-  rename(cube_Effect_TOC_percent = cube_Effect_Size_01395_C_percent_per_mg) %>%
-  rename(cube_Effect_TN_percent = cube_Effect_Size_01397_N_percent_per_mg) %>% 
+  rename(cube_Effect_TOC_percent = cube_Effect_Size_X01395_C_percent_per_mg) %>%
+  rename(cube_Effect_TN_percent = cube_Effect_Size_X01397_N_percent_per_mg) %>% 
   rename(cube_SSA = cube_Mean_Specific_Surface_Area_m2_per_g) %>% 
   relocate(cube_Effect_Respiration_mg_kg, .before = cube_Effect_SpC)
 
@@ -673,13 +683,13 @@ dev.off()
 
 # Combine Figure
 
-fine_sand_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-26_Cube_Median_Effect_vs_Fine_Sand_Scatter.png")
+fine_sand_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Cube_Median_Effect_vs_Fine_Sand_Scatter.png")
 
 fine_sand_label_image = image_annotate(fine_sand_image, "B", size = 65, location = "+30+20", color = "black")
 
 fine_sand_scale_image = image_scale(fine_sand_label_image, "65%")
 
-fe_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-26_Cube_Median_Effect_vs_Fe_Scatter.png")
+fe_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Cube_Median_Effect_vs_Fe_Scatter.png")
 
 fe_label_image = image_annotate(fe_image, "C", size = 65, location = "+30+20", color = "black")
 
@@ -687,13 +697,13 @@ fe_scale_image = image_scale(fe_label_image, "65%")
 
 scatter_image = image_append(c(fine_sand_scale_image, fe_scale_image), stack = TRUE)
 
-pca_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-26_Cube_Median_Effect_PCA.png")
+pca_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Cube_Median_Effect_PCA.png")
 
 pca_label_image = image_annotate(pca_image, "A", size = 65, location = "+30+20", color = "black")
 
 pca_combine_image = image_append(c(pca_label_image, scatter_image))
 
 
-image_write(pca_combine_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-26_Combined_PCA.png")
+image_write(pca_combine_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Combined_PCA.png")
 
 
