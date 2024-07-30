@@ -22,10 +22,10 @@ study.code = 'EC_'
 input.path = ("Y:/Optode_multi_reactor/Optode_multi_reactor_incubation/")
 
 ## For mapping files and result .csv's
-map.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/")
+map.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/")
 
 ## Where to put Final Raw DO file
-output.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/")
+output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/")
 
 
 # Read in 100% saturation values for each kit based on pressure/temperature during disk calibration
@@ -90,7 +90,7 @@ import_data = function(map.path){
   map.file <- map.file[grepl(study.code, map.file)]
   
   # Remove samples incubated in jars for EC samples
-  map.file <- map.file[!grepl("red|Red|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08", map.file)]
+  map.file <- map.file[!grepl("Green|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08", map.file)]
   
   mapping <- lapply(map.file, read_xlsx)
   
@@ -122,12 +122,13 @@ bind <- merge(all.samples, fast.sat, all = TRUE) %>%
 cleaned_data <- bind %>% 
   relocate(DO_mg_L, .before = elapsed_min) %>% 
   mutate(DO_mg_per_L = DO_mg_L) %>% 
-  dplyr::select(c(Sample_ID, DO_mg_per_L, elapsed_min, `Time on`)) %>% 
+  dplyr::select(c(Sample_ID, DO_mg_per_L, LOD_mg_L, elapsed_min, `Time on`)) %>% 
   arrange(Sample_ID) %>% 
   mutate(Methods_Deviation = "N/A") %>% 
   mutate(Methods_Deviation = ifelse(elapsed_min == 0, "RATE_004", "N/A")) %>% 
   rename(Elapsed_Minute = elapsed_min) %>% 
-  rename(Sample_Name = Sample_ID)
+  rename(Sample_Name = Sample_ID) 
+  
 
 
 # Pull in .txt files with picture times and combine
@@ -251,11 +252,49 @@ for (i in 1:nrow(samples)){
   
 }
 
+#EC 011/012 - W: Add INC_008 deviation
+#EC 13, 14, 27: Flag overexposed replicates
+#EC 012 D5: Less sediment in replicate
+# EC 72 - D5/W5: missing replicates
+
+missing_reps <- data.frame(
+  Sample_Name = c("EC_072_INC-D5", "EC_072_INC-W5"),
+  Elapsed_Minute = c(-9999, -9999),
+  DO_mg_per_L = c(-9999, -9999),
+  LOD_mg_L = c(-9999, -9999), 
+  Methods_Deviation = c("INC_Method_001", "INC_Method_001"),
+  stringsAsFactors = FALSE  # Ensure that strings are not converted to factors
+)
+
 samples_clean = samples %>% 
-  unite(Sample_Name, c("EC", "kit", "rep"), sep = "_") %>% 
+  unite(Sample_Name, c("EC", "kit", "rep"), sep = "_") %>%   bind_rows(missing_reps) %>% 
   arrange(Sample_Name) %>% 
   mutate(DO_mg_per_L = round(DO_mg_per_L, 2)) %>% # round to 2 for data package publishing
-  relocate(Sample_Name, .before = Elapsed_Minute)
+  relocate(Sample_Name, .before = Elapsed_Minute) %>% 
+  group_by(Sample_Name) %>% 
+  fill(LOD_mg_L) %>% 
+  ungroup() %>% 
+  mutate(Methods_Deviation = if_else(grepl("EC_011_INC-W|EC_012_INC-W", Sample_Name), if_else(Methods_Deviation == "N/A", "INC_008", paste0(Methods_Deviation, "; INC_008")), Methods_Deviation)) %>% 
+  mutate(Methods_Deviation = if_else(grepl("EC_011_INC-W|EC_012_INC-W", Sample_Name), if_else(Methods_Deviation == "N/A", "INC_008", paste0(Methods_Deviation, "; INC_008")), Methods_Deviation)) %>% 
+  mutate(Methods_Deviation = if_else(grepl("EC_012_INC-D5", Sample_Name), if_else(Methods_Deviation == "N/A", "INC_Method_002", paste0(Methods_Deviation, "; INC_Method_002")), Methods_Deviation)) %>% 
+  filter(!(Sample_Name %in% c("EC_013_INC-D4", "EC_013_INC-W5", "EC_014_INC-W5", "EC_027_INC-D1", "EC_027_INC-D2", "EC_027_INC-W5") & Elapsed_Minute > 0)) %>% 
+  mutate(Elapsed_Minute = if_else(grepl("EC_013_INC-D4|EC_013_INC-W5|EC_014_INC-W5|EC_027_INC-D1|EC_027_INC-D2|EC_027_INC-W5", Sample_Name), -9999, Elapsed_Minute)) %>% 
+    mutate(DO_mg_per_L = if_else(grepl("EC_013_INC-D4|EC_013_INC-W5|EC_014_INC-W5|EC_027_INC-D1|EC_027_INC-D2|EC_027_INC-W5", Sample_Name), -9999, DO_mg_per_L)) %>%
+  mutate(Methods_Deviation = if_else(grepl("EC_013_INC-D4|EC_013_INC-W5|EC_014_INC-W5|EC_027_INC-D1|EC_027_INC-D2|EC_027_INC-W5", Sample_Name), if_else(Methods_Deviation == "N/A", "INC_QA_004",paste0(Methods_Deviation, "; INC_QA_004")), Methods_Deviation)) %>% 
+  mutate(Methods_Deviation = if_else(Sample_Name == "EC_091_INC-D5" & DO_mg_per_L == -9999, if_else(Methods_Deviation == "N/A", "INC_002", paste0(Methods_Deviation, "; INC_002")), Methods_Deviation)) %>% 
+mutate(Methods_Deviation = if_else(grepl("EC_022_INC-D5|EC_044_INC-D4|EC_044_INC-D5", Sample_Name), if_else(Methods_Deviation == "N/A", "INC_003", paste0(Methods_Deviation, "; INC_003")), Methods_Deviation)) %>% 
+  mutate(Methods_Deviation = if_else(grepl("EC_042_INC-D5|EC_064_INC-W1|EC_032_INC-D5", Sample_Name), if_else(Methods_Deviation == "N/A", "INC_004", paste0(Methods_Deviation, "; INC_004")), Methods_Deviation)) %>% 
+  mutate(Methods_Deviation = if_else(grepl("EC_041_INC-W4", Sample_Name), if_else(Methods_Deviation == "N/A", "INC_005", paste0(Methods_Deviation, "; INC_005")), Methods_Deviation)) %>% 
+  mutate(Methods_Deviation = if_else(grepl("EC_071", Sample_Name), if_else(Methods_Deviation == "N/A", "VI_ALL_006", paste0(Methods_Deviation, "; VI_ALL_006")), Methods_Deviation)) %>% 
+  mutate(Methods_Deviation = if_else(grepl("EC_069_INC-D2", Sample_Name), if_else(Methods_Deviation == "N/A", "VI_ALL_007", paste0(Methods_Deviation, "; VI_ALL_007")), Methods_Deviation)) %>% 
+  mutate(LOD_mg_L = round(LOD_mg_L, 3)) %>% 
+  mutate(DO_mg_per_L_corr = as.character(DO_mg_per_L)) %>%
+  mutate(LOD_mg_L = as.character(LOD_mg_L)) %>% 
+  mutate(DO_mg_per_L_corr = if_else(DO_mg_per_L_corr <= 0, paste0("DO_Below_", LOD_mg_L,"_mg_per_L_LOD|Negative_Value_Raw_Not_Corrected|-9999_mg_per_L_Final_Corrected"), DO_mg_per_L_corr)) %>% 
+  mutate(DO_mg_per_L_corr = if_else(DO_mg_per_L_corr <= LOD_mg_L, paste0("DO_Below_", LOD_mg_L,"_mg_per_L_LOD|", DO_mg_per_L_corr, "_mg_per_L_Raw_Not_Corrected|", DO_mg_per_L_corr,"mg_per_L_Final_Corrected"), DO_mg_per_L_corr)) %>% 
+  mutate(Methods_Deviation = if_else(grepl("Raw", DO_mg_per_L_corr), if_else(Methods_Deviation == "N/A", "DTL_003", paste0(Methods_Deviation, "; DTL_003")), Methods_Deviation)) %>% 
+  select(c(Sample_Name, DO_mg_per_L_corr, Elapsed_Minute, Methods_Deviation)) %>% 
+  rename(DO_mg_per_L = DO_mg_per_L_corr)
 
 output.name = paste0(study.code,"INC_Raw_DO_By_Min_ReadyForBoye_",Sys.Date(),".csv")
 
