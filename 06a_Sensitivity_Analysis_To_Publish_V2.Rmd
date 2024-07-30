@@ -55,6 +55,7 @@ pnnl.user = 'laan208'
 
 input.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EC_INC_Raw_DO_By_Min_ReadyForBoye_2024-07-29.csv")
 
+
 output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/")
 
 data = read.csv(input.path)
@@ -116,7 +117,7 @@ high.slope.thresh = -0.04
 time.same = 7
 break.toggle = 1.4
 conc.range = 1.4
-plot.toggle = FALSE
+plot.toggle = TRUE
 
 ```
 ## Fit a linear model to data with chosen rules
@@ -127,7 +128,7 @@ plot.toggle = FALSE
 samples = data %>% 
   filter(DO_mg_per_L != -9999) %>% 
     rename(DO_mg_per_L_flag = DO_mg_per_L) %>% 
-  mutate(DO_mg_per_L = if_else(grepl("LOD", DO_mg_per_L_flag), as.numeric(str_extract(DO_mg_per_L_flag, "[0-9]+\\.[0-9]+")), as.numeric(DO_mg_per_L_flag)))
+  mutate(DO_mg_per_L = if_else(grepl("LOD", DO_mg_per_L_flag), as.numeric(str_extract(DO_mg_per_L_flag, "[0-9]+\\.[0-9]+"))/2, as.numeric(DO_mg_per_L_flag)))
   
 
 # Make Data Frames
@@ -587,7 +588,7 @@ removed <- data %>%
   distinct(Sample_Name, .keep_all = TRUE) %>% 
   dplyr::select(c(Sample_Name, Methods_Deviation)) %>% 
   mutate_all(~gsub("RATE_004", "N/A",.)) %>% 
-  mutate_all(~gsub(";  N/A|; N/A", "",.)) 
+  mutate_all(~gsub(";  N/A|; N/A|N/A; ", "",.)) 
 
 ## Join Methods Deviations, Mean Slopes, and Original Slopes. Add RATE_005 deviation for slopes with theoretical 0 minute point. Add RATE_CV_010 deviation for sites with CV > 10%. CV calculated here from slope of regression. 
 
@@ -595,7 +596,7 @@ all.samples <-  left_join(removed, respiration, by = "Sample_Name") %>%
   separate(Sample_Name, into = c("EC", "kit", "rep"), sep = "_", remove = FALSE) %>% 
   mutate(Treat = case_when(grepl("W",rep)~"Wet",
                            grepl("D", rep) ~"Dry")) %>% 
-  mutate(Methods_Deviation.theoretical = if_else(number_of_points == 2 & `2_min_concentration` <= 5.5, "RATE_005", NA_character_))# %>%
+  mutate(Methods_Deviation.theoretical = if_else(number_of_points == 2 & `2_min_concentration` <= 0.09, "DTL_003; RATE_005", if_else(number_of_points == 2 & `2_min_concentration` <= 5.5, "RATE_005", NA_character_)))# %>%
   # mutate(`2_min_concentration` = case_when(Methods_Deviation.theoretical == "RATE_005" ~ -9999, TRUE ~ `2_min_concentration`))
 
 
@@ -634,9 +635,10 @@ boye_dev <- boye %>%
   dplyr::select(-c(Methods_Deviation.x, Methods_Deviation, MOI_1, MOI_2, MOI_3)) %>% 
 rename(Methods_Deviation = Methods_Deviation.fin) 
 
+output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/")
   
 
-write.csv(boye_dev, paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Full_LOD_",Sys.Date(),".csv"), row.names = F)
+write.csv(boye_dev, paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Half_LOD_",Sys.Date(),".csv"), row.names = F)
 
 ```
 ## Remove Outlier Samples 
