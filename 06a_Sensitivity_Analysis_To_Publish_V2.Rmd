@@ -53,15 +53,11 @@ rm(list=ls());graphics.off()
 #Example:
 pnnl.user = 'laan208'
 
-input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EC_INC_Raw_DO_By_Min_ReadyForBoye_2024-05-30.csv")
+input.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EC_INC_Raw_DO_By_Min_ReadyForBoye_2024-07-29.csv")
 
-output.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/rates/ReadyForBoye/")
+output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/")
 
 data = read.csv(input.path)
-
-# Remove missing data points
-samples = data %>% 
-  filter(DO_mg_per_L != -9999) 
 
 ```
 ## Start testing rules:
@@ -126,6 +122,13 @@ plot.toggle = FALSE
 ## Fit a linear model to data with chosen rules
 
 ```{r Start Loop for fitting Linear Models, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 8, fig.wight = 8}
+
+# Remove missing data points, if at 2 min, value is below LOD, make starting DO 1/2 LOD
+samples = data %>% 
+  filter(DO_mg_per_L != -9999) %>% 
+    rename(DO_mg_per_L_flag = DO_mg_per_L) %>% 
+  mutate(DO_mg_per_L = if_else(grepl("LOD", DO_mg_per_L_flag), as.numeric(str_extract(DO_mg_per_L_flag, "[0-9]+\\.[0-9]+")), as.numeric(DO_mg_per_L_flag)))
+  
 
 # Make Data Frames
 respiration <- as.data.frame(matrix(NA, ncol = 17, nrow =1))
@@ -564,7 +567,7 @@ for (i in 1:length(location)){
 
 respiration = respiration[-1,]
 
-#write.csv(respiration,paste0(output.path,"ECA_Sediment_Incubations_Respiration_Rates_",Sys.Date(),".csv"), row.names = F)
+#write.csv(respiration,paste0(output.path,"Half_LOD_ECA_Sediment_Incubations_Respiration_Rates_",Sys.Date(),".csv"), row.names = F)
 
 ```
 
@@ -573,7 +576,8 @@ respiration = respiration[-1,]
 ```{r Boye Format for Respiration Rates}
 
 ## Pull in solid:solution ratio data for mg/kg calculations
-solid <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EC_Drying_Masses_Summary_ReadyForBoye_on_2024-04-26.csv"))
+solid <- read.csv(paste0("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/Sample_Data/EC_Sediment_Gravimetric_Moisture.csv"), skip = 2) %>% 
+  filter(grepl("EC", Sample_Name))
 
 ## Pull in SpC, Temp, pH for these samples
 chem <- read.csv(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/SpC_pH_Temp_Processed_Data/EC_SpC_pH_Temp_ReadyForBoye_10-03-2023.csv"))
@@ -603,7 +607,7 @@ boye <- all.samples %>%
   mutate(rate_mg_per_L_per_h = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_h)) %>% #make positive slopes 0
   mutate(rate_mg_per_L_per_h = if_else(is.na(rate_mg_per_L_per_h), 9999, rate_mg_per_L_per_h)) %>%
   mutate(Respiration_Rate_mg_DO_per_L_per_H = rate_mg_per_L_per_h * -1) %>% # make rates positice 
-  mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Respiration_Rate_mg_DO_per_L_per_H > -9999, Respiration_Rate_mg_DO_per_L_per_H * (Incubation_Water_Mass_g/Dry_Sediment_Mass_g), -9999)) %>% # calculate mg DO/kg dry sediment values
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Respiration_Rate_mg_DO_per_L_per_H > -9999, Respiration_Rate_mg_DO_per_L_per_H * (as.numeric(Incubation_Water_Mass_g)/as.numeric(Dry_Sediment_Mass_g)), -9999)) %>% # calculate mg DO/kg dry sediment values
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Incubation_Water_Mass_g == -9999, -9999, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = round(Respiration_Rate_mg_DO_per_kg_per_H, 3)) %>% 
   mutate(Respiration_R_Squared = if_else(is.na(R_squared), -9999, R_squared)) %>% 
@@ -617,9 +621,9 @@ boye <- all.samples %>%
    mutate(DO_Concentration_At_Incubation_Time_Zero = round(`2_min_concentration`, 4)) %>% 
   mutate(Methods_Deviation = if_else(is.na(Methods_Deviation.theoretical), Methods_Deviation, paste(Methods_Deviation, Methods_Deviation.theoretical, sep = "; "))) %>% 
   mutate_all(~gsub("N/A; |N/A ; ", "",.)) %>%
-  dplyr::select(c(Sample_Name, Material, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Respiration_R_Squared, Respiration_R_Squared_Adj, Respiration_p_value, Total_Incubation_Time_Min, Number_Points_In_Respiration_Regression, Number_Points_Removed_Respiration_Regression, DO_Concentration_At_Incubation_Time_Zero, Methods_Deviation.x, Methods_Deviation.y, Methods_Deviation))
+  dplyr::select(c(Sample_Name, Material.x, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Respiration_R_Squared, Respiration_R_Squared_Adj, Respiration_p_value, Total_Incubation_Time_Min, Number_Points_In_Respiration_Regression, Number_Points_Removed_Respiration_Regression, DO_Concentration_At_Incubation_Time_Zero, Methods_Deviation.x, Methods_Deviation.y, Methods_Deviation))
 
-boye_dev <- boye_new %>% 
+boye_dev <- boye %>% 
   separate(Methods_Deviation.y, c("MOI_1", "MOI_2"), sep = ";") %>% 
   mutate(MOI_1 = str_replace(MOI_1, "INC_QA_005", "N/A")) %>% 
   mutate(MOI_1 = str_replace(MOI_1, "MOI_002", "N/A")) %>% 
@@ -628,9 +632,11 @@ boye_dev <- boye_new %>%
   mutate(MOI_3 = if_else(MOI_1 == Methods_Deviation, MOI_1, if_else(MOI_1 == "N/A", Methods_Deviation, paste(MOI_1, Methods_Deviation, sep = "; ")))) %>% 
   mutate(Methods_Deviation.fin = if_else(Methods_Deviation.x ==  MOI_3, Methods_Deviation.x, if_else(Methods_Deviation.x == "N/A", MOI_3, if_else(MOI_3 == "N/A", Methods_Deviation.x, paste(Methods_Deviation.x, MOI_3, sep = "; "))))) %>% 
   dplyr::select(-c(Methods_Deviation.x, Methods_Deviation, MOI_1, MOI_2, MOI_3)) %>% 
-rename(Methods_Deviation = Methods_Deviation.fin)
+rename(Methods_Deviation = Methods_Deviation.fin) 
 
-write.csv(boye_dev, paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)
+  
+
+write.csv(boye_dev, paste0("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Full_LOD_",Sys.Date(),".csv"), row.names = F)
 
 ```
 ## Remove Outlier Samples 
