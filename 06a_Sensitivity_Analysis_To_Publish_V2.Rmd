@@ -117,7 +117,7 @@ high.slope.thresh = -0.04
 time.same = 7
 break.toggle = 1.4
 conc.range = 1.4
-plot.toggle = TRUE
+plot.toggle = FALSE
 
 ```
 ## Fit a linear model to data with chosen rules
@@ -519,13 +519,20 @@ for (i in 1:length(location)){
       multi <- (final + break_rem + clean + all) +
         plot_layout(widths = c(2,2))
       
-      for(m in 1:1){
-        
-        print(multi)
-        
-      }
+      #ggsave(file=paste0("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Rates/",data_site_subset$Sample_ID[1],".pdf"), width = 7, height = 7, units = "in")
       
+   #  pdf(file = paste0("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Rates/All_Fits.pdf"))
+   #  
+   # for(m in 1:1){
+   # 
+   #   print(multi)
+   # 
+   # }
+   # 
+   # dev.off()
+   
     }
+   
     
     rate$Sample_Name[j] = as.character(data_site_subset_fin$Sample_Name[1])
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
@@ -599,46 +606,51 @@ all.samples <-  left_join(removed, respiration, by = "Sample_Name") %>%
   mutate(Methods_Deviation.theoretical = if_else(number_of_points == 2 & `2_min_concentration` <= 0.09, "DTL_003; RATE_005", if_else(number_of_points == 2 & `2_min_concentration` <= 5.5, "RATE_005", NA_character_)))# %>%
   # mutate(`2_min_concentration` = case_when(Methods_Deviation.theoretical == "RATE_005" ~ -9999, TRUE ~ `2_min_concentration`))
 
-
+lod_flag = samples %>% 
+  filter(Elapsed_Minute == 2) %>% 
+  dplyr::select(c(Sample_Name, DO_mg_per_L_flag))
 
 ## Get respiration data in Boye format
 boye <- all.samples %>% 
-  left_join(solid, by = "Sample_Name") %>% # Join solid:solution ratio 
+  left_join(solid, by = "Sample_Name") %>%
+  rename(Methods_Deviation_do = Methods_Deviation.x) %>% 
+  rename(Methods_Deviation_solid = Methods_Deviation.y) %>% # Join solid:solution ratio 
   left_join(chem, by = "Sample_Name") %>% 
+  left_join(lod_flag, by = "Sample_Name") %>% 
   mutate(rate_mg_per_L_per_h = if_else(slope_of_the_regression>=0,0,rate_mg_per_L_per_h)) %>% #make positive slopes 0
   mutate(rate_mg_per_L_per_h = if_else(is.na(rate_mg_per_L_per_h), 9999, rate_mg_per_L_per_h)) %>%
   mutate(Respiration_Rate_mg_DO_per_L_per_H = rate_mg_per_L_per_h * -1) %>% # make rates positice 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Respiration_Rate_mg_DO_per_L_per_H > -9999, Respiration_Rate_mg_DO_per_L_per_H * (as.numeric(Incubation_Water_Mass_g)/as.numeric(Dry_Sediment_Mass_g)), -9999)) %>% # calculate mg DO/kg dry sediment values
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = if_else(Incubation_Water_Mass_g == -9999, -9999, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = round(Respiration_Rate_mg_DO_per_kg_per_H, 3)) %>% 
-  mutate(Respiration_R_Squared = if_else(is.na(R_squared), -9999, R_squared)) %>% 
+  mutate(Respiration_R_Squared = if_else(is.na(R_squared), -9999, if_else(R_squared == 1, -9999, R_squared))) %>%
   mutate(Respiration_R_Squared_Adj = if_else(is.na(R_squared_adj), -9999, R_squared_adj)) %>%
   mutate(p_value = if_else(is.na(p_value ), -9999, p_value)) %>%
-  mutate(Respiration_p_value = round(p_value, 4)) %>%
-  mutate(Total_Incubation_Time_Min = if_else(is.na(total_incubation_time_min), -9999, total_incubation_time_min)) %>% 
-  mutate(Number_Points_In_Respiration_Regression = if_else(is.na(number_of_points), as.numeric(-9999), as.numeric(number_of_points))) %>% 
-  mutate(Number_Points_Removed_Respiration_Regression = if_else(is.na(no_points_rem), -9999, no_points_rem)) %>% 
+  mutate(Respiration_p_Value = round(p_value, 4)) %>%
+  mutate(Total_Incubation_Time_Min = if_else(is.na(total_incubation_time_min), -9999, if_else(total_incubation_time_min == 2, -9999, total_incubation_time_min))) %>% 
+  mutate(Number_Points_In_Respiration_Regression = if_else(is.na(number_of_points), as.numeric(-9999), if_else(number_of_points == 2, -9999, as.numeric(number_of_points)))) %>% 
+  mutate(Number_Points_Removed_Respiration_Regression = if_else(is.na(no_points_rem), -9999, if_else(grepl("RATE_005", Methods_Deviation.theoretical), -9999, no_points_rem))) %>% 
   mutate(`2_min_concentration` = if_else(is.na(`2_min_concentration`), -9999, `2_min_concentration`)) %>%
-   mutate(DO_Concentration_At_Incubation_Time_Zero = round(`2_min_concentration`, 4)) %>% 
+   mutate(DO_Concentration_At_Incubation_Time_Zero = if_else(grepl("LOD", DO_mg_per_L_flag), DO_mg_per_L_flag, as.character(`2_min_concentration`))) %>% 
   mutate(Methods_Deviation = if_else(is.na(Methods_Deviation.theoretical), Methods_Deviation, paste(Methods_Deviation, Methods_Deviation.theoretical, sep = "; "))) %>% 
   mutate_all(~gsub("N/A; |N/A ; ", "",.)) %>%
-  dplyr::select(c(Sample_Name, Material.x, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Respiration_R_Squared, Respiration_R_Squared_Adj, Respiration_p_value, Total_Incubation_Time_Min, Number_Points_In_Respiration_Regression, Number_Points_Removed_Respiration_Regression, DO_Concentration_At_Incubation_Time_Zero, Methods_Deviation.x, Methods_Deviation.y, Methods_Deviation))
+  mutate(Methods_Deviation = if_else(grepl("RATE_003", Methods_Deviation), "N/A", Methods_Deviation)) %>% 
+  dplyr::select(c(Sample_Name, Material.x, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Respiration_R_Squared, Respiration_R_Squared_Adj, Respiration_p_Value, Total_Incubation_Time_Min, Number_Points_In_Respiration_Regression, Number_Points_Removed_Respiration_Regression, DO_Concentration_At_Incubation_Time_Zero, Methods_Deviation_do, Methods_Deviation_solid, Methods_Deviation))
 
 boye_dev <- boye %>% 
-  separate(Methods_Deviation.y, c("MOI_1", "MOI_2"), sep = ";") %>% 
-  mutate(MOI_1 = str_replace(MOI_1, "INC_QA_005", "N/A")) %>% 
-  mutate(MOI_1 = str_replace(MOI_1, "MOI_002", "N/A")) %>% 
-  mutate(MOI_2 = str_replace(MOI_2, "INC_QA_005", "N/A")) %>% 
-  mutate(MOI_1 = str_trim(MOI_1)) %>% 
-  mutate(MOI_3 = if_else(MOI_1 == Methods_Deviation, MOI_1, if_else(MOI_1 == "N/A", Methods_Deviation, paste(MOI_1, Methods_Deviation, sep = "; ")))) %>% 
-  mutate(Methods_Deviation.fin = if_else(Methods_Deviation.x ==  MOI_3, Methods_Deviation.x, if_else(Methods_Deviation.x == "N/A", MOI_3, if_else(MOI_3 == "N/A", Methods_Deviation.x, paste(Methods_Deviation.x, MOI_3, sep = "; "))))) %>% 
-  dplyr::select(-c(Methods_Deviation.x, Methods_Deviation, MOI_1, MOI_2, MOI_3)) %>% 
-rename(Methods_Deviation = Methods_Deviation.fin) 
+  mutate(Methods_Deviation_solid = if_else(Methods_Deviation_solid == "INC_QA_005", "N/A", if_else(grepl("; INC_QA_005", Methods_Deviation_solid), str_replace(Methods_Deviation_solid, "; INC_QA_005", ""), Methods_Deviation_solid))) %>% 
+  mutate(Methods_Deviation_solid = if_else(Methods_Deviation_solid == "INC_008", "N/A", if_else(grepl("; INC_008", Methods_Deviation_solid), str_replace(Methods_Deviation_solid, "; INC_008", ""), Methods_Deviation_solid))) %>% 
+  mutate(Methods_Deviation_do = if_else(Methods_Deviation_do == "INC_008", "N/A", if_else(grepl("; INC_008", Methods_Deviation_do), str_replace(Methods_Deviation_do, "; INC_008", ""), Methods_Deviation_do))) %>% 
+  mutate(Methods_Deviation_com = if_else(Methods_Deviation_solid == Methods_Deviation_do, Methods_Deviation_do, if_else(Methods_Deviation_solid == "N/A", Methods_Deviation_do, if_else(Methods_Deviation_do == "N/A", Methods_Deviation_solid, paste0(Methods_Deviation_do, "; ", Methods_Deviation_solid))))) %>% 
+  mutate(Methods_Deviation_com = if_else(Methods_Deviation_com == "VI_ALL_006", "N/A", if_else(Methods_Deviation_com == "INC_005", "N/A", Methods_Deviation_com))) %>% 
+  mutate(Methods_Deviation = if_else(Methods_Deviation_com == "N/A", Methods_Deviation, if_else(Methods_Deviation == "N/A", Methods_Deviation_com, if_else(Methods_Deviation == Methods_Deviation_com, Methods_Deviation, if_else(grepl(Methods_Deviation, Methods_Deviation_com), Methods_Deviation,  paste0(Methods_Deviation_com, "; ", Methods_Deviation)))))) %>% 
+  dplyr::select(-c(Methods_Deviation_solid, Methods_Deviation_do, Methods_Deviation_com)) %>% 
+rename(Material = Material.x)
 
 output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/")
   
 
-write.csv(boye_dev, paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Half_LOD_",Sys.Date(),".csv"), row.names = F)
+write.csv(boye_dev, paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/EC_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)
 
 ```
 ## Remove Outlier Samples 
