@@ -15,7 +15,7 @@ setwd("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders
 
 # Respiration -------------------------------------------------------------
 
-all_respiration <- read.csv("C:/Users/laan208/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/ECA_Sediment_Incubations_Respiration_Rates_Half_LOD_2024-07-30.csv") %>% #, skip = 2) %>% 
+all_respiration <- read.csv("C:/Users/laan208/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/EC_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-07-31.csv") %>% #, skip = 2) %>% 
   #slice(-1:-11) %>% 
   #filter(Field_Name != "#End_Data") %>% 
   dplyr::select(c(Sample_Name, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) %>% 
@@ -220,7 +220,7 @@ medians = left_join(median_respiration, median_grav, by = "Sample_Name") %>%
   rename(Median_Missing_Reps = remove_any_true) %>% 
   mutate(Median_Missing_Reps = if_else(is.na(Median_Missing_Reps), FALSE, Median_Missing_Reps))
   
-write.csv(medians,"Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/ECA_EC_Summary_Half_LOD_Check.csv") 
+write.csv(medians,"Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/ECA_EC_Summary_ReadyForBoye_2024-07-31.csv") 
 
 # Effect Size -------------------------------------------------------------
 
@@ -236,4 +236,4 @@ effect_data <- medians %>%
   mutate(Methods_Deviation = if_else(Effect_Size_Missing_Reps == TRUE, "EFFECT_001", "N/A")) %>% 
   select(-c(Treat, Effect_Size_Missing_Reps))
   
-write.csv(effect_data,"Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/ECA_EC_Effect_Size_Half_LOD_Check.csv") 
+write.csv(effect_data,"Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/ECA_EC_Effect_Size_ReadyForBoye_2024-07-31.csv") 
