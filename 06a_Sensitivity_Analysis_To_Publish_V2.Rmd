@@ -30,7 +30,7 @@ library(ggpubr);library(reshape2);library(ggpmisc)
 library(segmented);library(broom);library(lmtest);library(car); library(corrplot)
 library(ggpmisc);library(lubridate); library(readxl); library(glmnet)
 library(tidyverse);library(patchwork)
-library(readr)
+library(readr); library(pdftools)
 
 ```
 ## Read in and clean raw DO data.
@@ -117,7 +117,7 @@ high.slope.thresh = -0.04
 time.same = 7
 break.toggle = 1.4
 conc.range = 1.4
-plot.toggle = FALSE
+plot.toggle = TRUE
 
 ```
 ## Fit a linear model to data with chosen rules
@@ -519,21 +519,10 @@ for (i in 1:length(location)){
       multi <- (final + break_rem + clean + all) +
         plot_layout(widths = c(2,2))
       
-      #ggsave(file=paste0("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Rates/",data_site_subset$Sample_ID[1],".pdf"), width = 7, height = 7, units = "in")
+      ggsave(file=paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Plots/",data_site_subset$Sample_Name[1],".pdf"), width = 7, height = 7, units = "in")
       
-   #  pdf(file = paste0("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Rates/All_Fits.pdf"))
-   #  
-   # for(m in 1:1){
-   # 
-   #   print(multi)
-   # 
-   # }
-   # 
-   # dev.off()
-   
     }
    
-    
     rate$Sample_Name[j] = as.character(data_site_subset_fin$Sample_Name[1])
     rate$slope_of_the_regression[j] = round(as.numeric((c)),3) #in mg O2/L min
     rate$rate_mg_per_L_per_min[j] = round(abs(as.numeric((c))),3) #in mg O2/L min
@@ -574,6 +563,7 @@ for (i in 1:length(location)){
 }
 
 respiration = respiration[-1,]
+
 
 #write.csv(respiration,paste0(output.path,"Half_LOD_ECA_Sediment_Incubations_Respiration_Rates_",Sys.Date(),".csv"), row.names = F)
 
