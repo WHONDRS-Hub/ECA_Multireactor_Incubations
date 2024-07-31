@@ -37,11 +37,10 @@ cube_respiration = all_data %>%
 
 #change this to published data when ready
 
-effect = read.csv("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/ECA_EC_Effect_Size_Half_LOD_Check.csv") %>% #, skip = 2) %>% 
-  #filter(grepl("EC", Sample_Name)) %>% 
+effect = read.csv("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/Sample_Data/EC_Sediment_Effect_Size.csv", skip = 2) %>% 
+  filter(grepl("EC", Sample_Name)) %>% 
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  
-    select(-c(X, Methods_Deviation, Effect_Size_X62948_Initial_Gravimetric_Moisture_g_per_g,Effect_Size_X62948_Final_Gravimetric_Moisture_g_per_g))
-  #select(-c(Field_Name, IGSN, Material, Methods_Deviation, Effect_Size_62948_Initial_Gravimetric_Moisture_g_per_g,Effect_Size_62948_Final_Gravimetric_Moisture_g_per_g))
+  select(-c(Field_Name, IGSN, Material, Methods_Deviation, Effect_Size_Initial_Gravimetric_Moisture_g_per_g,Effect_Size_Final_Gravimetric_Moisture_g_per_g))
   
 ## Read in Median Data to get Dry moisture values
 
@@ -66,8 +65,7 @@ grain = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/v3_CM_SSS_Sediment
 
 effect_data = left_join(effect, grain, by = "Sample_Name") %>% 
   left_join(grav, by = "Sample_Name") %>% 
-  mutate_at(vars(Effect_Size_SpC:Dry_Lost_Grav), as.numeric)
- # mutate_at(vars(Effect_Size_SpC_microsiemens_per_cm:Dry_Lost_Grav), as.numeric)  # make data numeric 
+  mutate_at(vars(Effect_Size_SpC_microsiemens_per_cm:Dry_Lost_Grav), as.numeric)  # make data numeric 
   
 
 
@@ -82,18 +80,16 @@ cube_effect_data = effect_data %>%
   rename_with(where(is.numeric), .fn = ~ paste0("cube_", .x)) %>% 
   column_to_rownames("Sample_Name") %>% 
   select(-matches("per_L")) %>% # remove samples with per_L in sample name, we're using mg/kg values
-  rename(cube_Effect_SpC = cube_Effect_Size_SpC) %>% 
-  #rename(cube_Effect_SpC = cube_Effect_Size_SpC_microsiemens_per_cm) %>% 
+  rename(cube_Effect_SpC = cube_Effect_Size_SpC_microsiemens_per_cm) %>% 
   rename(cube_Effect_pH = cube_Effect_Size_pH) %>%
-  rename(cube_Effect_Temp = cube_Effect_Size_Temp) %>%
- # rename(cube_Effect_Temp = cube_Effect_Size_Temperature_degC) %>%
+  rename(cube_Effect_Temp = cube_Effect_Size_Temperature_degC) %>%
   rename(cube_Effect_Respiration_mg_kg = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H) %>%
   rename(cube_Effect_Fe_mg_kg= cube_Effect_Size_Fe_mg_per_kg) %>%
   rename(cube_Effect_ATP_pmol_g = cube_Effect_Size_ATP_picomoles_per_g) %>%
   rename(cube_Effect_NPOC_mg_kg = cube_Effect_Size_Extractable_NPOC_mg_per_kg) %>% 
   rename(cube_Effect_TN_mg_kg = cube_Effect_Size_Extractable_TN_mg_per_kg) %>% 
-  rename(cube_Effect_TOC_percent = cube_Effect_Size_X01395_C_percent_per_mg) %>%
-  rename(cube_Effect_TN_percent = cube_Effect_Size_X01397_N_percent_per_mg) %>% 
+  rename(cube_Effect_TOC_percent = cube_Effect_Size_C_percent_per_mg) %>%
+  rename(cube_Effect_TN_percent = cube_Effect_Size_N_percent_per_mg) %>% 
   rename(cube_SSA = cube_Mean_Specific_Surface_Area_m2_per_g) %>% 
   relocate(cube_Effect_Respiration_mg_kg, .before = cube_Effect_SpC) %>% 
   filter(cube_Effect_Fe_mg_kg > -1) # remove Fe outlier for analysis
