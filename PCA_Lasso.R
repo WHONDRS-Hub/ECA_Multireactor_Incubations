@@ -20,8 +20,10 @@ print.images = T
 cube_root <- function(x) sign(x) * (abs(x))^(1/3)
 
 # Read in/Merge Data ------------------------------------------------------------
+"C:\GitHub\ECA_Multireactor_Incubations\Data\EC_Sediment_SpC_pH_Temp_Respiration.csv"
+
 ## Individual Rate data for histograms
-all_data = read.csv("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/Sample_Data/EC_Sediment_SpC_pH_Temp_Respiration.csv", skip = 2) %>% 
+all_data = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_SpC_pH_Temp_Respiration.csv", skip = 2) %>% 
   filter(grepl("EC", Sample_Name)) %>% 
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  
   select(-c(Field_Name, IGSN, Material))
@@ -37,14 +39,14 @@ cube_respiration = all_data %>%
 
 #change this to published data when ready
 
-effect = read.csv("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/Sample_Data/EC_Sediment_Effect_Size.csv", skip = 2) %>% 
+effect = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_Effect_Size.csv", skip = 2) %>% 
   filter(grepl("EC", Sample_Name)) %>% 
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  
   select(-c(Field_Name, IGSN, Material, Methods_Deviation, Effect_Size_Initial_Gravimetric_Moisture_g_per_g,Effect_Size_Final_Gravimetric_Moisture_g_per_g))
   
 ## Read in Median Data to get Dry moisture values
 
-grav = read.csv("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/Sample_Data/EC_Sediment_Sample_Data_Summary.csv", skip = 2) %>% 
+grav = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_Sample_Data_Summary.csv", skip = 2) %>% 
   filter(grepl("EC", Sample_Name)) %>% 
   filter(grepl("D", Sample_Name)) %>%  
   mutate(Sample_Name = str_replace(Sample_Name, "-D", "_all")) %>% 
@@ -206,7 +208,36 @@ colnames(lasso_df) = c("Coefficients")
 
 lasso_df = lasso_df %>% 
   rownames_to_column(var = "variable") %>% 
-  slice(-1)
+  slice(-1) 
+
+lasso_df$y = 0
+
+## Make heatmap of LASSO coefficients
+
+if (print.images == T) {
+  
+  png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_PCA_LASSO_Heat_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
+  
+ggplot(lasso_df, aes(variable, y)) +
+  geom_tile(fill = "white", color = "black") +
+  geom_text(aes(label = round(Coefficients, 2), color = Coefficients), size = 3, fontface = "bold") + 
+  scale_color_gradient2(high = "#2166ac", low = "#b2182b", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1),
+                       space = "Lab", name="Coefficient") +
+  theme_minimal() + 
+  theme(aspect.ratio = 0.25, 
+        axis.text.x = element_text(angle = 90, 
+                                   hjust = 1), 
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(angle = 0), 
+        axis.ticks.y = element_blank(), 
+        axis.text.y = element_blank()) +
+  scale_x_discrete(position = "top") +
+  labs(y = "LASSO using PCA Loadings")
+
+}
+
+dev.off()
 
 
 weighted_pc = merge(lasso_df, loadings_melted, by = "variable") %>% 
@@ -459,7 +490,7 @@ best_lasso_model <- glmnet(xvars, yvar, alpha = 1, lambda = best_lambda, family 
 )
 
 #lasso_coefs = coef(best_lasso_model)
-coef(best_lasso_model)
+ds_lasso_coefs = coef(best_lasso_model)
 
 yvar_predict <- predict(best_lasso_model, s = best_lambda, newx = xvars)
 
@@ -469,6 +500,41 @@ sse <- sum((yvar_predict - yvar)^2)
 rsq = 1 - sse/sst
 
 rsq
+
+ds_lasso_df = as.data.frame(as.matrix(ds_lasso_coefs))
+
+colnames(ds_lasso_df) = c("Coefficients")
+
+ds_lasso_df = ds_lasso_df %>% 
+  rownames_to_column(var = "variable") %>% 
+  slice(-1) 
+
+ds_lasso_df$y = 0
+
+if (print.images == T) {
+  
+  png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_LASSO_Heat_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
+  
+  ggplot(ds_lasso_df, aes(variable, y)) +
+    geom_tile(fill = "white", color = "black") +
+    geom_text(aes(label = round(Coefficients, 2), color = Coefficients), size = 3, fontface = "bold") + 
+    scale_color_gradient2(high = "#2166ac", low = "#b2182b", mid = "white", 
+                          midpoint = 0, limit = c(-1, 1),
+                          space = "Lab", name="Coefficient") +
+    theme_minimal() + 
+    theme(aspect.ratio = 0.1, 
+          axis.text.x = element_text(angle = 90, hjust = 0), 
+          axis.title.x = element_blank(),
+          axis.title.y = element_text(angle = 0), 
+          axis.ticks.y = element_blank(), 
+          axis.text.y = element_blank()) +
+    scale_x_discrete(position = "top") +
+    labs(y = "LASSO")
+  
+}
+
+dev.off()
+
 
 ## LASSO with all variables to check for collinearity effects ####
 
