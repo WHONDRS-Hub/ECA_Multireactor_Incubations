@@ -10,26 +10,57 @@ rm(list=ls());graphics.off()
 ## INPUTS ####
 pnnl.user = 'laan208'
 
-fast.rates.in = 'ec_fast_rate_calculations.xlsx'
-  #EC: ec_fast_rate_calculations.xlsx
-  #EV: ev_fast_rate_calculations.xlsx
-
-study.code = 'EC_'
+study.code = 'RS_'
   #EC_
   #EV_
+  #RS_
 
-## For .txt files for image times
-input.path = ("Y:/Optode_multi_reactor/Optode_multi_reactor_incubation/")
-
-## For mapping files and result .csv's
-map.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/")
-
-## Where to put Final Raw DO file
-output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/")
+if (study.code == "EC_") {
+  
+  fast.rates.in = 'ec_fast_rate_calculations.xlsx'
+  
+  ## For .txt files for image times
+  input.path = ("Y:/Optode_multi_reactor/Optode_multi_reactor_incubation/")
+  
+  ## For mapping files and result .csv's
+  map.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/")
+  
+  ## Where to put Final Raw DO file
+  output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/")
+  
+  
+} else if (study.code == "EV_") {
+  
+  fast.rates.in = 'ev_fast_rate_calculations.xlsx'
+  
+  ## For .txt files for image times
+  input.path = ("Y:/Optode_multi_reactor/Optode_multi_reactor_incubation/")
+  
+  ## For mapping files and result .csv's
+  map.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/")
+  
+  ## Where to put Final Raw DO file
+  output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/")
+  
+  
+} else if (study.code == "RS_") {
+  
+  fast.rates.in = 'rs_fast_rate_calculations.xlsx'
+  
+  ## For .txt files for image times
+  input.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/Cincinnati_RS/Optodes")
+  
+  ## For mapping files and result .csv's
+  map.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/Cincinnati_RS/Optodes")
+  
+  ## Where to put Final Raw DO file
+  output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/Cincinnati_RS/Optodes/Rate_Processing/Raw_DO_by_Min")
+  
+}
 
 
 # Read in 100% saturation values for each kit based on pressure/temperature during disk calibration
-fast.sat <- read_excel(paste0(map.path, "/rates/", fast.rates.in)) %>% 
+fast.sat <- read_excel(paste0(map.path, "/Rate_Processing/", fast.rates.in)) %>% 
   rename("DO_mg_L" = "DO_sat_mg_L") 
 
 #read in respiration data and clean
@@ -45,7 +76,9 @@ import_data = function(map.path){
   filePaths <- filePaths[grepl("results", filePaths)]
   
   # Remove ECA samples incubated in Jars. These were done at the beginning of the ECA 2022 experiment, before moving to 50 mL tubes because samples were not drying out sufficiently 
-  filePaths <- filePaths[!grepl("EC_01|EC_02|EC_03|EC_04_08|EC_06_07|EC_10_15", filePaths)]
+  
+  if (study.code == 'EC') {
+  filePaths <- filePaths[!grepl("EC_01|EC_02|EC_03|EC_04_08|EC_06_07|EC_10_15", filePaths)] }
   
     # dat <- 
   do.call(rbind, lapply(filePaths, function(map.path){
@@ -72,12 +105,18 @@ data = import_data(map.path)
 
 ##### Clean Data ####
 
-# Put in long form
+if (study.code == "EC|EV") {
+  # Put in long form
 data_long = 
   data %>% 
   mutate(disc_number = str_remove_all(disc_number, "X")) %>%
-  mutate(source_file = str_remove_all(source_file, ".*Optode_multi_reactor_incubation//"),source_file = str_remove_all(source_file, "/results/results.csv")) %>%  
-  filter(elapsed_min > 0)
+  mutate(source_file = str_remove_all(source_file, ".*Optode_multi_reactor_incubation//"),source_file = str_remove_all(source_file, "/results/results.csv")) %>%   filter(elapsed_min > 0) } else if (study.code == "RS") {
+    # Put in long form
+    data_long = 
+      data %>% 
+      mutate(disc_number = str_remove_all(disc_number, "X")) %>%
+      mutate(source_file = str_remove_all(source_file, ".*Optodes/"),source_file = str_remove_all(source_file, "/results/results.csv")) %>%  #use this for RS
+      filter(elapsed_min > 0) }
 
 ## Pull in mapping sheets
 import_data = function(map.path){ 
@@ -89,8 +128,9 @@ import_data = function(map.path){
   
   map.file <- map.file[grepl(study.code, map.file)]
   
+  if (study.code == 'EC') {
   # Remove samples incubated in jars for EC samples
-  map.file <- map.file[!grepl("Green|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08", map.file)]
+  map.file <- map.file[!grepl("Green|EC_01_|EC_02_|EC_03_|EC_06_07|EC_10_15|EC_04_08", map.file)] }
   
   mapping <- lapply(map.file, read_xlsx)
   
@@ -106,12 +146,20 @@ all.map$`Time on` <- as.POSIXct(all.map$`Time on`, format = "%Y/%m/%d %H:%M:%%S"
 
 all.map$`Time on` <- format(all.map$`Time on`, format = "%H:%M")
 
+if (study.code == 'EC|EV') {
+
 all.map.clean = all.map %>% 
   rename("source_file" = "map.file[i]") %>% 
   rename("disc_number" = "Disk_ID") %>% 
-  mutate(source_file = str_remove_all(source_file, ".*//")) %>% 
+  mutate(source_file = str_remove_all(source_file, ".*//")) %>% # use this for EC/EV
   separate(source_file, sep = "/", c("source_file", "file")) %>% 
-  dplyr::select(-`Disk Calibration date`, -Location, -`Time off`, -SpC, -pH, -Temp, -Notes, -file)
+  dplyr::select(-`Disk Calibration date`, -Location, -`Time off`, -SpC, -pH, -Temp, -Notes, -file) } else if(study.code == 'RS') {
+    all.map.clean = all.map %>% 
+    rename("source_file" = "map.file[i]") %>% 
+    rename("disc_number" = "Disk_ID") %>% 
+    mutate(source_file = str_remove_all(source_file, ".*Optodes/")) %>% # use this for RS
+    separate(source_file, sep = "/", c("source_file", "file")) %>% 
+    dplyr::select(-`Disk Calibration date`, -Location, -`Time off`, -SpC, -pH, -Temp, -Notes, -file)}
 
 all.samples <- merge(data_long, all.map.clean)
 
@@ -236,6 +284,7 @@ samples <- merge(corr.time, cleaned_data, by = c("Sample_Name", "Elapsed_Minute"
   dplyr::select(-c(source_file, Time_HMS, Time_HM, disc_number, `Time on.x`, `Time on.y`, time_same)) %>% 
   separate(Sample_Name, into = c("EC", "kit", "rep"), remove = FALSE, sep = "_")
 
+if (study.code == 'EC'){
 # Add extra 0 in EC Sample Names
 for (i in 1:nrow(samples)){
   
@@ -251,11 +300,15 @@ for (i in 1:nrow(samples)){
   }
   
 }
+}
 
+## Don't need for RS samples
 #EC 011/012 - W: Add INC_008 deviation
 #EC 13, 14, 27: Flag overexposed replicates
 #EC 012 D5: Less sediment in replicate
 # EC 72 - D5/W5: missing replicates
+
+if (study.code == 'EC') {
 
 missing_reps <- data.frame(
   Sample_Name = c("EC_072_INC-D5", "EC_072_INC-W5"),
@@ -294,7 +347,26 @@ mutate(Methods_Deviation = if_else(grepl("EC_022_INC-D5|EC_044_INC-D4|EC_044_INC
   mutate(DO_mg_per_L_corr = if_else(DO_mg_per_L_corr <= LOD_mg_L, paste0("DO_Below_", LOD_mg_L,"_mg_per_L_LOD|", DO_mg_per_L_corr, "_mg_per_L_Raw_Not_Corrected|", DO_mg_per_L_corr,"mg_per_L_Final_Corrected"), DO_mg_per_L_corr)) %>% 
   mutate(Methods_Deviation = if_else(grepl("Raw", DO_mg_per_L_corr), if_else(Methods_Deviation == "N/A", "DTL_003", paste0(Methods_Deviation, "; DTL_003")), Methods_Deviation)) %>% 
   select(c(Sample_Name, DO_mg_per_L_corr, Elapsed_Minute, Methods_Deviation)) %>% 
-  rename(DO_mg_per_L = DO_mg_per_L_corr)
+  rename(DO_mg_per_L = DO_mg_per_L_corr) } else {
+    
+    samples_clean = samples %>% 
+      unite(Sample_Name, c("EC", "kit", "rep"), sep = "_") %>%   bind_rows(missing_reps) %>% 
+      arrange(Sample_Name) %>% 
+      mutate(DO_mg_per_L = round(DO_mg_per_L, 2)) %>% # round to 2 for data package publishing
+      relocate(Sample_Name, .before = Elapsed_Minute) %>% 
+      group_by(Sample_Name) %>% 
+      fill(LOD_mg_L) %>% 
+      ungroup() %>% 
+      mutate(LOD_mg_L = round(LOD_mg_L, 3)) %>% 
+      mutate(DO_mg_per_L_corr = as.character(DO_mg_per_L)) %>%
+      mutate(LOD_mg_L = as.character(LOD_mg_L)) %>% 
+      mutate(DO_mg_per_L_corr = if_else(DO_mg_per_L_corr <= 0, paste0("DO_Below_", LOD_mg_L,"_mg_per_L_LOD|Negative_Value_Raw_Not_Corrected|-9999_mg_per_L_Final_Corrected"), DO_mg_per_L_corr)) %>% 
+      mutate(DO_mg_per_L_corr = if_else(DO_mg_per_L_corr <= LOD_mg_L, paste0("DO_Below_", LOD_mg_L,"_mg_per_L_LOD|", DO_mg_per_L_corr, "_mg_per_L_Raw_Not_Corrected|", DO_mg_per_L_corr,"mg_per_L_Final_Corrected"), DO_mg_per_L_corr)) %>% 
+      mutate(Methods_Deviation = if_else(grepl("Raw", DO_mg_per_L_corr), if_else(Methods_Deviation == "N/A", "DTL_003", paste0(Methods_Deviation, "; DTL_003")), Methods_Deviation)) %>% 
+      select(c(Sample_Name, DO_mg_per_L_corr, Elapsed_Minute, Methods_Deviation)) %>% 
+      rename(DO_mg_per_L = DO_mg_per_L_corr)
+    
+  } 
 
 output.name = paste0(study.code,"INC_Raw_DO_By_Min_ReadyForBoye_",Sys.Date(),".csv")
 
