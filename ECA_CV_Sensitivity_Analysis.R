@@ -1,5 +1,9 @@
 #### Sensitivity Analysis For ECA removals ####
 
+# This script was written to check on sensitivity of effect size to changes in CV threshold for removing rate outliers
+
+# FINAL DECISION: Publish as medians and don't set CV threshold
+
 library(dplyr)
 library(tidyverse)
 library(corrplot)
