@@ -819,11 +819,30 @@ png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Fi
 
 medians_effect %>% 
   filter(Rep == "D") %>% 
-  ggplot(aes(x = Sample_Name, y = value, fill = Effect_Size)) + 
+  #filter(!grepl("Lost_Grav|Initial_Grav|Final_Grav", variable)) %>% 
+  mutate(value = as.numeric(value)) %>% 
+  ggplot(aes(x = reorder_within(Sample_Name, value, variable), y = value, fill = Effect_Size)) + 
   geom_bar(stat = "identity") +
   facet_wrap(~ variable, scales = "free") +  
   scale_fill_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
                        high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2) +
-  theme_bw()
+  theme_bw() + 
+  ggtitle("Dry Treatment Medians")
 
 dev.off()
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Medians_by_Effect.png"), width = 12, height = 12, units = "in", res = 300)
+
+medians_effect %>% 
+  #filter(!grepl("Lost_Grav|Initial_Grav|Final_Grav", variable)) %>% 
+  mutate(value = as.numeric(value)) %>% 
+  ggplot(aes(x = reorder_within(Sample_Name, value, variable), y = value, fill = Effect_Size)) + 
+  geom_bar(stat = "identity") +
+  facet_wrap(~ variable, scales = "free") +  
+  scale_fill_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
+                       high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2) +
+  theme_bw() + 
+  ggtitle("All Treatment Medians")
+
+dev.off()
+
