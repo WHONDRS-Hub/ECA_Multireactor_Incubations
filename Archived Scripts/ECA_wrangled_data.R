@@ -1,5 +1,7 @@
 ##ECA Data Analysis 
 
+# This file used to pull together individual ECA data, median ECA data, and effect size data for analysis before publishing. It wrote these files to GitHub
+
 #### Read in Data ####
 
 #read in libraries

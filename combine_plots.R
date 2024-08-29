@@ -1,4 +1,4 @@
-## combine plots
+## combine plots from Sensitivity Analysis Outputs
 library(pdftools)
 
 setwd("C:/Users/laan208/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Plots/")
