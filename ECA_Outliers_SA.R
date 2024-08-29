@@ -1,4 +1,9 @@
-#### ECA LASSO ####
+#### ECA LASSO Sensitivity Analysis ####
+
+## This script was used to perform senstivity analysis on ECA data. Tried choosing separate CV % for removing data from each analysis (eg ATP, Fe, SpC)
+
+## FINAL DECISION: everything published as medians, effect size calculated using medians
+
 library(tidyverse)
 library(glmnet)
 library(factoextra)
