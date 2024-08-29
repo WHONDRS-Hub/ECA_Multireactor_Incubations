@@ -1,3 +1,5 @@
+## This script used to calculate mg/kg values of NPOC/TN from mg/L and incubation water mass and dried sediment mass
+
 library(tidyverse)
 
 npoc = read.csv("C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/Boye_Files/EC/EC_NPOC_TN_Check_for_Duplicates_2024-02-19_by_forb086.csv")
