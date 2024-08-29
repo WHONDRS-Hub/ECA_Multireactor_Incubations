@@ -1,4 +1,7 @@
 #### Sensitivity Analysis For ECA removals ####
+
+# This script makes figures for ECA physical manuscript and performs PCA Analysis and LASSO regression
+
 library(tidyverse)
 library(corrplot)
 library(ggpubr)
@@ -20,7 +23,6 @@ print.images = T
 cube_root <- function(x) sign(x) * (abs(x))^(1/3)
 
 # Read in/Merge Data ------------------------------------------------------------
-"C:\GitHub\ECA_Multireactor_Incubations\Data\EC_Sediment_SpC_pH_Temp_Respiration.csv"
 
 ## Individual Rate data for histograms
 all_data = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_SpC_pH_Temp_Respiration.csv", skip = 2) %>% 
@@ -69,8 +71,6 @@ effect_data = left_join(effect, grain, by = "Sample_Name") %>%
   left_join(grav, by = "Sample_Name") %>% 
   mutate_at(vars(Effect_Size_SpC_microsiemens_per_cm:Dry_Lost_Grav), as.numeric)  # make data numeric 
   
-
-
 # Transform Data ----------------------------------------------------------
 
 ## Cube PCA for LASSO####
@@ -336,12 +336,14 @@ colnames(corr_effect) = colnames(scale_cube_effect_pearson)
 
 rownames(corr_effect) = rownames(scale_cube_effect_pearson)[1]
 
+
+
 if (print.images == T){
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Pearson_Correlation_Matrix_One_Line.png"), width = 12, height = 12, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Pearson_Correlation_Matrix_One_Line.png"), width = 12, height = 5, units = "in", res = 300)
 # 
 
-corrplot(corr_effect, type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1,  title = "Effect Samples Pearson Correlation", diag = FALSE, is.corr = FALSE, cl.pos = 'n')
+corrplot(corr_effect, type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1, diag = FALSE, is.corr = FALSE, cl.pos = 'n', col = colorRampPalette(c("#B2182B", "#F7F7F7","#2166AC"))(200))
 
 }
 
@@ -513,23 +515,25 @@ ds_lasso_df$y = 0
 
 if (print.images == T) {
   
-  png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_LASSO_Heat_Matrix.png"), width = 8, height = 8, units = "in", res = 300)
+  png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_LASSO_Heat_Matrix.png"), width = 12, height = 4, units = "in", res = 300)
   
   ggplot(ds_lasso_df, aes(variable, y)) +
     geom_tile(fill = "white", color = "black") +
-    geom_text(aes(label = round(Coefficients, 2), color = Coefficients), size = 3, fontface = "bold") + 
-    scale_color_gradient2(high = "#2166ac", low = "#b2182b", mid = "white", 
-                          midpoint = 0, limit = c(-1, 1),
-                          space = "Lab", name="Coefficient") +
+    geom_text(aes(label = round(Coefficients, 2), color = Coefficients), size = 8, fontface = "bold") + 
+    scale_color_gradient2(#high = "#2166AC", low = "#B2182B", mid = "#F7F7F7", 
+                          #midpoint = 0, 
+      limit = c(-1, 1),
+                          #space = "Lab", name="Coefficient",
+      guide = "none") +
     theme_minimal() + 
     theme(aspect.ratio = 0.1, 
-          axis.text.x = element_text(angle = 90, hjust = 0), 
+          axis.text.x = element_text(angle = 90, hjust = 0, face = "bold"), 
           axis.title.x = element_blank(),
           axis.title.y = element_text(angle = 0), 
           axis.ticks.y = element_blank(), 
           axis.text.y = element_blank()) +
     scale_x_discrete(position = "top") +
-    labs(y = "LASSO")
+    labs(y = "LASSO Coefficients")
   
 }
 
@@ -596,7 +600,7 @@ vif_corr
 ## Histogram of all Rates
 
 if (print.images == T) {
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_All_Rates_Histogram.png"), width = 4, height = 4, units = "in", res = 300)
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_All_Rates_Cubed_Histogram.png"), width = 4, height = 4, units = "in", res = 300)
 
 all_cube_hist = ggplot(cube_respiration, aes(x = cube_Respiration_mg_kg)) +
   geom_histogram(position = "identity", alpha = 0.8, aes(fill = Treat))+
@@ -651,32 +655,32 @@ cube_effect_hist
 dev.off()
 
 
-# Combined Map/Rates/Effect Size histograms
-map_path = "C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Map/Ecoregion_EffectSize_Map.pdf"
+# Combined Map/Rates/Effect Size histograms - Map being made own figure
+#map_path = "C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Map/Ecoregion_EffectSize_Map.pdf"
 
-map_image = image_read_pdf(map_path, density = 300)
+#map_image = image_read_pdf(map_path, density = 300)
 
-scale_map_image = image_scale(map_image, "80%")
+#scale_map_image = image_scale(map_image, "80%")
 
-scale_map_label_image = image_annotate(scale_map_image, "C", size = 15, location = "+10+80", color = "black")
+#scale_map_label_image = image_annotate(scale_map_image, "C", size = 15, location = "+10+80", color = "black")
 
 # Read in Rate histograms figure .png
 
-rate_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_All_Rates_Histogram.png")
+rate_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_All_Rates_Cubed_Histogram.png")
 
 rate_label_image = image_annotate(rate_image, "A", size = 65, location = "+30+20", color = "black")
 
 # Read in Effect Size Figure 
 
-effect_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Cube_Median_Effect_Histogram.png")
+effect_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_Cube_Median_Effect_Histogram.png")
 
 effect_label_image = image_annotate(effect_image, "B", size = 65, location = "+30+20", color = "black")
 
 com_image = image_append(c(rate_label_image, effect_label_image))
 
-com_map_image = image_append(c(com_image, scale_map_label_image), stack = TRUE)
+#com_map_image = image_append(c(com_image, scale_map_label_image), stack = TRUE)
 
-image_write(com_map_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Combined_map.png")
+image_write(com_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_Combined_Rates.png")
 
 
 #Fe, Fine Sand most important
@@ -688,18 +692,16 @@ cube_effect_data_fe_inc = effect_data %>%
   rename_with(where(is.numeric), .fn = ~ paste0("cube_", .x)) %>% 
   column_to_rownames("Sample_Name") %>% 
   select(-matches("per_L")) %>% # remove samples with per_L in sample name, we're using mg/kg values
-  rename(cube_Effect_SpC = cube_Effect_Size_SpC) %>%
- # rename(cube_Effect_SpC = cube_Effect_Size_SpC_microsiemens_per_cm) %>% 
+  rename(cube_Effect_SpC = cube_Effect_Size_SpC_microsiemens_per_cm) %>% 
   rename(cube_Effect_pH = cube_Effect_Size_pH) %>%
-  #rename(cube_Effect_Temp = cube_Effect_Size_Temperature_degC) %>%
-  rename(cube_Effect_Temp = cube_Effect_Size_Temp) %>%
+  rename(cube_Effect_Temp = cube_Effect_Size_Temperature_degC) %>%
   rename(cube_Effect_Respiration_mg_kg = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H) %>%
   rename(cube_Effect_Fe_mg_kg= cube_Effect_Size_Fe_mg_per_kg) %>%
   rename(cube_Effect_ATP_pmol_g = cube_Effect_Size_ATP_picomoles_per_g) %>%
   rename(cube_Effect_NPOC_mg_kg = cube_Effect_Size_Extractable_NPOC_mg_per_kg) %>% 
   rename(cube_Effect_TN_mg_kg = cube_Effect_Size_Extractable_TN_mg_per_kg) %>% 
-  rename(cube_Effect_TOC_percent = cube_Effect_Size_X01395_C_percent_per_mg) %>%
-  rename(cube_Effect_TN_percent = cube_Effect_Size_X01397_N_percent_per_mg) %>% 
+  rename(cube_Effect_TOC_percent = cube_Effect_Size_C_percent_per_mg) %>%
+  rename(cube_Effect_TN_percent = cube_Effect_Size_N_percent_per_mg) %>% 
   rename(cube_SSA = cube_Mean_Specific_Surface_Area_m2_per_g) %>% 
   relocate(cube_Effect_Respiration_mg_kg, .before = cube_Effect_SpC)
 
@@ -743,29 +745,85 @@ if (print.images == T){
 
 dev.off()
 
-# Combine Figure
+## Make combined one line heat maps (Pearson + Downselected LASSO)
 
-fine_sand_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Cube_Median_Effect_vs_Fine_Sand_Scatter.png")
+pearson_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_Cube_Median_Effect_Pearson_Correlation_Matrix_One_Line.png")
 
-fine_sand_label_image = image_annotate(fine_sand_image, "B", size = 65, location = "+30+20", color = "black")
+pearson_label_image = image_annotate(pearson_hm_image, "A", size = 100, location = "+100+100", color = "black")
 
-fine_sand_scale_image = image_scale(fine_sand_label_image, "65%")
+lasso_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_LASSO_Heat_Matrix.png")
 
-fe_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Cube_Median_Effect_vs_Fe_Scatter.png")
+lasso_label_image = image_annotate(lasso_hm_image, "B", size = 100, location = "+100+100", color = "black")
 
-fe_label_image = image_annotate(fe_image, "C", size = 65, location = "+30+20", color = "black")
+hm_combine_image = image_append(c(pearson_label_image, lasso_label_image), stack = TRUE)
 
-fe_scale_image = image_scale(fe_label_image, "65%")
+fine_sand_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_Cube_Median_Effect_vs_Fine_Sand_Scatter.png")
 
-scatter_image = image_append(c(fine_sand_scale_image, fe_scale_image), stack = TRUE)
+fine_sand_label_image = image_annotate(fine_sand_image, "C", size = 65, location = "+30+20", color = "black")
 
-pca_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Cube_Median_Effect_PCA.png")
+fine_sand_scale_image = image_scale(fine_sand_label_image, "100%")
 
-pca_label_image = image_annotate(pca_image, "A", size = 65, location = "+30+20", color = "black")
+fe_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_Cube_Median_Effect_vs_Fe_Scatter.png")
 
-pca_combine_image = image_append(c(pca_label_image, scatter_image))
+fe_label_image = image_annotate(fe_image, "D", size = 65, location = "+30+20", color = "black")
 
+fe_scale_image = image_scale(fe_label_image, "100%")
 
-image_write(pca_combine_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-07-30_Combined_PCA.png")
+scatter_image = image_append(c(fine_sand_scale_image, fe_scale_image))
 
+whole_image = image_append(c(hm_combine_image, scatter_image), stack = TRUE)
 
+image_write(whole_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_Combined_Heat_Map.png")
+
+## Bar Plots of things in LASSO colored by effect size
+
+medians = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_Sample_Data_Summary.csv", skip = 2) %>% 
+  filter(grepl("EC", Sample_Name)) %>% 
+  filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  
+  select(-c(Field_Name, IGSN, Material, Median_Missing_Reps, Median_Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  select(-matches("per_L")) %>% 
+  mutate(Initial_Grav = as.numeric( Median_62948_Initial_Gravimetric_Moisture_g_per_g)) %>% 
+  mutate(Final_Grav = as.numeric( Median_62948_Final_Gravimetric_Moisture_g_per_g)) %>% 
+  mutate(Lost_Grav = Initial_Grav - Final_Grav) %>% 
+  separate(Sample_Name, c("Sample_Name", "Rep"), sep = "-") %>% 
+  mutate(Sample_Name = paste0(Sample_Name, "_all")) 
+
+effect_size = effect_data %>%
+  select(c(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  rename(Effect_Size = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H) %>% 
+  mutate(Effect_Size = abs(Effect_Size))
+
+medians_effect = medians %>% 
+  left_join(grain) %>% 
+  left_join(effect_size) %>% 
+  reshape2::melt(id.vars = c("Sample_Name",  "Rep", "Effect_Size"))
+
+effect_limits  = c(-1400, 1400)
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Wet_Medians_by_Effect.png"), width = 12, height = 12, units = "in", res = 300)
+
+medians_effect %>% 
+  filter(Rep == "W") %>% 
+  filter(!grepl("Lost_Grav|Initial_Grav|Final_Grav", variable)) %>% 
+  mutate(value = as.numeric(value)) %>% 
+  ggplot(aes(x = reorder_within(Sample_Name, value, variable), y = value, fill = Effect_Size)) + 
+  geom_bar(stat = "identity") +
+  facet_wrap(~ variable, scales = "free") +  
+  scale_fill_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
+                       high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2) +
+  theme_bw()
+
+dev.off()
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Dry_Medians_by_Effect.png"), width = 12, height = 12, units = "in", res = 300)
+
+medians_effect %>% 
+  filter(Rep == "D") %>% 
+  ggplot(aes(x = Sample_Name, y = value, fill = Effect_Size)) + 
+  geom_bar(stat = "identity") +
+  facet_wrap(~ variable, scales = "free") +  
+  scale_fill_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
+                       high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2) +
+  theme_bw()
+
+dev.off()
