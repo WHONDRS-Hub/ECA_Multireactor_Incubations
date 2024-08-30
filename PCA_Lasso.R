@@ -10,6 +10,7 @@ library(factoextra)
 library(stringr)
 library(glmnet)
 library(magick)
+library(tidytext)
 
 rm(list=ls());graphics.off()
 
