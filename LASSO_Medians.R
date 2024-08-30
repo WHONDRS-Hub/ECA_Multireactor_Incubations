@@ -444,3 +444,21 @@ rsq = 1 - sse/sst
 
 rsq #0.42
 
+
+## Control Point Influence
+
+cpi = all_data %>% 
+  mutate(Respiration = abs(as.numeric(Respiration_Rate_mg_DO_per_kg_per_H))) %>% 
+  filter(Respiration < 9000) %>% 
+  select(c(Sample_Name, Respiration))
+
+sum_cpi = sum(cpi$Respiration)
+
+median_cpi = median(cpi$Respiration)
+
+high_cpi = cpi %>% 
+  filter(Respiration > median_cpi)
+
+sum_median_cpi = sum(high_cpi$Respiration)
+
+tot_cpi = sum_median_cpi/sum_cpi
