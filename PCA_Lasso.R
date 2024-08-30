@@ -336,14 +336,22 @@ colnames(corr_effect) = colnames(scale_cube_effect_pearson)
 
 rownames(corr_effect) = rownames(scale_cube_effect_pearson)[1]
 
+# Try to plot pearson and LASSO together as two lines
 
+corr_effect_df = as.data.frame(corr_effect) %>% 
+  reshape2::melt() %>% 
+  rename(Coefficients = value) %>% 
+  filter(Coefficients != 1) %>% 
+  mutate(y = "Pearson")
+
+color_palette <- colorRampPalette(c("#B2182B", "#F7F7F7", "#2166AC"))(200)
 
 if (print.images == T){
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Pearson_Correlation_Matrix_One_Line.png"), width = 12, height = 5, units = "in", res = 300)
-# 
+ 
 
-corrplot(corr_effect, type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1, diag = FALSE, is.corr = FALSE, cl.pos = 'n', col = colorRampPalette(c("#B2182B", "#F7F7F7","#2166AC"))(200))
+corrplot(corr_effect, type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1, diag = FALSE, is.corr = FALSE, cl.pos = 'n', col = color_palette)
 
 }
 
@@ -511,7 +519,9 @@ ds_lasso_df = ds_lasso_df %>%
   rownames_to_column(var = "variable") %>% 
   slice(-1) 
 
-ds_lasso_df$y = 0
+ds_lasso_df$y = "LASSO"
+
+color_palette <- colorRampPalette(c("#B2182B", "#F7F7F7", "#2166AC"))(200)
 
 if (print.images == T) {
   
@@ -520,14 +530,12 @@ if (print.images == T) {
   ggplot(ds_lasso_df, aes(variable, y)) +
     geom_tile(fill = "white", color = "black") +
     geom_text(aes(label = round(Coefficients, 2), color = Coefficients), size = 8, fontface = "bold") + 
-    scale_color_gradient2(#high = "#2166AC", low = "#B2182B", mid = "#F7F7F7", 
-                          #midpoint = 0, 
+    scale_color_gradientn(colors = color_palette, 
       limit = c(-1, 1),
-                          #space = "Lab", name="Coefficient",
       guide = "none") +
     theme_minimal() + 
     theme(aspect.ratio = 0.1, 
-          axis.text.x = element_text(angle = 90, hjust = 0, face = "bold"), 
+          axis.text.x = element_text(angle = 90, hjust = 0, face = "bold", size = 13), 
           axis.title.x = element_blank(),
           axis.title.y = element_text(angle = 0), 
           axis.ticks.y = element_blank(), 
@@ -539,6 +547,30 @@ if (print.images == T) {
 
 dev.off()
 
+#### Combined Heat maps ####
+
+lasso_pear_df = bind_rows(ds_lasso_df, corr_effect_df) %>% 
+  rename(type = y)
+
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Combined_Heat_Matrix.png"), width = 12, height = 4, units = "in", res = 300)
+
+ggplot(lasso_pear_df, aes(variable, type)) +
+  geom_tile(fill = "white", color = "black") +
+  geom_text(aes(label = round(Coefficients, 2), color = Coefficients), size = 6, fontface = "bold") + 
+  scale_color_gradientn(colors = color_palette, 
+                        limit = c(-1, 1),
+                        guide = "none") +
+  theme_bw() + 
+  theme(aspect.ratio = 0.1, 
+        axis.text.x = element_text(angle = 90, hjust = 0, size = 13), 
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank())+#, 
+        #axis.text.y = element_blank()) +
+  scale_x_discrete(position = "top") #+
+ # labs(y = "LASSO Coefficients")
+
+dev.off()
 
 ## LASSO with all variables to check for collinearity effects ####
 
@@ -717,8 +749,9 @@ if (print.images == T) {
     stat_cor(data = cube_effect_data, label.x = -2.5, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
     stat_cor(data = cube_effect_data, label.x = -2.5, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
     stat_poly_line(data = cube_effect_data, se = FALSE)+
+    scale_y_continuous(name="Cubed Root Effect Size (mg/kg) (Wet - Dry)", limits=c(0, 11.25))+
     xlab("Cubed Root Fe (II) (mg/kg) Difference (Wet - Dry)") +
-    ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
+    #ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
     theme(text = element_text(size = 12)) 
   
   fe_cube
@@ -733,11 +766,12 @@ if (print.images == T){
     geom_point() +
     theme_bw() +
     #stat_cor(data = cube_effect_data_corr, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`\n`~")))+ #sep = "~`;`~"
-    stat_cor(data = cube_effect_data, label.x = 0.9, label.y = 11.5, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-    stat_cor(data = cube_effect_data, label.x = 0.9, label.y = 10.75, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+    stat_cor(data = cube_effect_data, label.x = 0.9, label.y = 11.25, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+    stat_cor(data = cube_effect_data, label.x = 0.9, label.y = 10.5, size = 4, digits = 2, aes(label = paste(..p.label..)))+
     stat_poly_line(data = cube_effect_data, se = FALSE)+
+    scale_y_continuous(name="Cubed Root Effect Size (mg/kg) (Wet - Dry)", limits=c(0, 11.25))+
     xlab("Cubed Root Fine Sand (%)") +
-    ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
+    #ylab("Cubed Root Effect Size (mg/kg) (Wet - Dry)")+ 
     theme(text = element_text(size = 12)) 
   
   fs_cube
@@ -747,33 +781,33 @@ dev.off()
 
 ## Make combined one line heat maps (Pearson + Downselected LASSO)
 
-pearson_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_Cube_Median_Effect_Pearson_Correlation_Matrix_One_Line.png")
+combine_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-30_Combined_Heat_Matrix.png")
 
-pearson_label_image = image_annotate(pearson_hm_image, "A", size = 100, location = "+100+100", color = "black")
+combine_label_image = image_annotate(combine_hm_image, "A", size = 100, location = "+25+50", color = "black")
 
-lasso_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_LASSO_Heat_Matrix.png")
+#lasso_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_LASSO_Heat_Matrix.png")
 
-lasso_label_image = image_annotate(lasso_hm_image, "B", size = 100, location = "+100+100", color = "black")
+#lasso_label_image = image_annotate(lasso_hm_image, "B", size = 100, location = "+100+100", color = "black")
 
-hm_combine_image = image_append(c(pearson_label_image, lasso_label_image), stack = TRUE)
+#hm_combine_image = image_append(c(pearson_label_image, lasso_label_image), stack = TRUE)
 
-fine_sand_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_Cube_Median_Effect_vs_Fine_Sand_Scatter.png")
+fine_sand_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-30_Cube_Median_Effect_vs_Fine_Sand_Scatter.png")
 
-fine_sand_label_image = image_annotate(fine_sand_image, "C", size = 65, location = "+30+20", color = "black")
+fine_sand_label_image = image_annotate(fine_sand_image, "B", size = 65, location = "+30+20", color = "black")
 
 fine_sand_scale_image = image_scale(fine_sand_label_image, "100%")
 
-fe_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_Cube_Median_Effect_vs_Fe_Scatter.png")
+fe_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-30_Cube_Median_Effect_vs_Fe_Scatter.png")
 
-fe_label_image = image_annotate(fe_image, "D", size = 65, location = "+30+20", color = "black")
+fe_label_image = image_annotate(fe_image, "C", size = 65, location = "+30+20", color = "black")
 
 fe_scale_image = image_scale(fe_label_image, "100%")
 
 scatter_image = image_append(c(fine_sand_scale_image, fe_scale_image))
 
-whole_image = image_append(c(hm_combine_image, scatter_image), stack = TRUE)
+whole_image = image_append(c(combine_label_image, scatter_image), stack = TRUE)
 
-image_write(whole_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-29_Combined_Heat_Map.png")
+image_write(whole_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-30_Combined_Heat_Map.png")
 
 ## Bar Plots of things in LASSO colored by effect size
 
