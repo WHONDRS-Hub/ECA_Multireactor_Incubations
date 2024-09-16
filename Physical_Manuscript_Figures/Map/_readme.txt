@@ -16,3 +16,9 @@ Brieanne Forbes
 	Field site locations, displaying domain boundaries (Monet ecoregions based on this)
 - cb_2018_us_state_20m
 	https://www2.census.gov/geo/tiger/GENZ2018/shp/
+
+13 Sept 2024
+Brieanne Forbes
+
+Use "create_map_input.R" to create the input file for the map. The input file will not be included in the dp.
+	
