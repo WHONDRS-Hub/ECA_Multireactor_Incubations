@@ -10,7 +10,7 @@ rm(list=ls());graphics.off()
 ## INPUTS ####
 pnnl.user = 'laan208'
 
-study.code = 'RS_'
+study.code = 'EV_'
   #EC_
   #EV_
   #RS_
@@ -60,7 +60,7 @@ if (study.code == "EC_") {
 
 
 # Read in 100% saturation values for each kit based on pressure/temperature during disk calibration
-fast.sat <- read_excel(paste0(map.path, "/Rate_Processing/", fast.rates.in)) %>% 
+fast.sat <- read_excel(paste0(map.path, "/rates/", fast.rates.in)) %>% 
   rename("DO_mg_L" = "DO_sat_mg_L") 
 
 #read in respiration data and clean
@@ -105,7 +105,7 @@ data = import_data(map.path)
 
 ##### Clean Data ####
 
-if (study.code == "EC|EV") {
+if (grepl("EC|EV", study.code)) {
   # Put in long form
 data_long = 
   data %>% 
@@ -146,7 +146,7 @@ all.map$`Time on` <- as.POSIXct(all.map$`Time on`, format = "%Y/%m/%d %H:%M:%%S"
 
 all.map$`Time on` <- format(all.map$`Time on`, format = "%H:%M")
 
-if (study.code == 'EC|EV') {
+if (grepl("EC|EV", study.code)) {
 
 all.map.clean = all.map %>% 
   rename("source_file" = "map.file[i]") %>% 
@@ -350,7 +350,7 @@ mutate(Methods_Deviation = if_else(grepl("EC_022_INC-D5|EC_044_INC-D4|EC_044_INC
   rename(DO_mg_per_L = DO_mg_per_L_corr) } else {
     
     samples_clean = samples %>% 
-      unite(Sample_Name, c("EC", "kit", "rep"), sep = "_") %>%   bind_rows(missing_reps) %>% 
+      unite(Sample_Name, c("EC", "kit", "rep"), sep = "_") %>%  # bind_rows(missing_reps) %>% 
       arrange(Sample_Name) %>% 
       mutate(DO_mg_per_L = round(DO_mg_per_L, 2)) %>% # round to 2 for data package publishing
       relocate(Sample_Name, .before = Elapsed_Minute) %>% 
