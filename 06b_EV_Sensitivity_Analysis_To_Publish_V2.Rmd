@@ -40,15 +40,11 @@ rm(list=ls());graphics.off()
 #Example:
 pnnl.user = 'laan208'
 
-input.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EV_INC_Raw_DO_By_Min_ReadyForBoye_2024-04-26.csv")
+input.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EV_INC_Raw_DO_By_Min_ReadyForBoye_2024-09-16.csv")
 
-output.path = paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/")
+output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/")
 
 data = read.csv(input.path)
-
-# Remove missing data points
-samples = data %>% 
-  filter(DO_mg_per_L != -9999) 
 
 ```
 ## Start testing rules:
@@ -107,12 +103,18 @@ high.slope.thresh = -0.04
 time.same = 7
 break.toggle = 1.4
 conc.range = 1.4
-plot.toggle = FALSE
+plot.toggle = TRUE
 
 ```
 ## Fit a linear model to data with chosen rules
 
 ```{r Start Loop for fitting Linear Models, echo = FALSE, warning = FALSE, message = FALSE, fig.height = 8, fig.wight = 8}
+
+# Remove missing data points, if at 2 min, value is below LOD, make starting DO 1/2 LOD
+samples = data %>% 
+  filter(DO_mg_per_L != -9999) %>% 
+    rename(DO_mg_per_L_flag = DO_mg_per_L) %>% 
+  mutate(DO_mg_per_L = if_else(grepl("LOD", DO_mg_per_L_flag), as.numeric(str_extract(DO_mg_per_L_flag, "[0-9]+\\.[0-9]+"))/2, as.numeric(DO_mg_per_L_flag)))
 
 # Make Data Frames
 respiration <- as.data.frame(matrix(NA, ncol = 17, nrow =1))
@@ -120,10 +122,6 @@ respiration <- as.data.frame(matrix(NA, ncol = 17, nrow =1))
 colnames(respiration) = c("Sample_Name","slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h", "R_squared", "R_squared_adj",  "p_value", "total_incubation_time_min", "number_of_points", "no_points_rem",  "breusch_p_value","break_point", "slope_ratio",  "0_min_concentration", "2_min_concentration", "last_concentration", "theoretical")
 
 location = c("-W1", "-W2", "-W3","-W4", "-W5","-D1", "-D2", "-D3", "-D4", "-D5")
-
-rate = as.data.frame(matrix(NA, ncol = 14, nrow = length(unique(samples$Sample_Name))))
-
-colnames(rate) = c("Sample_Name", "slope_of_the_regression", "rate_mg_per_L_per_min", "rate_mg_per_L_per_h", "R_squared", "R_squared_adj", "p_value", "total_incubation_time_min", "breusch_p_value", "slope_ratio", "0_min_concentration", "2_min_concentration", "last_concentration", "theoretical")
 
 for (i in 1:length(location)){
   
@@ -162,7 +160,7 @@ for (i in 1:length(location)){
     
     low.slope = fit_low$coefficients[[2]]
     
-    # Remove samples if at >6 minutes, they are below the DO threshold. This is removing low values from the back end of curves
+    # Remove samples if at >4 minutes, they are below the DO threshold. This is removing low values from the back end of curves
     
     data_site_subset_thresh = data_site_subset_low %>% 
       filter(!(Elapsed_Minute > 4 & DO_mg_per_L < do.thresh)) 
