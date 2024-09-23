@@ -30,6 +30,16 @@ all_data = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_SpC
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  # remove samples with too much water (EC_011, EC_012), sample with no mg/kg (EC_023), duplicated NEON sites (EC_052, EC_053, EC_057)
   select(-c(Field_Name, IGSN, Material))
 
+wet_respiration = all_data %>% 
+  select(c(Sample_Name, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  filter(grepl("W", Sample_Name)) %>% 
+  separate(Sample_Name, c("Sample_Name"), sep = "-W") %>% 
+  mutate(Sample_Name = str_replace(Sample_Name, "INC", "all")) %>% 
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = as.numeric(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  group_by(Sample_Name) %>% 
+  summarise(Median_Wet_Respiration = median(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  ungroup()
+
 cube_respiration = all_data %>% 
   select(c(Sample_Name, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   filter(Respiration_Rate_mg_DO_per_kg_per_H != -9999) %>% 
@@ -338,40 +348,6 @@ corr_effect_df = as.data.frame(corr_effect) %>%
   mutate(y = "Pearson")
 
 
-## Dry Medians 
-# scale data before it goes into correlation matrix
-
-scale_cube_dry_effect = as.data.frame(scale(dry_cube_effect))
-
-scale_cube_dry_effect_pearson <- cor(scale_cube_dry_effect, method = "pearson")
-
-if (print.images == T){
-  
-  png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Dry_Median_Effect_Pearson_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
-  
-  corrplot(scale_cube_dry_effect_pearson,type = "upper", method = "number", tl.col = "black", tl.cex = 1, cl.cex = 1,  title = "Effect Samples Pearson Correlation")
-  
-}
-
-dev.off()
-
-## Wet Medians
-# scale data before it goes into correlation matrix
-
-scale_cube_wet_effect = as.data.frame(scale(wet_cube_effect))
-
-scale_cube_wet_effect_pearson <- cor(scale_cube_wet_effect, method = "pearson")
-
-if (print.images == T){
-  
-  png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Wet_Median_Effect_Pearson_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
-  
-  corrplot(scale_cube_wet_effect_pearson,type = "upper", method = "number", tl.col = "black", tl.cex = 1, cl.cex = 1,  title = "Effect Samples Pearson Correlation")
-  
-}
-
-dev.off()
-
 
 ## Downselected LASSO - Loop through coefficients to choose for LASSO ####
 
@@ -537,314 +513,19 @@ ds_lasso_df = ds_lasso_df %>%
 
 ds_lasso_df$y = "LASSO"
 
+png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fine_Sand_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
-## Dry Medians 
+ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Percent_Fine_Sand)) +
+  geom_point() +
+  theme_bw() +
+  #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
+  stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_poly_line(data = cube_effect, se = FALSE) + 
+  ylab("Effect Size Respiration Rate (mg/kg)") +
+  xlab("Fine Sand (%)")
 
-# 1) Pivot data frame and sort highest to lowest
-
-dry_pearson_df <- as.data.frame(scale_cube_dry_effect_pearson)
-
-row_names_dry_pearson <- rownames(dry_pearson_df)
-
-dry_pearson_df$Variable <- row_names_dry_pearson
-
-# Melt the dataframe for plotting
-dry_pearson_melted <- reshape2::melt(dry_pearson_df, id.vars = "Variable") %>% 
-  filter(value != 1) %>% 
-  mutate(value = abs(value)) %>% 
-  filter(!grepl("Respiration", Variable))
-
-dry_effect_melted <- dry_pearson_melted %>% 
-  filter(grepl("Effect_Size", variable)) %>%
-  filter(!grepl("Silt", Variable)) # remove silt from variables, lots of 0 values so not using
-
-dry_choose_melted <- dry_pearson_melted %>% 
-  filter(!grepl("Respiration", variable)) %>%
-  filter(!grepl("Silt", variable)) %>%
-  filter(!grepl("Silt", Variable)) %>% #try removing silt (0 values)
-  #distinct(value, .keep_all = TRUE) %>% 
-  left_join(dry_effect_melted, by = "Variable") %>% 
-  rename(Variable_1 = Variable) %>% 
-  rename(Variable_2 = variable.x) %>% 
-  rename(Correlation = value.x) %>% 
-  rename(Variable_1_Effect_Correlation = value.y) %>% 
-  select(-c(variable.y)) %>% 
-  left_join(dry_effect_melted, by = c("Variable_2" = "Variable")) %>% 
-  rename(Variable_2_Effect_Correlation = value) %>% 
-  select(-c(variable))
-
-dry_loop_melt = dry_choose_melted %>% 
-  arrange(desc(Correlation))
-
-# Pearson correlation coefficient to remove above
-correlation = 0.7
-
-## Start loop to remove highly correlated (> 0.5)
-dry_effect_filter = function(dry_loop_melt) {
-  
-  rows_to_keep = rep(TRUE, nrow(dry_loop_melt))
-  
-  for (i in seq_len(nrow(dry_loop_melt))) {
-    
-    if (!rows_to_keep[i]) next
-    
-    row = dry_loop_melt[i, ]
-    
-    if (row$Correlation < correlation) next
-    
-    if(row$Variable_1_Effect_Correlation >= row$Variable_2_Effect_Correlation) {
-      
-      var_to_keep = row$Variable_1
-      var_to_remove = row$Variable_2
-      
-    } else {
-      
-      var_to_keep = row$Variable_2
-      var_to_remove = row$Variable_1
-      
-    }
-    
-    dry_loop_melt$Variable_to_Keep[i] = var_to_keep
-    dry_loop_melt$Variable_to_Remove[i] = var_to_remove
-    
-    for (j in seq(i + 1, nrow(dry_loop_melt))) {
-      
-      if(dry_loop_melt$Variable_1[j] == var_to_remove || dry_loop_melt$Variable_2[j] == var_to_remove) {
-        
-        rows_to_keep[j] = FALSE
-        
-      }
-      
-    }
-    
-    
-  }
-  
-  return(dry_loop_melt[rows_to_keep, ])
-  
-}
-
-dry_filtered_data = dry_effect_filter(dry_loop_melt) 
-
-# pull out variables to remove
-dry_removed_variables = dry_filtered_data %>% 
-  distinct(Variable_to_Remove)
-
-# pull out all variables 
-dry_all_variables = dry_effect_melted %>% 
-  select(c(Variable))
-
-# remove variables from all variables to get variables to keep for LASSO 
-dry_kept_variables = dry_effect_melted[!(dry_effect_melted$Variable %in% dry_removed_variables$Variable_to_Remove), ] #keeps SpC, Temp, pH, ATP, NPOC, TN (ext), TOC, TN (solid), med sand, silt
-
-# if silt is removed, keeps SpC, Temp, pH, ATP, NPOC, TOC, TN (solid), med sand, fine sand, lost grav. moisture
-
-## LASSO VARIABLES ####
-
-# Keep variables selected from down-selected correlation matrix and add Cube_Effect_Size
-dry_col_to_keep = unique(dry_kept_variables$Variable)
-dry_col_to_keep = c(dry_col_to_keep, "Effect_Size")
-
-dry_cube_variables = dry_cube_effect[, dry_col_to_keep, drop = FALSE]
-
-## LASSO with Correlation Matrix Selected Variables ####
-set.seed(42)
-## Set response variable (Cube_Effect_Size) and scale
-yvar <- data.matrix(scale(dry_cube_variables$Effect_Size, center = TRUE, scale = TRUE))
-mean(yvar)
-sd(yvar)
-
-## Set predictor variables and scale
-exclude_col = "Effect_Size"
-
-dry_x_cube_variables = as.data.frame(scale(dry_cube_variables[, !(names(dry_cube_variables) %in% exclude_col)], center = T, scale = T))
-#mean(x_cube_variables$Cube_SpC_Diff)
-#sd(x_cube_variables$Cube_SpC_Diff)
-
-xvars <- data.matrix(dry_x_cube_variables)
-
-lasso = cv.glmnet(xvars, yvar, alpha = 1, nfolds = 5,
-                  ,standardize = FALSE, standardize.response = FALSE, intercept = FALSE
-                  #,standardize = TRUE, standardize.response = TRUE, intercept = FALSE
-                  # , standardize = TRUE, standardize.response = FALSE, intercept = FALSE
-)
-
-best_lambda <- lasso$lambda.min
-best_lambda
-
-plot(lasso)
-
-best_lasso_model <- glmnet(xvars, yvar, alpha = 1, lambda = best_lambda, family = "gaussian",
-                           , standardize = FALSE, standardize.response = FALSE, intercept = FALSE
-                           #  , standardize = TRUE, standardize.response = TRUE, intercept = FALSE
-                           #, standardize = TRUE, standardize.response = FALSE, intercept = FALSE
-)
-
-#lasso_coefs = coef(best_lasso_model)
-ds_lasso_coefs = coef(best_lasso_model)
-#Fine Sand, ATP, SpC, N% Tot Sand
-yvar_predict <- predict(best_lasso_model, s = best_lambda, newx = xvars)
-
-sst <- sum((yvar - mean(yvar))^2)
-sse <- sum((yvar_predict - yvar)^2)
-
-rsq = 1 - sse/sst
-
-rsq #0.455
-
-## Wet Medians 
-
-# 1) Pivot data frame and sort highest to lowest
-
-wet_pearson_df <- as.data.frame(scale_cube_wet_effect_pearson)
-
-row_names_wet_pearson <- rownames(wet_pearson_df)
-
-wet_pearson_df$Variable <- row_names_wet_pearson
-
-# Melt the dataframe for plotting
-wet_pearson_melted <- reshape2::melt(wet_pearson_df, id.vars = "Variable") %>% 
-  filter(value != 1) %>% 
-  mutate(value = abs(value)) %>% 
-  filter(!grepl("Respiration", Variable))
-
-wet_effect_melted <- wet_pearson_melted %>% 
-  filter(grepl("Effect_Size", variable)) %>%
-  filter(!grepl("Silt", Variable)) # remove silt from variables, lots of 0 values so not using
-
-wet_choose_melted <- wet_pearson_melted %>% 
-  filter(!grepl("Respiration", variable)) %>%
-  filter(!grepl("Silt", variable)) %>%
-  filter(!grepl("Silt", Variable)) %>% #try removing silt (0 values)
-  #distinct(value, .keep_all = TRUE) %>% 
-  left_join(wet_effect_melted, by = "Variable") %>% 
-  rename(Variable_1 = Variable) %>% 
-  rename(Variable_2 = variable.x) %>% 
-  rename(Correlation = value.x) %>% 
-  rename(Variable_1_Effect_Correlation = value.y) %>% 
-  select(-c(variable.y)) %>% 
-  left_join(wet_effect_melted, by = c("Variable_2" = "Variable")) %>% 
-  rename(Variable_2_Effect_Correlation = value) %>% 
-  select(-c(variable))
-
-wet_loop_melt = wet_choose_melted %>% 
-  arrange(desc(Correlation))
-
-# Pearson correlation coefficient to remove above
-correlation = 0.7
-
-## Start loop to remove highly correlated (> 0.5)
-wet_effect_filter = function(wet_loop_melt) {
-  
-  rows_to_keep = rep(TRUE, nrow(wet_loop_melt))
-  
-  for (i in seq_len(nrow(wet_loop_melt))) {
-    
-    if (!rows_to_keep[i]) next
-    
-    row = wet_loop_melt[i, ]
-    
-    if (row$Correlation < correlation) next
-    
-    if(row$Variable_1_Effect_Correlation >= row$Variable_2_Effect_Correlation) {
-      
-      var_to_keep = row$Variable_1
-      var_to_remove = row$Variable_2
-      
-    } else {
-      
-      var_to_keep = row$Variable_2
-      var_to_remove = row$Variable_1
-      
-    }
-    
-    wet_loop_melt$Variable_to_Keep[i] = var_to_keep
-    wet_loop_melt$Variable_to_Remove[i] = var_to_remove
-    
-    for (j in seq(i + 1, nrow(wet_loop_melt))) {
-      
-      if(wet_loop_melt$Variable_1[j] == var_to_remove || wet_loop_melt$Variable_2[j] == var_to_remove) {
-        
-        rows_to_keep[j] = FALSE
-        
-      }
-      
-    }
-    
-    
-  }
-  
-  return(wet_loop_melt[rows_to_keep, ])
-  
-}
-
-wet_filtered_data = wet_effect_filter(wet_loop_melt) 
-
-# pull out variables to remove
-wet_removed_variables = wet_filtered_data %>% 
-  distinct(Variable_to_Remove)
-
-# pull out all variables 
-wet_all_variables = wet_effect_melted %>% 
-  select(c(Variable))
-
-# remove variables from all variables to get variables to keep for LASSO 
-wet_kept_variables = wet_effect_melted[!(wet_effect_melted$Variable %in% wet_removed_variables$Variable_to_Remove), ] #keeps SpC, Temp, pH, ATP, NPOC, TN (ext), TOC, TN (solid), med sand, silt
-
-# if silt is removed, keeps SpC, Temp, pH, ATP, NPOC, TOC, TN (solid), med sand, fine sand, lost grav. moisture
-
-## LASSO VARIABLES ####
-
-# Keep variables selected from down-selected correlation matrix and add Cube_Effect_Size
-wet_col_to_keep = unique(wet_kept_variables$Variable)
-wet_col_to_keep = c(wet_col_to_keep, "Effect_Size")
-
-wet_cube_variables = wet_cube_effect[, wet_col_to_keep, drop = FALSE]
-
-## LASSO with Correlation Matrix Selected Variables ####
-set.seed(42)
-## Set response variable (Cube_Effect_Size) and scale
-yvar <- data.matrix(scale(wet_cube_variables$Effect_Size, center = TRUE, scale = TRUE))
-mean(yvar)
-sd(yvar)
-
-## Set predictor variables and scale
-exclude_col = "Effect_Size"
-
-wet_x_cube_variables = as.data.frame(scale(wet_cube_variables[, !(names(wet_cube_variables) %in% exclude_col)], center = T, scale = T))
-#mean(x_cube_variables$Cube_SpC_Diff)
-#sd(x_cube_variables$Cube_SpC_Diff)
-
-xvars <- data.matrix(wet_x_cube_variables)
-
-lasso = cv.glmnet(xvars, yvar, alpha = 1, nfolds = 5,
-                  ,standardize = FALSE, standardize.response = FALSE, intercept = FALSE
-                  #,standardize = TRUE, standardize.response = TRUE, intercept = FALSE
-                  # , standardize = TRUE, standardize.response = FALSE, intercept = FALSE
-)
-
-best_lambda <- lasso$lambda.min
-best_lambda
-
-plot(lasso)
-
-best_lasso_model <- glmnet(xvars, yvar, alpha = 1, lambda = best_lambda, family = "gaussian",
-                           , standardize = FALSE, standardize.response = FALSE, intercept = FALSE
-                           #  , standardize = TRUE, standardize.response = TRUE, intercept = FALSE
-                           #, standardize = TRUE, standardize.response = FALSE, intercept = FALSE
-)
-
-#lasso_coefs = coef(best_lasso_model)
-ds_lasso_coefs = coef(best_lasso_model)
-#Fine Sand, ATP, SpC, N% Tot Sand
-yvar_predict <- predict(best_lasso_model, s = best_lambda, newx = xvars)
-
-sst <- sum((yvar - mean(yvar))^2)
-sse <- sum((yvar_predict - yvar)^2)
-
-rsq = 1 - sse/sst
-
-rsq #0.42
+dev.off()
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_ATP_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
@@ -925,15 +606,44 @@ lasso_pear_df = bind_rows(ds_lasso_df, corr_effect_df) %>%
   mutate(variable = ifelse(variable == "cube_Effect_Size_SpC_microsiemens_per_cm", " Effect Size Specific Conductivity (\u03BCS/cm)", ifelse(variable == "cube_Effect_Size_pH", "Effect Size pH", ifelse(variable == "cube_Effect_Size_Temperature_degC", " Effect Size Temperature (\u00B0C)",  ifelse(variable == "cube_Effect_Size_Fe_mg_per_kg", "Effect Size Fe (II) (mg/kg)", ifelse(variable == "cube_Effect_Size_ATP_picomoles_per_g", "Effect Size ATP (pmol/g)", ifelse(variable == "cube_Effect_Size_Extractable_NPOC_mg_per_kg", "Effect Size Extractable NPOC (mg/kg)", ifelse(variable == "cube_Effect_Size_Extractable_TN_mg_per_kg", "Effect Size Extractable TN (mg/kg)", ifelse(variable == "cube_Effect_Size_C_percent_per_mg", "Effect Size TOC (%)", ifelse(variable == "cube_Effect_Size_N_percent_per_mg", "Effect Size TN (%)", ifelse(variable == "cube_Percent_Tot_Sand", "Total Sand (%)", ifelse(variable == "cube_Percent_Med_Sand", "Medium Sand (%)", ifelse(variable == "cube_Percent_Fine_Sand", "Fine Sand (%)", ifelse(variable == "cube_Median_SpC_microsiemens_per_cm", "Median Specific Conductivity (\u03BCS/cm)", ifelse(variable == "cube_Median_pH", "Median pH", ifelse(variable == "cube_Median_Temperature_degC", "Median Temperature (\u00B0C)", ifelse(variable == "cube_Median_ATP_picomoles_per_g", "Median ATP (pmol/g)",  ifelse(variable == "cube_Median_Fe_mg_per_kg", "Median Fe (II) (mg/kg)", ifelse(variable == "cube_Median_X01395_C_percent_per_mg", "Median TOC (%)",   ifelse(variable ==  "cube_Median_X01397_N_percent_per_mg", "Median TN (%)", ifelse(variable == "cube_Median_Extractable_NPOC_mg_per_kg", "Median Extractable NPOC (mg/kg)", ifelse(variable == "cube_Median_Extractable_TN_mg_per_kg", "Median Extractable TN (mg/kg)", ifelse(variable == "cube_median_Dry_Initial_Gravimetric", "Median Initial Dry Gravimetric Moisture (g/g)", ifelse(variable == "cube_Percent_Coarse_Sand", "Coarse Sand (%)", ifelse(variable == "cube_Percent_Clay", "Clay (%)", ifelse(variable == "cube_Mean_Specific_Surface_Area_m2_per_g", "Specific Surface Area (m\u00B2/g)", ifelse(variable == "cube_median_Dry_Final_Gravimetric", "Median Final Dry Gravimetric Moisture (g/g)",
  variable)))))))))))))))))))))))))))
 
-color_palette <- colorRampPalette(c("#B2182B", "#F7F7F7", "#2166AC"))(200)
+limit_pearson = lasso_pear_df %>% 
+  filter(type == "Pearson") %>% 
+  summarise(max_value = max(Coefficients, na.rm = T), min_value = min(Coefficients, na.rm = T))
+
+max_p = limit_pearson$max_value
+min_p = limit_pearson$min_value
+
+limit_lasso = lasso_pear_df %>% 
+  filter(type == "LASSO") %>% 
+  summarise(max_value = max(Coefficients, na.rm = T), min_value = min(Coefficients, na.rm = T))
+
+max_l = limit_lasso$max_value
+min_l = limit_lasso$min_value
+
+color_palette_p = colorRampPalette(c("#B2182B", "#F7F7F7", "#2166AC"))(200)
+
+color_palette_l = colorRampPalette(c("#F7F7F7", "#2166AC"))(200)
+
+lasso_df = lasso_pear_df %>% 
+  filter(type == "LASSO")
+
+pearson_df = lasso_pear_df %>% 
+  filter(type == "Pearson")
+
 
 png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Combined_Heat_Matrix.png"), width = 12, height = 4, units = "in", res = 300)
 
-ggplot(lasso_pear_df, aes(variable, type)) +
-  geom_tile(fill = "white", color = "black") +
-  geom_text(aes(label = round(Coefficients, 2), color = Coefficients), size = 3, fontface = "bold") + 
-  scale_color_gradientn(colors = color_palette, 
-                        limit = c(-1, 1),
+ ggplot() +
+  geom_tile(pearson_df, fill = "white", color = "black", mapping = aes(variable, type)) +
+  geom_text(pearson_df, mapping = aes(x = variable, y = type, label = round(Coefficients, 2), color = Coefficients), size = 3, fontface = "bold") + 
+  scale_color_gradientn(colors = color_palette_p, 
+                        limit = c(min_p, max_p),
+                        guide = "none") +
+  new_scale_color() +
+  geom_tile(lasso_df, fill = "white", color = "black", mapping = aes(variable, type)) +
+  geom_text(lasso_df, mapping = aes(x = variable, y = type, label = round(Coefficients, 2), color = Coefficients), size = 3, fontface = "bold") + 
+  scale_color_gradientn(colors = color_palette_l, 
+                        limit = c(min_l, max_l),
                         guide = "none") +
   theme_bw() + 
   theme(aspect.ratio = 0.1, 
@@ -942,18 +652,17 @@ ggplot(lasso_pear_df, aes(variable, type)) +
         axis.title.y = element_blank(),
         axis.ticks.y = element_blank())+#, 
   #axis.text.y = element_blank()) +
-  scale_x_discrete(position = "top") #+
-# labs(y = "LASSO Coefficients")
+  scale_x_discrete(position = "top")
 
 dev.off()
 
 ## Merge Matrices + Scatter Plots
 
-combine_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-17_Combined_Heat_Matrix.png")
+combine_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-19_Combined_Heat_Matrix.png")
 
 combine_label_image = image_annotate(combine_hm_image, "A", size = 100, location = "+25+50", color = "black")
 
-fine_sand_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-08-30_Cube_Median_Effect_vs_Fine_Sand_Scatter.png")
+fine_sand_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-19_Cube_Median_Effect_vs_Fine_Sand_Scatter.png")
 
 fine_sand_label_image = image_annotate(fine_sand_image, "B", size = 65, location = "+30+20", color = "black")
 
@@ -995,9 +704,16 @@ second_row_image = image_append(c(fe_scale_image, spc_scale_image, toc_scale_ima
 
 whole_image = image_append(c(combine_label_image, first_row_image, second_row_image), stack = TRUE)
 
-image_write(whole_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-17_Combined_Heat_Map.png")
+image_write(whole_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-19_Combined_Heat_Map.png")
 
+hist_test = left_join(effect_data, wet_respiration) %>% 
+  arrange(Median_Wet_Respiration) %>% 
+  mutate(pfs = Percent_Fine_Sand/Percent_Tot_Sand)
 
+ggplot(hist_test, aes(x = factor(pfs), y = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) + 
+  geom_col() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 0, size = 10))
+  
 
 ## Control Point Influence
 
