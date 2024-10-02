@@ -17,6 +17,10 @@ rm(list=ls());graphics.off()
 
 print.images = F
 
+current_path <- rstudioapi::getActiveDocumentContext()$path
+setwd(dirname(current_path))
+getwd()
+
 # Functions ---------------------------------------------------------------
 
 # Transformation for normalization is cube root - have to cube root then add sign back to value to make it positive or negative
@@ -25,7 +29,7 @@ cube_root <- function(x) sign(x) * (abs(x))^(1/3)
 # Read in/Merge Data ------------------------------------------------------------
 
 ## Individual Rate data for histograms ####
-all_data = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_SpC_pH_Temp_Respiration.csv", skip = 2) %>% 
+all_data = read.csv("./Data/EC_Sediment_SpC_pH_Temp_Respiration.csv", skip = 2) %>% 
   filter(grepl("EC", Sample_Name)) %>% 
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  # remove samples with too much water (EC_011, EC_012), sample with no mg/kg (EC_023), duplicated NEON sites (EC_052, EC_053, EC_057)
   select(-c(Field_Name, IGSN, Material))
@@ -50,7 +54,7 @@ cube_respiration = all_data %>%
 
 # ATP ####
 
-atp = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_ATP.csv", skip = 2) %>% 
+atp = read.csv("./Data/EC_Sediment_ATP.csv", skip = 2) %>% 
   filter(grepl("EC", Sample_Name)) %>% 
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  
   select(-c(Field_Name, IGSN, Material)) %>% 
@@ -79,7 +83,7 @@ median_atp = atp %>%
 
 ## CN ####
 
-cn = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_CN.csv", skip = 2) %>% 
+cn = read.csv("./Data/EC_Sediment_CN.csv", skip = 2) %>% 
   filter(grepl("EC", Sample_Name)) %>% 
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  
   select(-c(Field_Name, IGSN, Material)) %>% 
@@ -107,7 +111,7 @@ median_cn = cn %>%
 
 ## NPOC/TN ####
 
-npoc_tn = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_NPOC_TN.csv", skip = 2) %>% 
+npoc_tn = read.csv("./Data/EC_Sediment_NPOC_TN.csv", skip = 2) %>% 
   filter(grepl("EC", Sample_Name)) %>% 
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  
   select(-c(Field_Name, IGSN, Material)) %>% 
@@ -135,7 +139,7 @@ median_npoc_tn = npoc_tn %>%
 
 # Gravimetric Moisture ----------------------------------------------------
 
-grav_inc = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_Gravimetric_Moisture.csv", skip = 2) %>% 
+grav_inc = read.csv("./Data/EC_Sediment_Gravimetric_Moisture.csv", skip = 2) %>% 
   slice(-1:-11) %>% 
   filter(Field_Name != "#End_Data") %>% 
   select(-c(Field_Name, IGSN, Material)) %>% 
@@ -162,7 +166,7 @@ grav_inc = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_Gra
 
 ## Fe #### 
 
-fe = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_Fe.csv", skip = 2) %>% 
+fe = read.csv("./Data/EC_Sediment_Fe.csv", skip = 2) %>% 
   filter(grepl("EC", Sample_Name)) %>% 
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  
   select(-c(Field_Name, IGSN, Material)) %>% 
@@ -219,6 +223,33 @@ median_respiration = all_data %>%
   select(c(Sample_ID, Median_SpC_microsiemens_per_cm, Median_pH, Median_Temperature_degC, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   ungroup()
 
+## Join All Data ####
+
+all_join = all_data %>% 
+  left_join(atp, by = "Sample_Name") %>% 
+  left_join(fe, by = "Sample_Name") %>% 
+  left_join(cn, by = "Sample_Name") %>% 
+  left_join(npoc_tn, by = "Sample_Name") %>% 
+  left_join(grav_inc, by = "Sample_Name") %>% 
+  mutate(Fe_mg_per_L = ifelse(grepl("INC_Method_001|INC_Method_002", Dev_Fe), NA, Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_kg = ifelse(grepl("INC_Method_001|INC_Method_002", Dev_Fe), NA, Fe_mg_per_kg)) %>% 
+  mutate(Fe_mg_per_L = if_else(grepl("SFE_Below", Fe_mg_per_L), "0.001", Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_L = if_else(grepl("SFE_Above", Fe_mg_per_L), str_extract(Fe_mg_per_L, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_L)) %>% 
+  mutate(Fe_mg_per_L = as.numeric(Fe_mg_per_L)) %>%
+  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Above", Fe_mg_per_kg), str_extract(Fe_mg_per_kg, "(?<=\\|[^|]{1,100}\\|)\\d+\\.\\d+"), Fe_mg_per_kg)) %>% 
+  mutate(Fe_mg_per_kg = if_else(grepl("SFE_Below", Fe_mg_per_kg), as.numeric(Fe_mg_per_L * (Incubation_Water_Mass_g/Dry_Sediment_Mass_g)), as.numeric(Fe_mg_per_kg))) %>%
+  mutate(Fe_mg_per_kg = as.numeric(Fe_mg_per_kg)) %>% 
+  mutate(ATP_nanomoles_per_L = ifelse(grepl("INC_Method_001", Methods_Deviation), NA, ATP_nanomoles_per_L)) %>% 
+  # ATP_002 (don't have sample), INC_Method_001
+  mutate(ATP_picomoles_per_g = ifelse(grepl("INC_Method_001", Methods_Deviation), NA, ATP_picomoles_per_g)) %>%
+  mutate(ATP_nanomoles_per_L = ifelse(ATP_nanomoles_per_L == -9999, NA, ATP_nanomoles_per_L)) %>% 
+  mutate(ATP_picomoles_per_g = ifelse(ATP_picomoles_per_g == -9999, NA, ATP_picomoles_per_g)) %>% 
+  mutate(across(c(ATP_nanomoles_per_L:ATP_picomoles_per_g), as.numeric)) %>%
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = as.numeric(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  select(c(Sample_Name, Respiration_Rate_mg_DO_per_kg_per_H, ATP_picomoles_per_g, Fe_mg_per_kg, X01395_C_percent_per_mg, X01397_N_percent_per_mg, Extractable_NPOC_mg_per_kg, Extractable_TN_mg_per_kg)) 
+
 ## Median Data ####
 
 ## Wet Dry Medians
@@ -234,7 +265,7 @@ all_medians = median_respiration %>%
 
 ## Read in Median Data to get Dry moisture values
 
-median = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_Sample_Data_Summary.csv", skip = 2) %>% 
+median = read.csv("./Data/EC_Sediment_Sample_Data_Summary.csv", skip = 2) %>% 
   filter(grepl("EC", Sample_Name)) %>% 
   separate(Sample_Name, c("Sample_Name", "Rep"), sep = "-") %>% 
   mutate(Sample_Name = paste0(Sample_Name, "_all")) %>% 
@@ -254,14 +285,14 @@ median_dry = median %>%
 
 ## Effect Size Data ####
 
-effect = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/EC_Sediment_Effect_Size.csv", skip = 2) %>% 
+effect = read.csv("./Data/EC_Sediment_Effect_Size.csv", skip = 2) %>% 
   filter(grepl("EC", Sample_Name)) %>% 
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%
  select(-c(IGSN, Field_Name, Material, Methods_Deviation)) 
 
 ## Read in grain size/ssa variables ####
 
-grain = read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/v3_CM_SSS_Sediment_Sample_Data_Summary.csv", skip = 2) %>% 
+grain = read.csv("./Data/v3_CM_SSS_Sediment_Sample_Data_Summary.csv", skip = 2) %>% 
   filter(grepl("CM", Sample_Name)) %>% 
   mutate(Sample_Name = str_replace(Sample_Name, "CM", "EC")) %>% 
   mutate(Sample_Name = str_replace(Sample_Name, "Sediment", "all")) %>% 
@@ -334,7 +365,6 @@ dev.off()
 
 corr_effect = matrix(scale_cube_effect_pearson[1, ], nrow = 1)
 
-
 colnames(corr_effect) = colnames(scale_cube_effect_pearson)
 
 rownames(corr_effect) = rownames(scale_cube_effect_pearson)[1]
@@ -346,8 +376,6 @@ corr_effect_df = as.data.frame(corr_effect) %>%
   rename(Coefficients = value) %>% 
   filter(Coefficients != 1) %>% 
   mutate(y = "Pearson")
-
-
 
 ## Downselected LASSO - Loop through coefficients to choose for LASSO ####
 
@@ -704,16 +732,91 @@ second_row_image = image_append(c(fe_scale_image, spc_scale_image, toc_scale_ima
 
 whole_image = image_append(c(combine_label_image, first_row_image, second_row_image), stack = TRUE)
 
-image_write(whole_image, path = "C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-19_Combined_Heat_Map.png")
+image_write(whole_image, path = "./Physical_Manuscript_Figures/2024-09-19_Combined_Heat_Map.png")
 
-hist_test = left_join(effect_data, wet_respiration) %>% 
-  arrange(Median_Wet_Respiration) %>% 
-  mutate(pfs = Percent_Fine_Sand/Percent_Tot_Sand)
 
-ggplot(hist_test, aes(x = factor(pfs), y = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) + 
-  geom_col() + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 0, size = 10))
+## Conceptual Model ####
+
+ d50 = read.csv("./Data/D50_Calculations.csv")
   
+ effect_d50 = left_join(effect_data, d50, by = "Sample_Name")
+ 
+d50_plot =  ggplot(effect_d50, aes(x = d50, y = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) + 
+   geom_bar(width = 0.005, stat = "identity", aes(fill = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) +
+  scale_fill_gradient2(name = "Effect Size", limits = c(-1400, 1400), low = "firebrick2", mid = "goldenrod2",
+                             high = "dodgerblue2", midpoint = (max(1400)+min(-1400))/2) +
+   geom_vline(xintercept = 0.053) + 
+   geom_vline(xintercept = 0.25)+
+   theme_bw()
+ 
+all_d50 = all_join %>% 
+  separate(Sample_Name, c("Sample", "Rep"), sep = "-", remove = FALSE) %>% 
+  mutate(Sample = str_replace(Sample, "INC", "all")) %>% 
+  left_join(d50, by = c("Sample" = "Sample_Name")) %>% 
+  mutate(Treat = ifelse(grepl("W", Rep), "Wet", "Dry"))
+ 
+fe_clays = all_d50 %>% 
+  filter(d50 < 0.053) %>% 
+ ggplot(aes(x = Sample, y = Fe_mg_per_kg)) + 
+   geom_boxplot(aes(fill = Treat)) +
+  ylim(c(0, 20)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+fe_fs = all_d50 %>% 
+  filter(d50 > 0.053 & d50 < 0.25) %>% 
+  ggplot(aes(x = Sample, y = Fe_mg_per_kg)) + 
+  geom_boxplot(aes(fill = Treat)) +
+  ylim(c(0, 20)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+fe_cs = all_d50 %>% 
+  filter(d50 > 0.25) %>% 
+  ggplot(aes(x = Sample, y = Fe_mg_per_kg)) + 
+  geom_boxplot(aes(fill = Treat)) +
+  ylim(c(0, 20)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+atp_clays = all_d50 %>% 
+  filter(d50 < 0.053) %>% 
+  ggplot(aes(x = Sample, y = ATP_picomoles_per_g)) + 
+  geom_boxplot(aes(fill = Treat)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+   
+atp_fs = all_d50 %>% 
+  filter(d50 > 0.053 & d50 < 0.25) %>% 
+  ggplot(aes(x = Sample, y = ATP_picomoles_per_g)) + 
+  geom_boxplot(aes(fill = Treat)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+atp_cs = all_d50 %>% 
+  filter(d50 > 0.25) %>% 
+  ggplot(aes(x = Sample, y = ATP_picomoles_per_g)) + 
+  geom_boxplot(aes(fill = Treat)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+resp_clays = all_d50 %>% 
+  filter(d50 < 0.053) %>% 
+  ggplot(aes(x = Sample, y = Respiration_Rate_mg_DO_per_kg_per_H)) + 
+  geom_boxplot(aes(fill = Treat)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+resp_fs = all_d50 %>% 
+  filter(d50 > 0.053 & d50 < 0.25) %>% 
+  ggplot(aes(x = Sample, y = Respiration_Rate_mg_DO_per_kg_per_H)) + 
+  geom_boxplot(aes(fill = Treat)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+resp_cs = all_d50 %>% 
+  filter(d50 > 0.25) %>% 
+  ggplot(aes(x = Sample, y = Respiration_Rate_mg_DO_per_kg_per_H)) + 
+  geom_boxplot(aes(fill = Treat)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggarrange(d50_plot,
+          ggarrange(fe_clays, fe_fs, fe_cs, ncol = 3, labels = c("B", "C", "D")), 
+          ggarrange(atp_clays, atp_fs, atp_cs, ncol = 3, labels = c("E", "F", "G")), 
+          ggarrange(resp_clays, resp_fs, resp_cs, ncol = 3, labels = c("H", "I", "J")),
+          nrow = 4, labels = "A")
 
 ## Control Point Influence
 
