@@ -741,82 +741,218 @@ image_write(whole_image, path = "./Physical_Manuscript_Figures/2024-09-19_Combin
   
  effect_d50 = left_join(effect_data, d50, by = "Sample_Name")
  
-d50_plot =  ggplot(effect_d50, aes(x = d50, y = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) + 
+ dummy_row = data.frame(d50 = 0.053)
+ 
+d50_plot = effect_d50 %>%  
+  bind_rows(dummy_row) %>% 
+  ggplot(aes(x = round(d50, 2), y = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) + 
    geom_bar(width = 0.005, stat = "identity", aes(fill = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) +
   scale_fill_gradient2(name = "Effect Size", limits = c(-1400, 1400), low = "firebrick2", mid = "goldenrod2",
                              high = "dodgerblue2", midpoint = (max(1400)+min(-1400))/2) +
-   geom_vline(xintercept = 0.053) + 
-   geom_vline(xintercept = 0.25)+
-   theme_bw()
+   geom_vline(xintercept = 0.053, linetype = 2) + 
+   geom_vline(xintercept = 0.25, linetype = 2)+
+  ylab("Effect Size Respiration (mg/kg)") +
+  xlab("D50") +
+   theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)#, 
+        #axis.title.y = element_text(size = 6)
+        ) +
+  annotate("text", x = Inf, y = Inf, label = "A", hjust = 3, vjust = 2, size = 6)
  
 all_d50 = all_join %>% 
   separate(Sample_Name, c("Sample", "Rep"), sep = "-", remove = FALSE) %>% 
   mutate(Sample = str_replace(Sample, "INC", "all")) %>% 
   left_join(d50, by = c("Sample" = "Sample_Name")) %>% 
   mutate(Treat = ifelse(grepl("W", Rep), "Wet", "Dry"))
- 
-fe_clays = all_d50 %>% 
-  filter(d50 < 0.053) %>% 
- ggplot(aes(x = Sample, y = Fe_mg_per_kg)) + 
-   geom_boxplot(aes(fill = Treat)) +
-  ylim(c(0, 20)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
-fe_fs = all_d50 %>% 
-  filter(d50 > 0.053 & d50 < 0.25) %>% 
-  ggplot(aes(x = Sample, y = Fe_mg_per_kg)) + 
-  geom_boxplot(aes(fill = Treat)) +
-  ylim(c(0, 20)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+all_resp = all_d50 %>% 
+  bind_rows(dummy_row) %>% 
+  ggplot(aes(x = round(d50, 2), y = abs(Respiration_Rate_mg_DO_per_kg_per_H), fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+  ylab("Respiration Rate (mg/kg)") +
+  xlab("D50") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+        axis.title.y = element_text(size = 6)) + 
+  geom_vline(xintercept = 0.053, linetype = 2) + 
+  geom_vline(xintercept = 0.25, linetype = 2) +
+  scale_x_continuous()+
+  annotate("text", x = Inf, y = Inf, label = "B", hjust = 3, vjust = 2, size = 6)
+  
 
-fe_cs = all_d50 %>% 
-  filter(d50 > 0.25) %>% 
-  ggplot(aes(x = Sample, y = Fe_mg_per_kg)) + 
-  geom_boxplot(aes(fill = Treat)) +
-  ylim(c(0, 20)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+all_atp = all_d50 %>% 
+  bind_rows(dummy_row) %>% 
+  ggplot(aes(x = round(d50, 2), y = ATP_picomoles_per_g, fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+  ylab("ATP (pmol/g)") +
+  xlab("D50") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+        axis.title.y = element_text(size = 6)) + 
+  geom_vline(xintercept = 0.053, linetype = 2) + 
+  geom_vline(xintercept = 0.25, linetype = 2) +
+  scale_x_continuous()+
+  annotate("text", x = Inf, y = Inf, label = "C", hjust = 3, vjust = 2, size = 6)
 
-atp_clays = all_d50 %>% 
-  filter(d50 < 0.053) %>% 
-  ggplot(aes(x = Sample, y = ATP_picomoles_per_g)) + 
-  geom_boxplot(aes(fill = Treat)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-   
-atp_fs = all_d50 %>% 
-  filter(d50 > 0.053 & d50 < 0.25) %>% 
-  ggplot(aes(x = Sample, y = ATP_picomoles_per_g)) + 
-  geom_boxplot(aes(fill = Treat)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+all_fe = all_d50 %>% 
+  bind_rows(dummy_row) %>% 
+  ggplot(aes(x = round(d50, 2), y = Fe_mg_per_kg, fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+  ylab("Fe (mg/kg)") +
+  xlab("D50") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+        axis.title.y = element_text(size = 6)) + 
+  geom_vline(xintercept = 0.053, linetype = 2) + 
+  geom_vline(xintercept = 0.25, linetype = 2) +
+  scale_x_continuous()+
+  annotate("text", x = Inf, y = Inf, label = "D", hjust = 3, vjust = 2, size = 6)
 
-atp_cs = all_d50 %>% 
-  filter(d50 > 0.25) %>% 
-  ggplot(aes(x = Sample, y = ATP_picomoles_per_g)) + 
-  geom_boxplot(aes(fill = Treat)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ggarrange(d50_plot, all_resp, all_atp, all_fe, nrow = 4)
+
+ggsave("./Physical_Manuscript_Figures/D50_Boxpots_Combined.png", width = 10, height = 10)
 
 resp_clays = all_d50 %>% 
   filter(d50 < 0.053) %>% 
-  ggplot(aes(x = Sample, y = Respiration_Rate_mg_DO_per_kg_per_H)) + 
-  geom_boxplot(aes(fill = Treat)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-
+  ggplot(aes(x = round(d50, 2), y = abs(Respiration_Rate_mg_DO_per_kg_per_H), fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+  ylab("Respiration Rate (mg/kg)") +
+  #xlab("D50") +
+  ylim(c(0, 3500)) +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        #axis.title.y = element_text(size = 6), 
+        legend.position = "none") +
+  annotate("text", x = Inf, y = Inf, label = "B", hjust = 3, vjust = 2, size = 6)
+  
 resp_fs = all_d50 %>% 
   filter(d50 > 0.053 & d50 < 0.25) %>% 
-  ggplot(aes(x = Sample, y = Respiration_Rate_mg_DO_per_kg_per_H)) + 
-  geom_boxplot(aes(fill = Treat)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  ggplot(aes(x = round(d50, 2), y = abs(Respiration_Rate_mg_DO_per_kg_per_H), fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+  #ylab("Respiration Rate (mg/kg)") +
+  #xlab("D50") +
+  ylim(c(0, 3500)) +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(), 
+        legend.position = "none")+
+  annotate("text", x = Inf, y = Inf, label = "C", hjust = 3, vjust = 2, size = 6)
 
 resp_cs = all_d50 %>% 
   filter(d50 > 0.25) %>% 
-  ggplot(aes(x = Sample, y = Respiration_Rate_mg_DO_per_kg_per_H)) + 
-  geom_boxplot(aes(fill = Treat)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  ggplot(aes(x = round(d50, 2), y = abs(Respiration_Rate_mg_DO_per_kg_per_H), fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+  #ylab("Respiration Rate (mg/kg)") +
+  #xlab("D50") +
+  ylim(c(0, 3500)) +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(), 
+        legend.position = "none")+
+  annotate("text", x = Inf, y = Inf, label = "D", hjust = 3, vjust = 2, size = 6)
 
-ggarrange(d50_plot,
-          ggarrange(fe_clays, fe_fs, fe_cs, ncol = 3, labels = c("B", "C", "D")), 
-          ggarrange(atp_clays, atp_fs, atp_cs, ncol = 3, labels = c("E", "F", "G")), 
-          ggarrange(resp_clays, resp_fs, resp_cs, ncol = 3, labels = c("H", "I", "J")),
-          nrow = 4, labels = "A")
+atp_clays = all_d50 %>% 
+  filter(d50 < 0.053) %>% 
+  ggplot(aes(x = round(d50, 2), y = ATP_picomoles_per_g, fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+  ylab("ATP (pmol/g)") +
+ # xlab("D50") +
+  theme_bw() +
+  theme(axis.text.x = element_blank(), 
+        axis.title.x = element_blank(),
+        #axis.title.y = element_text(size = 6), 
+        legend.position = "none") +
+  annotate("text", x = Inf, y = Inf, label = "E", hjust = 3, vjust = 2, size = 6)
+
+atp_fs = all_d50 %>% 
+  filter(d50 > 0.053 & d50 < 0.25) %>% 
+  ggplot(aes(x = round(d50, 2), y = ATP_picomoles_per_g, fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+ # ylab("ATP (pmol/g)") +
+  #xlab("D50") +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(), 
+        legend.position = "none")+
+  annotate("text", x = Inf, y = Inf, label = "F", hjust = 3, vjust = 2, size = 6)
+
+atp_cs = all_d50 %>% 
+  filter(d50 > 0.25) %>% 
+  ggplot(aes(x = round(d50, 2), y = ATP_picomoles_per_g, fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+  #ylab("ATP (pmol/g)") +
+  #xlab("D50") +
+  theme_bw() +
+  theme(axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(), 
+        legend.position = "none")+
+  annotate("text", x = Inf, y = Inf, label = "G", hjust = 3, vjust = 2, size = 6)
+ 
+fe_clays = all_d50 %>% 
+  filter(d50 < 0.053) %>% 
+  ggplot(aes(x = round(d50, 2), y = Fe_mg_per_kg, fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+  ylab("Fe (mg/kg)") +
+  #xlab("D50") +
+  ylim(c(0, 20)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+        axis.title.x = element_blank(),
+        legend.position = "none")+
+  annotate("text", x = Inf, y = Inf, label = "H", hjust = 3, vjust = 2, size = 6)
+
+fe_fs = all_d50 %>% 
+  filter(d50 > 0.053 & d50 < 0.25) %>% 
+  ggplot(aes(x = round(d50, 2), y = Fe_mg_per_kg, fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+  #ylab("Fe (mg/kg)") +
+  #xlab("D50") +
+  ylim(c(0, 20)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+      axis.title.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(), 
+        legend.position = "none") +
+  annotate("text", x = Inf, y = Inf, label = "I", hjust = 3, vjust = 2, size = 6)
+
+fe_cs = all_d50 %>% 
+  filter(d50 > 0.25) %>% 
+  ggplot(aes(x = round(d50, 2), y = Fe_mg_per_kg, fill = Treat)) + 
+  geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
+  #ylab("Fe (mg/kg)") +
+  #xlab("D50") +
+  ylim(c(0, 20)) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(), 
+        legend.position = "none") +
+  annotate("text", x = Inf, y = Inf, label = "J", hjust = 3, vjust = 2, size = 6)
+
+arranged_box = ggarrange(d50_plot,
+          ggarrange(resp_clays, resp_fs, resp_cs, ncol = 3),
+          ggarrange(atp_clays, atp_fs, atp_cs, ncol = 3), 
+          ggarrange(fe_clays, fe_fs, fe_cs, ncol = 3), nrow = 4)
+
+final_box = annotate_figure(arranged_box, bottom = text_grob("D50", size = 12, vjust = 0.5))
+
+ggsave("./Physical_Manuscript_Figures/D50_Boxpots.png", width = 10, height = 10)
+
+range_box = ggarrange(d50_plot,
+          ggarrange(resp_clays, resp_fs, resp_cs, ncol = 3, widths = c(1, 1.5, 5)),
+          ggarrange(atp_clays, atp_fs, atp_cs, ncol = 3, widths = c(1, 1.5, 5)), 
+          ggarrange(fe_clays, fe_fs, fe_cs, ncol = 3, widths = c(1, 1.5, 5)), 
+          nrow = 4)
+
+
+final_range = annotate_figure(arranged_box, bottom = text_grob("D50", size = 12, vjust = 0.5))
+
+ggsave("./Physical_Manuscript_Figures/D50_Boxpots_Ranged.png", width = 10, height = 10)
 
 ## Control Point Influence
 
