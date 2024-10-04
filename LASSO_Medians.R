@@ -147,22 +147,22 @@ grav_inc = read.csv("./Data/EC_Sediment_Gravimetric_Moisture.csv", skip = 2) %>%
 
 #Some dry reps have high CV: EC_057 (low moisture), EC_081 (one lower sample), EC_063 (low moisture), EC_088 (one lower sample), EC_076 (low moisture), EC_071 (one lower sample), EC_056 (low moisture), EC_069 (one slightly lower) 
 
-# median_grav = grav_inc %>% 
-#   mutate(X62948_Initial_Gravimetric_Moisture_g_per_g = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, X62948_Initial_Gravimetric_Moisture_g_per_g)) %>% 
-#   mutate(X62948_Final_Gravimetric_Moisture_g_per_g = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, X62948_Final_Gravimetric_Moisture_g_per_g)) %>% 
-#   #missing replicates (EC_072-W5/D5), less sediment in sample (EC_012-D5)
-#   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
-#   mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
-#   group_by(Sample_ID, Rep) %>%
-#   summarise(across(where(is.numeric),
-#                    list(Median = ~median(.x, na.rm = TRUE),
-#                         cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
-#                         n = ~sum(!is.na(.x))), 
-#                    .names = "{.fn}_{.col}")) %>% 
-#   ungroup() %>% 
-#   group_by(Sample_ID, Rep) %>%
-#   mutate(Remove = ifelse(all(c_across(starts_with("n_")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
-#   select(c(Sample_ID, Rep, Median_X62948_Initial_Gravimetric_Moisture_g_per_g, Median_X62948_Final_Gravimetric_Moisture_g_per_g)) 
+median_grav = grav_inc %>%
+  mutate(X62948_Initial_Gravimetric_Moisture_g_per_g = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, X62948_Initial_Gravimetric_Moisture_g_per_g)) %>%
+  mutate(X62948_Final_Gravimetric_Moisture_g_per_g = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, X62948_Final_Gravimetric_Moisture_g_per_g)) %>%
+  #missing replicates (EC_072-W5/D5), less sediment in sample (EC_012-D5)
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>%
+  mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
+  group_by(Sample_ID, Rep) %>%
+  summarise(across(where(is.numeric),
+                   list(Median = ~median(.x, na.rm = TRUE),
+                        cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
+                        n = ~sum(!is.na(.x))),
+                   .names = "{.fn}_{.col}")) %>%
+  ungroup() %>%
+  group_by(Sample_ID, Rep) %>%
+  mutate(Remove = ifelse(all(c_across(starts_with("n_")) == 5), "FALSE", "TRUE")) %>% ## Check CV's, then remove
+  select(c(Sample_ID, Rep, Median_X62948_Initial_Gravimetric_Moisture_g_per_g, Median_X62948_Final_Gravimetric_Moisture_g_per_g))
 
 ## Fe #### 
 
@@ -248,7 +248,9 @@ all_join = all_data %>%
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = as.numeric(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  select(c(Sample_Name, Respiration_Rate_mg_DO_per_kg_per_H, ATP_picomoles_per_g, Fe_mg_per_kg, X01395_C_percent_per_mg, X01397_N_percent_per_mg, Extractable_NPOC_mg_per_kg, Extractable_TN_mg_per_kg)) 
+  mutate(X62948_Initial_Gravimetric_Moisture_g_per_g = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, X62948_Initial_Gravimetric_Moisture_g_per_g)) %>%
+  mutate(X62948_Final_Gravimetric_Moisture_g_per_g = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, X62948_Final_Gravimetric_Moisture_g_per_g)) %>%
+  select(c(Sample_Name, Respiration_Rate_mg_DO_per_kg_per_H, ATP_picomoles_per_g, Fe_mg_per_kg, X01395_C_percent_per_mg, X01397_N_percent_per_mg, Extractable_NPOC_mg_per_kg, Extractable_TN_mg_per_kg, SpC_microsiemens_per_cm, X62948_Final_Gravimetric_Moisture_g_per_g)) 
 
 ## Median Data ####
 
@@ -758,12 +760,28 @@ d50_plot = effect_d50 %>%
         #axis.title.y = element_text(size = 6)
         ) +
   annotate("text", x = Inf, y = Inf, label = "A", hjust = 3, vjust = 2, size = 6)
+
+fine_sand = effect_d50 %>% 
+  rename(Sample = Sample_Name) %>% 
+  select(c(Sample, Percent_Fine_Sand, Mean_Specific_Surface_Area_m2_per_g))
  
 all_d50 = all_join %>% 
   separate(Sample_Name, c("Sample", "Rep"), sep = "-", remove = FALSE) %>% 
   mutate(Sample = str_replace(Sample, "INC", "all")) %>% 
   left_join(d50, by = c("Sample" = "Sample_Name")) %>% 
-  mutate(Treat = ifelse(grepl("W", Rep), "Wet", "Dry"))
+  mutate(Treat = ifelse(grepl("W", Rep), "Wet", "Dry")) %>% 
+  mutate(category = cut(d50, breaks = c(0, 0.053, 0.25, 2), 
+                        labels = c("Clay/Silt", "Fine Sand", "Med/Coarse Sand"), 
+                        include.lowest = T, right = F)) %>% 
+  mutate(TN = as.numeric(X01397_N_percent_per_mg)) %>% 
+  select(-c(X01397_N_percent_per_mg)) %>% 
+  filter(TN != -9999) %>% 
+  left_join(fine_sand) %>% 
+  mutate(SpC_microsiemens_per_cm = as.numeric(SpC_microsiemens_per_cm)) %>% 
+  mutate(TOC = as.numeric(X01395_C_percent_per_mg)) %>% 
+  select(-c(X01395_C_percent_per_mg)) %>% 
+  rename(Final_Grav = X62948_Final_Gravimetric_Moisture_g_per_g) %>% 
+  mutate(Grav_by_SSA = Final_Grav/Mean_Specific_Surface_Area_m2_per_g)
 
 all_resp = all_d50 %>% 
   bind_rows(dummy_row) %>% 
@@ -859,6 +877,7 @@ atp_clays = all_d50 %>%
   ggplot(aes(x = round(d50, 2), y = ATP_picomoles_per_g, fill = Treat)) + 
   geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
   ylab("ATP (pmol/g)") +
+  ylim(c(0, 850)) +
  # xlab("D50") +
   theme_bw() +
   theme(axis.text.x = element_blank(), 
@@ -873,6 +892,7 @@ atp_fs = all_d50 %>%
   geom_boxplot(aes(group = interaction(Treat, round(d50, 5)))) +
  # ylab("ATP (pmol/g)") +
   #xlab("D50") +
+  ylim(c(0, 850)) +
   theme_bw() +
   theme(axis.text.x = element_blank(),
         axis.title.x = element_blank(),
@@ -887,6 +907,7 @@ atp_cs = all_d50 %>%
   #ylab("ATP (pmol/g)") +
   #xlab("D50") +
   theme_bw() +
+  ylim(c(0, 850)) +
   theme(axis.text.x = element_blank(),
         axis.title.x = element_blank(),
         axis.title.y = element_blank(), axis.text.y = element_blank(), 
@@ -931,7 +952,8 @@ fe_cs = all_d50 %>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
         axis.title.x = element_blank(),
         axis.title.y = element_blank(), axis.text.y = element_blank(), 
-        legend.position = "none") +
+        #legend.position = "none"
+        ) +
   annotate("text", x = Inf, y = Inf, label = "J", hjust = 3, vjust = 2, size = 6)
 
 arranged_box = ggarrange(d50_plot,
@@ -941,18 +963,94 @@ arranged_box = ggarrange(d50_plot,
 
 final_box = annotate_figure(arranged_box, bottom = text_grob("D50", size = 12, vjust = 0.5))
 
-ggsave("./Physical_Manuscript_Figures/D50_Boxpots.png", width = 10, height = 10)
+final_box
+
+ggsave("./Physical_Manuscript_Figures/D50_Boxplots.png", width = 10, height = 10)
 
 range_box = ggarrange(d50_plot,
-          ggarrange(resp_clays, resp_fs, resp_cs, ncol = 3, widths = c(1, 1.5, 5)),
-          ggarrange(atp_clays, atp_fs, atp_cs, ncol = 3, widths = c(1, 1.5, 5)), 
-          ggarrange(fe_clays, fe_fs, fe_cs, ncol = 3, widths = c(1, 1.5, 5)), 
+          ggarrange(resp_clays, resp_fs, resp_cs, ncol = 3, widths = c(1.25, 1, 5)),
+          ggarrange(atp_clays, atp_fs, atp_cs, ncol = 3, widths = c(1.25, 1, 5)), 
+          ggarrange(fe_clays, fe_fs, fe_cs, ncol = 3, widths = c(1.25, 1, 5)), 
           nrow = 4)
 
 
-final_range = annotate_figure(arranged_box, bottom = text_grob("D50", size = 12, vjust = 0.5))
+final_range = annotate_figure(range_box, bottom = text_grob("D50", size = 12, vjust = 0.5))
 
-ggsave("./Physical_Manuscript_Figures/D50_Boxpots_Ranged.png", width = 10, height = 10)
+final_range
+
+ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Ranged.png", width = 10, height = 10)
+
+effect_analysis = effect_d50 %>% 
+  select(c(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, Effect_Size_Fe_mg_per_kg, d50)) %>% 
+  mutate(category = cut(d50, breaks = c(0, 0.053, 0.25, 2), 
+                        labels = c("Clay/Silt", "Fine Sand", "Med/Coarse Sand"), 
+                        include.lowest = T, right = F))
+
+d50_cat = ggplot(effect_analysis, aes(x = category, y = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, fill = category)) +
+  geom_boxplot()
+
+fs_cat = ggplot(all_d50, aes(x = category, y = Percent_Fine_Sand,  fill = category)) +
+  geom_boxplot()
+
+atp_cat = ggplot(all_d50, aes(x = category, y = ATP_picomoles_per_g,  fill = category)) +
+  geom_boxplot()
+
+fe_cat = ggplot(all_d50, aes(x = category, y = Fe_mg_per_kg,  fill = category)) +
+  geom_boxplot()
+
+tn_cat = ggplot(all_d50, aes(x = category, y = TN,  fill = category)) +
+  geom_boxplot()
+
+spc_cat = ggplot(all_d50, aes(x = category, y = SpC_microsiemens_per_cm,  fill = category)) +
+  geom_boxplot()
+
+toc_cat = ggplot(all_d50, aes(x = category, y = TOC,  fill = category)) +
+  geom_boxplot()
+
+fe_diff_cat = ggplot(effect_analysis, aes(x = category, y = Effect_Size_Fe_mg_per_kg,  fill = category)) +
+  geom_boxplot()
+
+dry_grav_cat = all_d50 %>% 
+  filter(Treat == "Dry") %>% 
+  ggplot(aes(x = category, y = Final_Grav, fill = category)) +
+  geom_boxplot()
+
+grav_by_ssa = all_d50 %>% 
+  filter(Treat == "Dry") %>% 
+  ggplot(aes(x = category, y = Grav_by_SSA,  fill = category)) +
+  geom_boxplot()
+
+
+all_boxes_row = ggarrange(d50_cat, fs_cat, atp_cat, fe_cat, tn_cat, nrow = 5)
+
+ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Rows.png", width = 10, height = 20)
+
+all_boxes_col = ggarrange(d50_cat, fs_cat, atp_cat, fe_cat, fe_diff_cat, tn_cat, spc_cat, toc_cat, dry_grav_cat, grav_by_ssa,  ncol = 10)
+
+ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Cols.png", width = 40, height = 5)
+
+
+final_range = annotate_figure(range_box, bottom = text_grob("D50", size = 12, vjust = 0.5))
+
+final_range
+
+eff_kruskal = kruskal.test(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H ~ category, data = effect_analysis)
+
+summary(eff_kruskal)
+eff_dunn = dunn_test(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H ~ category, 
+                     data = effect_analysis)
+
+cube_effect_analysis = effect_analysis %>% 
+  mutate(cube_Effect = cube_root(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H))
+
+cube_aov = aov(cube_Effect ~ category, data = cube_effect_analysis)
+
+summary(cube_aov)
+Tujey
+
+
+fs_anova = aov(Percent_Fine_Sand ~ category, data = effect_analysis)
+
 
 ## Control Point Influence
 
