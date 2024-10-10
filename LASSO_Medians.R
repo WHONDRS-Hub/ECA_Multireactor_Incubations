@@ -981,34 +981,184 @@ final_range
 ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Ranged.png", width = 10, height = 10)
 
 effect_analysis = effect_d50 %>% 
-  select(c(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, Effect_Size_Fe_mg_per_kg, d50)) %>% 
+  select(c(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, Effect_Size_Fe_mg_per_kg, d50, Percent_Fine_Sand,  Median_ATP_picomoles_per_g, Median_X01397_N_percent_per_mg, Median_X01395_C_percent_per_mg, Median_SpC_microsiemens_per_cm, median_Dry_Final_Gravimetric)) %>% 
   mutate(category = cut(d50, breaks = c(0, 0.053, 0.25, 2), 
                         labels = c("Clay/Silt", "Fine Sand", "Med/Coarse Sand"), 
                         include.lowest = T, right = F))
 
+## Non-Parametric ANOVA 
+# p-value is sig. 
+eff_kruskal = kruskal.test(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H ~ category, data = effect_analysis)
+
+eff_kruskal
+
+# Pairwise comparisons here
+#Clay/Silt vs. Fine sand - not sig. (0.45)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.13)
+#Fine sand vs. Med/Coarse sand - p = 0.000052
+eff_dunn = dunn_test(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H ~ category, 
+                     data = effect_analysis)
+
+# Try ANOVA but normalized
+cube_effect_analysis = effect_analysis %>% 
+  mutate(cube_Effect = cube_root(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  mutate(cube_FS = cube_root(Percent_Fine_Sand)) %>% 
+  mutate(cube_Fe_Effect = cube_root(Effect_Size_Fe_mg_per_kg)) %>% 
+  mutate(cube_Median_ATP = cube_root(Median_ATP_picomoles_per_g)) %>% 
+  mutate(cube_TN = cube_root(Median_X01397_N_percent_per_mg)) %>% 
+  mutate(cube_TOC = cube_root(Median_X01395_C_percent_per_mg)) %>% 
+  mutate(cube_Median_SpC = cube_root(Median_SpC_microsiemens_per_cm)) %>% 
+  mutate(cube_Final_Dry_Grav = cube_root(median_Dry_Final_Gravimetric))
+
+## Effect Size 
+cube_aov = aov(cube_Effect ~ category, data = cube_effect_analysis)
+summary(cube_aov)
+
+# Pairwise - same results 
+#Clay/Silt vs. Fine sand - not sig. (0.36)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.17)
+#Fine sand vs. Med/Coarse sand - p = 0.000007
+tukey_eff = TukeyHSD(cube_aov, "category")
+cld_eff = multcompLetters4(cube_aov, tukey_eff)
+cld_eff = as.data.frame.list(cld_eff$category)
+
+effect_analysis$cld_eff = cld_eff$Letters[match(effect_analysis$category, rownames(cld_eff))]
+
+
+## Fine Sand
+fs_aov= aov(cube_FS ~ category, data = cube_effect_analysis)
+summary(fs_aov)
+
+# Pairwise - same results 
+#Clay/Silt vs. Fine sand - (0.005)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.22)
+#Fine sand vs. Med/Coarse sand - p = 0.00000
+tukey_fs = TukeyHSD(fs_aov, "category")
+cld_fs = multcompLetters4(fs_aov, tukey_fs)
+cld_fs = as.data.frame.list(cld_fs$category)
+
+effect_analysis$cld_fs = cld_fs$Letters[match(effect_analysis$category, rownames(cld_fs))]
+
+## ATP
+atp_aov= aov(cube_Median_ATP ~ category, data = cube_effect_analysis)
+summary(atp_aov)
+
+# Pairwise 
+#Clay/Silt vs. Fine sand - (0.028)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.95)
+#Fine sand vs. Med/Coarse sand - p = 0.0003
+tukey_atp = TukeyHSD(atp_aov, "category")
+cld_atp = multcompLetters4(atp_aov, tukey_atp)
+cld_atp = as.data.frame.list(cld_atp$category)
+
+effect_analysis$cld_atp = cld_atp$Letters[match(effect_analysis$category, rownames(cld_atp))]
+
+## Effect Fe ( non-equal variances)
+fe_aov= aov(cube_Fe_Effect ~ category, data = cube_effect_analysis)
+summary(fe_aov)
+
+# Pairwise 
+#Clay/Silt vs. Fine sand - (0.47)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.95)
+#Fine sand vs. Med/Coarse sand - p = 0.03
+tukey_fe = TukeyHSD(fe_aov, "category")
+cld_fe = multcompLetters4(fe_aov, tukey_fe)
+cld_fe = as.data.frame.list(cld_fe$category)
+
+effect_analysis$cld_fe = cld_fe$Letters[match(effect_analysis$category, rownames(cld_fe))]
+
+## TN
+tn_aov= aov(cube_TN ~ category, data = cube_effect_analysis)
+summary(tn_aov)
+
+# Pairwise 
+#Clay/Silt vs. Fine sand - (0.84)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.11)
+#Fine sand vs. Med/Coarse sand - p = 0.06
+tukey_tn = TukeyHSD(tn_aov, "category")
+cld_tn = multcompLetters4(tn_aov, tukey_tn)
+cld_tn = as.data.frame.list(cld_tn$category)
+
+effect_analysis$cld_tn = cld_tn$Letters[match(effect_analysis$category, rownames(cld_tn))]
+
+## TOC (non-equal variances)
+toc_aov= aov(cube_TOC ~ category, data = cube_effect_analysis)
+summary(toc_aov)
+
+# Pairwise 
+#Clay/Silt vs. Fine sand - (0.88)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.004)
+#Fine sand vs. Med/Coarse sand - p = 0.00007
+tukey_toc = TukeyHSD(toc_aov, "category")
+cld_toc = multcompLetters4(toc_aov, tukey_toc)
+cld_toc = as.data.frame.list(cld_toc$category)
+
+effect_analysis$cld_toc = cld_toc$Letters[match(effect_analysis$category, rownames(cld_toc))]
+
+## SpC
+spc_aov= aov(cube_Median_SpC ~ category, data = cube_effect_analysis)
+summary(spc_aov)
+
+# Pairwise 
+#Clay/Silt vs. Fine sand - (0.36)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.06)
+#Fine sand vs. Med/Coarse sand - p = 0.38
+tukey_spc = TukeyHSD(spc_aov, "category")
+cld_spc = multcompLetters4(spc_aov, tukey_spc)
+cld_spc = as.data.frame.list(cld_spc$category)
+
+effect_analysis$cld_spc = cld_spc$Letters[match(effect_analysis$category, rownames(cld_spc))]
+
+## Dry Grav
+grav_aov= aov(cube_Final_Dry_Grav ~ category, data = cube_effect_analysis)
+summary(grav_aov)
+
+# Pairwise 
+#Clay/Silt vs. Fine sand - (0.6)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.1)
+#Fine sand vs. Med/Coarse sand - p = 0.2
+tukey_grav = TukeyHSD(grav_aov, "category")
+cld_grav = multcompLetters4(grav_aov, tukey_grav)
+cld_grav = as.data.frame.list(cld_grav$category)
+
+effect_analysis$cld_grav = cld_grav$Letters[match(effect_analysis$category, rownames(cld_grav))]
+
+
 d50_cat = ggplot(effect_analysis, aes(x = category, y = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, fill = category)) +
-  geom_boxplot()
+  geom_boxplot()+
+  geom_text(aes(label = cld_eff, y = 1500))
 
-fs_cat = ggplot(all_d50, aes(x = category, y = Percent_Fine_Sand,  fill = category)) +
-  geom_boxplot()
+fs_cat = ggplot(effect_analysis, aes(x = category, y = Percent_Fine_Sand,  fill = category)) +
+  geom_boxplot() +
+  geom_text(aes(label = cld_fs, y = 85))
 
-atp_cat = ggplot(all_d50, aes(x = category, y = ATP_picomoles_per_g,  fill = category)) +
-  geom_boxplot()
-
-fe_cat = ggplot(all_d50, aes(x = category, y = Fe_mg_per_kg,  fill = category)) +
-  geom_boxplot()
-
-tn_cat = ggplot(all_d50, aes(x = category, y = TN,  fill = category)) +
-  geom_boxplot()
-
-spc_cat = ggplot(all_d50, aes(x = category, y = SpC_microsiemens_per_cm,  fill = category)) +
-  geom_boxplot()
-
-toc_cat = ggplot(all_d50, aes(x = category, y = TOC,  fill = category)) +
-  geom_boxplot()
+atp_cat = ggplot(effect_analysis, aes(x = category, y = Median_ATP_picomoles_per_g,  fill = category)) +
+  geom_boxplot() +
+  geom_text(aes(label = cld_atp, y = 325))
 
 fe_diff_cat = ggplot(effect_analysis, aes(x = category, y = Effect_Size_Fe_mg_per_kg,  fill = category)) +
-  geom_boxplot()
+  geom_boxplot()+
+  geom_text(aes(label = cld_fe, y = 6))
+
+
+tn_cat = ggplot(effect_analysis, aes(x = category, y = Median_X01397_N_percent_per_mg,  fill = category)) +
+  geom_boxplot()+
+  geom_text(aes(label = cld_tn, y = 0.75))
+
+toc_cat = ggplot(effect_analysis, aes(x = category, y = Median_X01395_C_percent_per_mg,  fill = category)) +
+  geom_boxplot() +
+  geom_text(aes(label = cld_toc, y = 6))
+
+spc_cat = ggplot(effect_analysis, aes(x = category, y = Median_SpC_microsiemens_per_cm,  fill = category)) +
+  geom_boxplot() +
+  geom_text(aes(label = cld_spc, y = 1500))
+
+dry_grav_cat = ggplot(effect_analysis, aes(x = category, y = median_Dry_Final_Gravimetric, fill = category)) +
+  geom_boxplot() +
+  geom_text(aes(label = cld_grav, y = 2))
+
+
+
 
 dry_grav_cat = all_d50 %>% 
   filter(Treat == "Dry") %>% 
@@ -1025,7 +1175,7 @@ all_boxes_row = ggarrange(d50_cat, fs_cat, atp_cat, fe_cat, tn_cat, nrow = 5)
 
 ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Rows.png", width = 10, height = 20)
 
-all_boxes_col = ggarrange(d50_cat, fs_cat, atp_cat, fe_cat, fe_diff_cat, tn_cat, spc_cat, toc_cat, dry_grav_cat, grav_by_ssa,  ncol = 10)
+all_boxes_col = ggarrange(d50_cat, fs_cat, atp_cat, fe_cat, fe_diff_cat, tn_cat, spc_cat, toc_cat, dry_grav_cat, ncol = 5, nrow = 2)
 
 ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Cols.png", width = 40, height = 5)
 
@@ -1034,22 +1184,6 @@ final_range = annotate_figure(range_box, bottom = text_grob("D50", size = 12, vj
 
 final_range
 
-eff_kruskal = kruskal.test(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H ~ category, data = effect_analysis)
-
-summary(eff_kruskal)
-eff_dunn = dunn_test(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H ~ category, 
-                     data = effect_analysis)
-
-cube_effect_analysis = effect_analysis %>% 
-  mutate(cube_Effect = cube_root(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H))
-
-cube_aov = aov(cube_Effect ~ category, data = cube_effect_analysis)
-
-summary(cube_aov)
-Tujey
-
-
-fs_anova = aov(Percent_Fine_Sand ~ category, data = effect_analysis)
 
 
 ## Control Point Influence
