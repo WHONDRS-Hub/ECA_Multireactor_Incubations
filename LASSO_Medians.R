@@ -321,7 +321,8 @@ cube_effect = effect_data %>%
   mutate(across(where(is.numeric), cube_root)) %>% # cube root transform data
   rename_with(where(is.numeric), .fn = ~ paste0("cube_", .x)) %>% 
   column_to_rownames("Sample_Name") %>%
-  filter(cube_Effect_Size_Fe_mg_per_kg > -1) %>%  # remove Fe outlier for analysis 
+  mutate(cube_Effect_Size_Fe_mg_per_kg = ifelse(cube_Effect_Size_Fe_mg_per_kg < -1, NA, cube_Effect_Size_Fe_mg_per_kg)) %>% 
+  #filter(cube_Effect_Size_Fe_mg_per_kg > -1) %>%  # remove Fe outlier for analysis 
   select(-contains("per_L")) %>% 
   relocate(cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, .before = cube_Effect_Size_SpC_microsiemens_per_cm)
 
@@ -351,7 +352,7 @@ fe_cube_effect = effect_data %>%
 
 scale_cube_effect = as.data.frame(scale(cube_effect, center = T, scale = T))
 
-scale_cube_effect_pearson <- cor(scale_cube_effect, method = "pearson")
+scale_cube_effect_pearson <- cor(scale_cube_effect, method = "pearson", use = "complete.obs")
 
 if (print.images == T){
   
@@ -543,52 +544,63 @@ ds_lasso_df = ds_lasso_df %>%
 
 ds_lasso_df$y = "LASSO"
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fine_Sand_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+cube_effect = cube_effect %>% 
+  rownames_to_column("Sample_Name") %>% 
+  left_join(d50) %>% 
+  mutate(category = cut(d50, breaks = c(0, 0.053, 0.25, 2), 
+                        labels = c("Clay/Silt", "Fine Sand", "Med/Coarse Sand"), 
+                        include.lowest = T, right = F)) %>%
+  column_to_rownames("Sample_Name")
 
-ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Percent_Fine_Sand)) +
-  geom_point() +
+#png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fine_Sand_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+
+fs = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Percent_Fine_Sand)) +
+  geom_point(aes(color = category)) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
   stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
   stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE) + 
   ylab("Effect Size Respiration Rate (mg/kg)") +
-  xlab("Fine Sand (%)")
+  xlab("Fine Sand (%)") + 
+  theme(legend.position  = "none")
 
-dev.off()
+#dev.off()
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_ATP_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+#png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_ATP_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
-ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_ATP_picomoles_per_g)) +
-  geom_point() +
+atp = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_ATP_picomoles_per_g)) +
+  geom_point(aes(color = category)) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
   stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
   stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE) + 
   ylab("Effect Size Respiration Rate (mg/kg)") +
-  xlab("Median ATP (pmol/g)")
+  xlab("Median ATP (pmol/g)")+ 
+  theme(legend.position  = "none")
 
-dev.off()
+#dev.off()
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_TOC_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+#png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_TOC_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
-ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_X01395_C_percent_per_mg)) +
-  geom_point() +
+toc = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_X01395_C_percent_per_mg)) +
+  geom_point(aes(color = category)) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
   stat_cor(data = cube_effect, label.x = 0.55, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
   stat_cor(data = cube_effect, label.x = 0.55, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE) + 
   ylab("Effect Size Respiration Rate (mg/kg)") +
-  xlab("Median TOC (%)")
+  xlab("Median TOC (%)")+ 
+  theme(legend.position  = "none")
 
-dev.off()
+#dev.off()
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_TN_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+#png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_TN_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
-ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_X01397_N_percent_per_mg)) +
-  geom_point() +
+tn = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_X01397_N_percent_per_mg)) +
+  geom_point(aes(color = category)) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
   stat_cor(data = cube_effect, label.x = 0.225, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
@@ -597,26 +609,27 @@ ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H
   ylab("Effect Size Respiration Rate (mg/kg)") +
   xlab("Median TN (%)")
 
-dev.off()
+#dev.off()
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Median_SpC_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+#png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Median_SpC_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
-ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_SpC_microsiemens_per_cm)) +
-  geom_point() +
+spc = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_SpC_microsiemens_per_cm)) +
+  geom_point(aes(color = category)) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
   stat_cor(data = cube_effect, label.x = 2.5, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
   stat_cor(data = cube_effect, label.x = 2.5, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE)+ 
   ylab("Effect Size Respiration Rate (mg/kg)") +
-  xlab("Median SpC (\u03BCS/cm)")
+  xlab("Median SpC (\u03BCS/cm)")+ 
+  theme(legend.position  = "none")
 
-dev.off()
+#dev.off()
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Effect_Fe_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
+#png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Effect_Fe_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
-ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Effect_Size_Fe_mg_per_kg)) +
-  geom_point() +
+fe = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Effect_Size_Fe_mg_per_kg)) +
+  geom_point(aes(color = category)) +
   geom_point(fe_cube_effect, mapping = aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Effect_Size_Fe_mg_per_kg), color = "red") +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
@@ -624,9 +637,10 @@ ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H
   stat_cor(data = cube_effect, label.x = -2.5, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE)+ 
   ylab("Effect Size Respiration Rate (mg/kg)") +
-  xlab("Effect Size Fe (II) (mg/kg)")
+  xlab("Effect Size Fe (II) (mg/kg)")+ 
+  theme(legend.position  = "none")
 
-dev.off()
+#dev.off()
 
 ## Combine Heat Map
 
@@ -661,9 +675,9 @@ pearson_df = lasso_pear_df %>%
   filter(type == "Pearson")
 
 
-png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Combined_Heat_Matrix.png"), width = 12, height = 4, units = "in", res = 300)
+#png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Combined_Heat_Matrix.png"), width = 12, height = 4, units = "in", res = 300)
 
- ggplot() +
+ combined_matrix = ggplot() +
   geom_tile(pearson_df, fill = "white", color = "black", mapping = aes(variable, type)) +
   geom_text(pearson_df, mapping = aes(x = variable, y = type, label = round(Coefficients, 2), color = Coefficients), size = 3, fontface = "bold") + 
   scale_color_gradientn(colors = color_palette_p, 
@@ -684,11 +698,15 @@ png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Fi
   #axis.text.y = element_blank()) +
   scale_x_discrete(position = "top")
 
-dev.off()
+#dev.off()
 
 ## Merge Matrices + Scatter Plots
 
-combine_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-19_Combined_Heat_Matrix.png")
+col_scatter = ggarrange(fs, atp, tn, fe, spc, toc, ncol = 3, nrow = 2, common.legend =  T, legend = "right",  labels = c("A", "B", "C", "D", "E", "F", "G"))
+
+ggsave("./Physical_Manuscript_Figures/Color_Category_Scatter_Plots.png", width = 30, height = 20)
+
+combine_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Archive/2024-09-19_Combined_Heat_Matrix.png")
 
 combine_label_image = image_annotate(combine_hm_image, "A", size = 100, location = "+25+50", color = "black")
 
@@ -984,9 +1002,13 @@ effect_analysis = effect_d50 %>%
   select(c(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, Effect_Size_Fe_mg_per_kg, d50, Percent_Fine_Sand,  Median_ATP_picomoles_per_g, Median_X01397_N_percent_per_mg, Median_X01395_C_percent_per_mg, Median_SpC_microsiemens_per_cm, median_Dry_Final_Gravimetric)) %>% 
   mutate(category = cut(d50, breaks = c(0, 0.053, 0.25, 2), 
                         labels = c("Clay/Silt", "Fine Sand", "Med/Coarse Sand"), 
-                        include.lowest = T, right = F))
+                        include.lowest = T, right = F)) %>% 
+  mutate(Effect_Size_Fe_mg_per_kg = ifelse(Effect_Size_Fe_mg_per_kg < -10, NA, Effect_Size_Fe_mg_per_kg))
+
 
 ## Non-Parametric ANOVA 
+
+## Effect Size
 # p-value is sig. 
 eff_kruskal = kruskal.test(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H ~ category, data = effect_analysis)
 
@@ -996,8 +1018,184 @@ eff_kruskal
 #Clay/Silt vs. Fine sand - not sig. (0.45)
 #Clay/Silt vs. Med/Coarse sand - not sig. (0.13)
 #Fine sand vs. Med/Coarse sand - p = 0.000052
-eff_dunn = dunn_test(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H ~ category, 
-                     data = effect_analysis)
+eff_dunn = dunnTest(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H ~ category, data = effect_analysis)
+eff_dunn = eff_dunn$res
+
+eff_cld_dunn = cldList(comparison = eff_dunn$Comparison, p.value = eff_dunn$P.adj, 
+                       threshold = 0.05)[1:2]
+
+eff_cld_dunn = eff_cld_dunn %>% 
+  mutate(Group = ifelse(Group == "FineSand", "Fine Sand", ifelse(Group == "Med/CoarseSand", "Med/Coarse Sand", "Clay/Silt"))) %>% 
+  column_to_rownames("Group")
+
+effect_analysis$cld_eff_dunn = eff_cld_dunn$Letter[match(effect_analysis$category, rownames(eff_cld_dunn))]
+
+## Fine Sand
+fs_kruskal = kruskal.test(Percent_Fine_Sand ~ category, data = effect_analysis)
+
+fs_kruskal
+
+# Pairwise comparisons here
+#Clay/Silt vs. Fine sand - not sig. (0.19)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.19)
+#Fine sand vs. Med/Coarse sand - sig (0.000006)
+fs_dunn = dunnTest(Percent_Fine_Sand ~ category, data = effect_analysis)
+fs_dunn
+
+fs_dunn = fs_dunn$res
+
+fs_cld_dunn = cldList(comparison = fs_dunn$Comparison, p.value = fs_dunn$P.adj, 
+                       threshold = 0.05)[1:2]
+
+fs_cld_dunn = fs_cld_dunn %>% 
+  mutate(Group = ifelse(Group == "FineSand", "Fine Sand", ifelse(Group == "Med/CoarseSand", "Med/Coarse Sand", "Clay/Silt"))) %>% 
+  column_to_rownames("Group")
+
+effect_analysis$cld_fs_dunn = fs_cld_dunn$Letter[match(effect_analysis$category, rownames(fs_cld_dunn))]
+
+
+## Median ATP
+atp_kruskal = kruskal.test(Median_ATP_picomoles_per_g ~ category, data = effect_analysis)
+
+atp_kruskal
+
+# Pairwise comparisons here
+#Clay/Silt vs. Fine sand - sig. (0.0481)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.827)
+#Fine sand vs. Med/Coarse sand - sig (0.001)
+atp_dunn = dunnTest(Median_ATP_picomoles_per_g ~ category, data = effect_analysis)
+atp_dunn
+
+atp_dunn = atp_dunn$res
+
+atp_cld_dunn = cldList(comparison = atp_dunn$Comparison, p.value = atp_dunn$P.adj, 
+                      threshold = 0.05)[1:2]
+
+atp_cld_dunn = atp_cld_dunn %>% 
+  mutate(Group = ifelse(Group == "FineSand", "Fine Sand", ifelse(Group == "Med/CoarseSand", "Med/Coarse Sand", "Clay/Silt"))) %>% 
+  column_to_rownames("Group")
+
+effect_analysis$cld_atp_dunn = atp_cld_dunn$Letter[match(effect_analysis$category, rownames(atp_cld_dunn))]
+
+
+## Effect Fe
+fe_kruskal = kruskal.test(Effect_Size_Fe_mg_per_kg ~ category, data = effect_analysis)
+
+fe_kruskal
+
+# Pairwise comparisons here
+#Clay/Silt vs. Fine sand - sig. (0.265)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.007)
+#Fine sand vs. Med/Coarse sand - sig (0.004)
+fe_dunn = dunnTest(Effect_Size_Fe_mg_per_kg ~ category, data = effect_analysis)
+fe_dunn
+
+fe_dunn = fe_dunn$res
+
+fe_cld_dunn = cldList(comparison = fe_dunn$Comparison, p.value = fe_dunn$P.adj, 
+                       threshold = 0.05)[1:2]
+
+fe_cld_dunn = fe_cld_dunn %>% 
+  mutate(Group = ifelse(Group == "FineSand", "Fine Sand", ifelse(Group == "Med/CoarseSand", "Med/Coarse Sand", "Clay/Silt"))) %>% 
+  column_to_rownames("Group")
+
+effect_analysis$cld_fe_dunn = fe_cld_dunn$Letter[match(effect_analysis$category, rownames(fe_cld_dunn))]
+
+
+## TN
+tn_kruskal = kruskal.test(Median_X01397_N_percent_per_mg ~ category, data = effect_analysis)
+
+tn_kruskal
+
+# Pairwise comparisons here
+#Clay/Silt vs. Fine sand - sig. (0.249)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.08)
+#Fine sand vs. Med/Coarse sand - sig (0.236)
+tn_dunn = dunnTest(Median_X01397_N_percent_per_mg ~ category, data = effect_analysis)
+tn_dunn
+
+tn_dunn = tn_dunn$res
+
+tn_cld_dunn = cldList(comparison = tn_dunn$Comparison, p.value = tn_dunn$P.adj, 
+                      threshold = 0.05)[1:2]
+
+tn_cld_dunn = tn_cld_dunn %>% 
+  mutate(Group = ifelse(Group == "FineSand", "Fine Sand", ifelse(Group == "Med/CoarseSand", "Med/Coarse Sand", "Clay/Silt"))) %>% 
+  column_to_rownames("Group")
+
+effect_analysis$cld_tn_dunn = tn_cld_dunn$Letter[match(effect_analysis$category, rownames(tn_cld_dunn))]
+
+## TOC
+toc_kruskal = kruskal.test(Median_X01395_C_percent_per_mg ~ category, data = effect_analysis)
+
+toc_kruskal
+
+# Pairwise comparisons here
+#Clay/Silt vs. Fine sand - sig. (0.331)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.0035)
+#Fine sand vs. Med/Coarse sand - sig (0.00182)
+toc_dunn = dunnTest(Median_X01395_C_percent_per_mg ~ category, data = effect_analysis)
+toc_dunn
+
+toc_dunn = toc_dunn$res
+
+toc_cld_dunn = cldList(comparison = toc_dunn$Comparison, p.value = toc_dunn$P.adj, 
+                      threshold = 0.05)[1:2]
+
+toc_cld_dunn = toc_cld_dunn %>% 
+  mutate(Group = ifelse(Group == "FineSand", "Fine Sand", ifelse(Group == "Med/CoarseSand", "Med/Coarse Sand", "Clay/Silt"))) %>% 
+  column_to_rownames("Group")
+
+effect_analysis$cld_toc_dunn = toc_cld_dunn$Letter[match(effect_analysis$category, rownames(toc_cld_dunn))]
+
+## SpC
+spc_kruskal = kruskal.test(Median_SpC_microsiemens_per_cm ~ category, data = effect_analysis)
+
+spc_kruskal
+
+# Pairwise comparisons here
+#Clay/Silt vs. Fine sand - sig. (0.245)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.0469)
+#Fine sand vs. Med/Coarse sand - sig (0.245)
+spc_dunn = dunnTest(Median_SpC_microsiemens_per_cm ~ category, data = effect_analysis)
+spc_dunn
+
+
+spc_dunn = spc_dunn$res
+
+spc_cld_dunn = cldList(comparison = spc_dunn$Comparison, p.value = spc_dunn$P.adj, 
+                       threshold = 0.05)[1:2]
+
+spc_cld_dunn = spc_cld_dunn %>% 
+  mutate(Group = ifelse(Group == "FineSand", "Fine Sand", ifelse(Group == "Med/CoarseSand", "Med/Coarse Sand", "Clay/Silt"))) %>% 
+  column_to_rownames("Group")
+
+effect_analysis$cld_spc_dunn = spc_cld_dunn$Letter[match(effect_analysis$category, rownames(spc_cld_dunn))]
+
+## Final Dry Grav
+grav_kruskal = kruskal.test(median_Dry_Final_Gravimetric ~ category, data = effect_analysis)
+
+grav_kruskal
+
+# Pairwise comparisons here
+#Clay/Silt vs. Fine sand - sig. (0.269)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.0820)
+#Fine sand vs. Med/Coarse sand - sig (0.202)
+grav_dunn = dunnTest(median_Dry_Final_Gravimetric ~ category, data = effect_analysis)
+
+grav_dunn
+
+grav_dunn = grav_dunn$res
+
+grav_cld_dunn = cldList(comparison = grav_dunn$Comparison, p.value = grav_dunn$P.adj, 
+                       threshold = 0.05)[1:2]
+
+grav_cld_dunn = grav_cld_dunn %>% 
+  mutate(Group = ifelse(Group == "FineSand", "Fine Sand", ifelse(Group == "Med/CoarseSand", "Med/Coarse Sand", "Clay/Silt"))) %>% 
+  column_to_rownames("Group")
+
+effect_analysis$cld_grav_dunn = grav_cld_dunn$Letter[match(effect_analysis$category, rownames(grav_cld_dunn))]
+
 
 # Try ANOVA but normalized
 cube_effect_analysis = effect_analysis %>% 
@@ -1053,14 +1251,18 @@ cld_atp = as.data.frame.list(cld_atp$category)
 
 effect_analysis$cld_atp = cld_atp$Letters[match(effect_analysis$category, rownames(cld_atp))]
 
-## Effect Fe ( non-equal variances)
+## Effect Fe 
 fe_aov= aov(cube_Fe_Effect ~ category, data = cube_effect_analysis)
 summary(fe_aov)
 
+#check variance
+res = bartlett.test(cube_Fe_Effect ~ category, data = cube_effect_analysis)
+res
+
 # Pairwise 
-#Clay/Silt vs. Fine sand - (0.47)
-#Clay/Silt vs. Med/Coarse sand - not sig. (0.95)
-#Fine sand vs. Med/Coarse sand - p = 0.03
+#Clay/Silt vs. Fine sand - (0.18)
+#Clay/Silt vs. Med/Coarse sand - not sig. (0.0008)
+#Fine sand vs. Med/Coarse sand - p = 0.0014
 tukey_fe = TukeyHSD(fe_aov, "category")
 cld_fe = multcompLetters4(fe_aov, tukey_fe)
 cld_fe = as.data.frame.list(cld_fe$category)
@@ -1123,7 +1325,54 @@ cld_grav = as.data.frame.list(cld_grav$category)
 
 effect_analysis$cld_grav = cld_grav$Letters[match(effect_analysis$category, rownames(cld_grav))]
 
+## Non-Parametric Boxplots
 
+d50_non = ggplot(effect_analysis, aes(x = category, y = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, fill = category)) +
+  geom_boxplot()+
+  geom_text(aes(label = cld_eff_dunn, y = 1500))
+
+fs_non = ggplot(effect_analysis, aes(x = category, y = Percent_Fine_Sand,  fill = category)) +
+  geom_boxplot() +
+  geom_text(aes(label = cld_fs_dunn, y = 85))
+
+atp_non = ggplot(effect_analysis, aes(x = category, y = Median_ATP_picomoles_per_g,  fill = category)) +
+  geom_boxplot() +
+  geom_text(aes(label = cld_atp_dunn, y = 325))
+
+fe_diff_non = ggplot(effect_analysis, aes(x = category, y = Effect_Size_Fe_mg_per_kg,  fill = category)) +
+  geom_boxplot()+
+  geom_text(aes(label = cld_fe_dunn, y = 6))
+
+
+tn_non = ggplot(effect_analysis, aes(x = category, y = Median_X01397_N_percent_per_mg,  fill = category)) +
+  geom_boxplot()+
+  geom_text(aes(label = cld_tn_dunn, y = 0.75))
+
+toc_non = ggplot(effect_analysis, aes(x = category, y = Median_X01395_C_percent_per_mg,  fill = category)) +
+  geom_boxplot() +
+  geom_text(aes(label = cld_toc_dunn, y = 6))
+
+spc_non = ggplot(effect_analysis, aes(x = category, y = Median_SpC_microsiemens_per_cm,  fill = category)) +
+  geom_boxplot() +
+  geom_text(aes(label = cld_spc_dunn, y = 1500))
+
+dry_grav_non = ggplot(effect_analysis, aes(x = category, y = median_Dry_Final_Gravimetric, fill = category)) +
+  geom_boxplot() +
+  geom_text(aes(label = cld_grav_dunn, y = 2))
+
+
+dry_grav_cat = all_d50 %>% 
+  filter(Treat == "Dry") %>% 
+  ggplot(aes(x = category, y = Final_Grav, fill = category)) +
+  geom_boxplot()
+
+all_boxes_col = ggarrange(d50_non, fs_non, atp_non, fe_diff_non, tn_non, spc_non, toc_non, dry_grav_non, ncol = 5, nrow = 2)
+
+ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Cols_Non_Parametric.png", width = 40, height = 10)
+
+
+
+## Parametric Boxplots
 d50_cat = ggplot(effect_analysis, aes(x = category, y = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, fill = category)) +
   geom_boxplot()+
   geom_text(aes(label = cld_eff, y = 1500))
@@ -1158,8 +1407,6 @@ dry_grav_cat = ggplot(effect_analysis, aes(x = category, y = median_Dry_Final_Gr
   geom_text(aes(label = cld_grav, y = 2))
 
 
-
-
 dry_grav_cat = all_d50 %>% 
   filter(Treat == "Dry") %>% 
   ggplot(aes(x = category, y = Final_Grav, fill = category)) +
@@ -1173,18 +1420,16 @@ grav_by_ssa = all_d50 %>%
 
 all_boxes_row = ggarrange(d50_cat, fs_cat, atp_cat, fe_cat, tn_cat, nrow = 5)
 
-ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Rows.png", width = 10, height = 20)
+ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Rows.png", width = 20, height = 20)
 
-all_boxes_col = ggarrange(d50_cat, fs_cat, atp_cat, fe_cat, fe_diff_cat, tn_cat, spc_cat, toc_cat, dry_grav_cat, ncol = 5, nrow = 2)
+all_boxes_col = ggarrange(d50_cat, fs_cat, atp_cat, fe_diff_cat, tn_cat, spc_cat, toc_cat, dry_grav_cat, ncol = 5, nrow = 2)
 
-ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Cols.png", width = 40, height = 5)
+ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Cols_Parametric.png", width = 40, height = 10)
 
 
 final_range = annotate_figure(range_box, bottom = text_grob("D50", size = 12, vjust = 0.5))
 
 final_range
-
-
 
 ## Control Point Influence
 
