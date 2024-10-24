@@ -268,7 +268,7 @@ final_wet_dry <- wet_dry %>%
 
 ## Export File (all dates)
 
-write.csv(final_wet_dry,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/",study.code,"_Drying_Masses_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)  
+write.csv(final_wet_dry,paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/",study.code,"_Drying_Masses_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)  
 
 ggplot(final_wet_dry, aes(x = Dry_Sediment_Mass_g))+
   geom_histogram()
@@ -325,4 +325,4 @@ water_mass <- water_mass %>%
 
 # Export file
 
-write.csv(water_mass,paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/",study.code,"_Drying_Masses_Summary_ReadyForBoye_on_",Sys.Date(),".csv"), row.names = F)
+write.csv(water_mass,paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/",study.code,"_Drying_Masses_Summary_ReadyForBoye_on_",Sys.Date(),".csv"), row.names = F)
