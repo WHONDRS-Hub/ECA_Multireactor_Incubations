@@ -7,10 +7,10 @@ rm(list=ls());graphics.off()
 
 # Set user inputs
 pnnl.user = 'laan208'
-study.code = 'EC'
+study.code = 'EL'
 
 # Set working directory to data file
-setwd(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/"))
+setwd(paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/"))
 
 #All incubation pH, SpC, temp
 chemistry <- paste0("Optode multi reactor/Optode_multi_reactor_incubation/")
@@ -34,6 +34,8 @@ import_data = function(chemistry){
 
 map = import_data(chemistry)
 
+
+if (study.code == "EC") {
 # Add extra 0 to site name in mapping files and remove blanks
 all_chem <- map %>% 
   dplyr::select(c(Sample_ID, SpC, Temp, pH, Notes)) %>% 
@@ -53,6 +55,7 @@ for (i in 1:nrow(all_chem)){
     all_chem$kit[i] = all_chem$kit[i]
   }
   
+}
 }
 
 
@@ -78,6 +81,6 @@ chem_final <- all_chem_corr %>%
   dplyr::select(c(Sample_Name, Material, SpC, Temp, pH, Methods_Deviation))
 
 # Export final file
-write.csv(chem_final, file.path(chemistry, "SpC_pH_Temp_Processed_Data/EV_SpC_pH_Temp_ReadyForBoye_04-19-2024.csv"), row.names = F)
+write.csv(chem_final, file.path(paste0(chemistry,"SpC_pH_Temp_Processed_Data/",study.code,"_SpC_pH_Temp_ReadyForBoye_",Sys.Date(),".csv")), row.names = F)
 
 
