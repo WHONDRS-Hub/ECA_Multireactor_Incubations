@@ -35,13 +35,13 @@ import_data = function(chemistry){
 map = import_data(chemistry)
 
 
-if (study.code == "EC") {
+
 # Add extra 0 to site name in mapping files and remove blanks
 all_chem <- map %>% 
   dplyr::select(c(Sample_ID, SpC, Temp, pH, Notes)) %>% 
   filter(!grepl("Blank", Sample_ID)) %>% 
   tidyr::separate(Sample_ID, into = c("EC", "kit", "rep"), sep = "_", remove = FALSE)
-
+if (study.code == "EC") {
 for (i in 1:nrow(all_chem)){
   
   if (str_count(all_chem$kit[i], "[0-9]") <= 2){
