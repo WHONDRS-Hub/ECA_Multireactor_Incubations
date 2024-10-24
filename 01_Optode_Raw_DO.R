@@ -10,10 +10,11 @@ rm(list=ls());graphics.off()
 ## INPUTS ####
 pnnl.user = 'laan208'
 
-study.code = 'EV_'
+study.code = 'EL_'
   #EC_
   #EV_
   #RS_
+  #EL_
 
 if (study.code == "EC_") {
   
@@ -55,6 +56,20 @@ if (study.code == "EC_") {
   
   ## Where to put Final Raw DO file
   output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/Cincinnati_RS/Optodes/Rate_Processing/Raw_DO_by_Min")
+  
+} else if (study.code == "EL_") {
+  
+  fast.rates.in = 'el_fast_rate_calculations.xlsx'
+  
+  ## For .txt files for image times
+  input.path = ("Y:/Optode_multi_reactor/Optode_multi_reactor_incubation/")
+  
+  ## For mapping files and result .csv's
+  map.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/Optode multi reactor/Optode_multi_reactor_incubation/")
+  
+  ## Where to put Final Raw DO file
+  output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/")
+  
   
 }
 
@@ -105,7 +120,7 @@ data = import_data(map.path)
 
 ##### Clean Data ####
 
-if (grepl("EC|EV", study.code)) {
+if (grepl("EC|EV|EL", study.code)) {
   # Put in long form
 data_long = 
   data %>% 
@@ -146,7 +161,7 @@ all.map$`Time on` <- as.POSIXct(all.map$`Time on`, format = "%Y/%m/%d %H:%M:%%S"
 
 all.map$`Time on` <- format(all.map$`Time on`, format = "%H:%M")
 
-if (grepl("EC|EV", study.code)) {
+if (grepl("EC|EV|EL", study.code)) {
 
 all.map.clean = all.map %>% 
   rename("source_file" = "map.file[i]") %>% 
