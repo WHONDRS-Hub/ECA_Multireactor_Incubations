@@ -9,26 +9,42 @@ rm(list=ls());graphics.off()
 
 ## Inputs for Data ####
 pnnl.user = 'laan208'
-study.code = 'EC'
-#date = '2024-04-19' #Date of Moisture Tin File, use for analyzing data before publishing
-year = '2022' # Year of ECA incubation
+study.code = 'EL' #EC, EV, MEL
+date = '2024-10-24' #Date of Moisture Tin File, use for analyzing data before publishing
+year = '2024' # Year of ECA incubation
   
 
 ## Pull in Data ####
 
 ## Moisture tin data already summarized
+if (study.code == "EC"){
 dry_wt <- read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/v3_CM_SSS_Sediment_Sample_Data_Summary.csv", skip = 2) %>% 
   slice(-1:-11, -495) %>% 
-  select(c(Sample_Name, Mean_62948_Gravimetric_Moisture_g_per_g))
+  select(c(Sample_Name, Mean_62948_Gravimetric_Moisture_g_per_g)) 
+} else if (study.code == "EV"){
+  
+  dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/MOI/03_ProcessedData/",study.code,"_MOI_ReadyForBoye_", date,".csv"))
+    
+} else if (study.code == "EL"){
+  
+  dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/MOI/03_ProcessedData/M",study.code,"_MOI_ReadyForBoye_", date,".csv")) %>% 
+    filter(!grepl("removed outlier", flag)) %>% 
+    separate(Sample_Name, c("MEL", "Site", "MOI"), sep = "_") %>% 
+    separate(MOI, c("MOI", "Rep"), sep = "-") %>% 
+    group_by(Site, MOI) %>% 
+    mutate(Mean_Gravimetric_Moisture = mean(Gravimetric_Moisture))
+}
 
 ## 21 day incubation data 
-moisture <- read_xlsx(paste0("C:/Users/",pnnl.user,"/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/01_RawData/",year,"_Data_Raw_INC_ECA_",study.code,".xlsx"))
+moisture <- read_xlsx(paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/01_RawData/",year,"_Data_Raw_INC_ECA_",study.code,".xlsx"))
 
 ## Clean Data ####
 
 ## Moisture tins: 
 
 # Rearrange gravimetric moisture to calculate average gram of wet sediment (water mass + 1 g dry sediment mass) divided by average gram of dry sediment per Site. This makes it possible to calculate dry sediment mass and water mass from wet sediment mass
+
+if (study.code == "EC") {
 
 dry_wt_averages <- dry_wt %>% 
   filter(grepl("CM", Sample_Name)) %>% 
@@ -37,6 +53,19 @@ dry_wt_averages <- dry_wt %>%
   mutate(Sample_ID = str_replace(Sample_Name, "_Sediment", "")) %>% 
   mutate(Sample_ID = str_replace(Sample_ID, "CM", "EC")) %>% 
   select(-c(Sample_Name))
+
+} else if (study.code == "EL") {
+  
+  dry_wt_averages <- dry_wt %>% 
+    filter(Gravimetric_Moisture != -9999) %>% 
+    mutate(average_wet_g_by_dry_g = 1 + as.numeric((Mean_Gravimetric_Moisture))) %>% 
+    mutate(MOI = str_replace(MOI, "MS", "IN")) %>% 
+    mutate(MEL = str_replace(MEL, "MEL", "EL")) %>% 
+    unite(Sample_ID, c(MEL, Site, MOI), sep = "_") %>% 
+    distinct(Sample_ID, .keep_all = T) %>% 
+    select(c(Sample_ID,average_wet_g_by_dry_g, Mean_Gravimetric_Moisture))
+  
+}
   
 
 ## 21 Day Incubation
@@ -57,6 +86,7 @@ all_moisture = moisture %>%
   separate(Sample_Name, into = c("EC", "Site", "INC"), sep = "_", remove = FALSE)
 
 # Add "0" to start of sample kit names that don't have it for EC samples
+if (study.code == "EC") {
 
 for (i in 1:nrow(all_moisture)){
   
@@ -71,12 +101,23 @@ for (i in 1:nrow(all_moisture)){
     all_moisture$Site[i] = all_moisture$Site[i]
   }
   
-}
+}}
+
+if (study.code == "EC"){
 
 merged <- all_moisture %>% 
   unite(Sample_ID, c("EC", "Site")) %>% 
   unite(Sample_Name, c("Sample_ID", "INC"), remove = FALSE) %>% 
   left_join(dry_wt_averages, by = "Sample_ID") 
+
+} else if (study.code == "EL") {
+    
+  merged <- all_moisture %>% 
+    separate(INC, c("INC", "Rep")) %>% 
+    unite(Sample_ID, c("EC", "Site", "INC"), remove = F) %>% 
+    left_join(dry_wt_averages, by = "Sample_ID") 
+    
+  }
 
 ## All Samples - wet and dry (all dates) ####
 
@@ -222,6 +263,8 @@ final_wet_dry <- wet_dry %>%
   mutate(Added_Water_Mass_g= if_else(Added_Water_Mass_g == 0, -9999, Added_Water_Mass_g)) %>% 
   mutate(Dry_Sediment_Mass_g = if_else(is.na(Dry_Sediment_Mass_g), -9999, Dry_Sediment_Mass_g)) %>% 
   mutate(Total_Water_Mass_g = if_else(is.na(Total_Water_Mass_g), -9999, Total_Water_Mass_g)) 
+
+
 
 ## Export File (all dates)
 
