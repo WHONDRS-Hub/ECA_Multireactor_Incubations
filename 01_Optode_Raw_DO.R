@@ -378,7 +378,7 @@ mutate(Methods_Deviation = if_else(grepl("EC_022_INC-D5|EC_044_INC-D4|EC_044_INC
       mutate(DO_mg_per_L_corr = if_else(DO_mg_per_L_corr <= 0, paste0("DO_Below_", LOD_mg_L,"_mg_per_L_LOD|Negative_Value_Raw_Not_Corrected|-9999_mg_per_L_Final_Corrected"), DO_mg_per_L_corr)) %>% 
       mutate(DO_mg_per_L_corr = if_else(DO_mg_per_L_corr <= LOD_mg_L, paste0("DO_Below_", LOD_mg_L,"_mg_per_L_LOD|", DO_mg_per_L_corr, "_mg_per_L_Raw_Not_Corrected|", DO_mg_per_L_corr,"mg_per_L_Final_Corrected"), DO_mg_per_L_corr)) %>% 
       mutate(Methods_Deviation = if_else(grepl("Raw", DO_mg_per_L_corr), if_else(Methods_Deviation == "N/A", "DTL_003", paste0(Methods_Deviation, "; DTL_003")), Methods_Deviation)) %>% 
-      select(c(Sample_Name, DO_mg_per_L_corr, Elapsed_Minute, Methods_Deviation)) %>% 
+      dplyr::select(c(Sample_Name, DO_mg_per_L_corr, Elapsed_Minute, Methods_Deviation)) %>% 
       rename(DO_mg_per_L = DO_mg_per_L_corr)
     
   } 
