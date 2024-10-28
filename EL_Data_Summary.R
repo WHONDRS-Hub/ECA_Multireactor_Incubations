@@ -1,6 +1,8 @@
 ## ECA Data Package Summary File
 # 5/29/2024 M.Laan
 
+#pull out 12D-H5, 12L-W5, 16L-D2
+
 library(tidyverse); library(readxl)
 
 rm(list=ls());graphics.off()
@@ -110,6 +112,13 @@ ggplot(effect_agg, aes(x = perc, y = Effect_Size_Respiration_Rate_mg_DO_per_L_pe
 ## PCA? ####
 
 effect_agg_wide = left_join(agg, effect_data, by = "Sample_Name")
+
+effect_real = effect_agg_wide %>% 
+  filter(Effect_Size_Respiration_Rate_mg_DO_per_L_per_H < 100)
+
+ggplot(effect_real, aes(x = reorder(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_L_per_H), y = Effect_Size_Respiration_Rate_mg_DO_per_L_per_H)) +
+  geom_col()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
 
 
 effect_agg_pca = effect_agg_wide %>% 
