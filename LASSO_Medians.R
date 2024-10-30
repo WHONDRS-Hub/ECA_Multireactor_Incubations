@@ -2,14 +2,7 @@
 
 # This script makes figures for ECA physical manuscript and performs PCA Analysis and LASSO regression
 
-library(tidyverse)
-library(corrplot)
-library(ggpubr)
-library(ggpmisc)
-library(factoextra)
-library(stringr)
-library(glmnet)
-library(magick)
+library(tidyverse);library(corrplot);library(ggpubr);library(ggpmisc);library(factoextra);library(stringr);library(glmnet);library(magick); library(ggnewscale)
 
 rm(list=ls());graphics.off()
 
@@ -34,6 +27,7 @@ all_data = read.csv("./Data/EC_Sediment_SpC_pH_Temp_Respiration.csv", skip = 2) 
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%  # remove samples with too much water (EC_011, EC_012), sample with no mg/kg (EC_023), duplicated NEON sites (EC_052, EC_053, EC_057)
   select(-c(Field_Name, IGSN, Material))
 
+# Pull out Wet Respiration Rates
 wet_respiration = all_data %>% 
   select(c(Sample_Name, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   filter(grepl("W", Sample_Name)) %>% 
@@ -44,11 +38,37 @@ wet_respiration = all_data %>%
   summarise(Median_Wet_Respiration = median(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   ungroup()
 
+# Take Cube root of all respiration rates
 cube_respiration = all_data %>% 
   select(c(Sample_Name, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   filter(Respiration_Rate_mg_DO_per_kg_per_H != -9999) %>% 
   mutate(cube_Respiration_mg_kg = cube_root(abs(as.numeric(Respiration_Rate_mg_DO_per_kg_per_H)))) %>% 
   mutate(Treat = if_else(grepl("D", Sample_Name), "Dry", "Wet"))
+
+median_respiration = all_data %>% 
+  select(-c(Respiration_R_Squared, Respiration_R_Squared_Adj, Respiration_p_value, Total_Incubation_Time_Min, Number_Points_In_Respiration_Regression, Number_Points_Removed_Respiration_Regression,DO_Concentration_At_Incubation_Time_Zero)) %>% 
+  mutate(across(c(SpC_microsiemens_per_cm:Respiration_Rate_mg_DO_per_kg_per_H), as.numeric)) %>% 
+  mutate(Respiration_Rate_mg_DO_per_L_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
+  #missing replicates (EC_072-W5/D5),  overexposed samples (EC_027, EC_013, EC_014), less sediment in sample (EC_012-D5)
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  mutate(SpC_microsiemens_per_cm = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, SpC_microsiemens_per_cm)) %>% 
+  mutate(pH = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, pH)) %>% 
+  mutate(Temperature_degC = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temperature_degC)) %>% 
+  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
+  mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
+  group_by(Sample_ID) %>%
+  summarise(across(where(is.numeric),
+                   list(Median = ~median(.x, na.rm = TRUE),
+                        cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
+                        n = ~sum(!is.na(.x))), 
+                   .names = "{.fn}_{.col}")) %>% 
+  ungroup() %>% 
+  group_by(Sample_ID) %>%
+  mutate(Remove = ifelse(all(c_across(starts_with("n_")) == 10), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
+  select(c(Sample_ID, Median_SpC_microsiemens_per_cm, Median_pH, Median_Temperature_degC, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  ungroup()
+
 
 ## Calculate wet and dry medians ####
 
@@ -197,31 +217,15 @@ median_iron = fe  %>%
   select(c(Sample_ID, Median_Fe_mg_per_L, Median_Fe_mg_per_kg))%>% 
   ungroup()
 
-## Respiration ####
+## Try XRD data
 
-median_respiration = all_data %>% 
-  select(-c(Respiration_R_Squared, Respiration_R_Squared_Adj, Respiration_p_value, Total_Incubation_Time_Min, Number_Points_In_Respiration_Regression, Number_Points_Removed_Respiration_Regression,DO_Concentration_At_Incubation_Time_Zero)) %>% 
-  mutate(across(c(SpC_microsiemens_per_cm:Respiration_Rate_mg_DO_per_kg_per_H), as.numeric)) %>% 
-  mutate(Respiration_Rate_mg_DO_per_L_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
-  #missing replicates (EC_072-W5/D5),  overexposed samples (EC_027, EC_013, EC_014), less sediment in sample (EC_012-D5)
-  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(grepl("INC_Method_001|INC_Method_002|INC_QA_004", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-   mutate(SpC_microsiemens_per_cm = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, SpC_microsiemens_per_cm)) %>% 
-  mutate(pH = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, pH)) %>% 
-   mutate(Temperature_degC = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temperature_degC)) %>% 
-  mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
-  mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
-  group_by(Sample_ID) %>%
-  summarise(across(where(is.numeric),
-                   list(Median = ~median(.x, na.rm = TRUE),
-                        cv = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm =TRUE),
-                        n = ~sum(!is.na(.x))), 
-                   .names = "{.fn}_{.col}")) %>% 
-  ungroup() %>% 
-  group_by(Sample_ID) %>%
-  mutate(Remove = ifelse(all(c_across(starts_with("n_")) == 10), "FALSE", "TRUE")) %>% ## Check CV's, then remove 
-  select(c(Sample_ID, Median_SpC_microsiemens_per_cm, Median_pH, Median_Temperature_degC, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  ungroup()
+xrd = read.csv("./Data/CM_SSS_Sediment_XRD.csv", skip = 2) %>% 
+  filter(grepl("CM", Sample_Name)) %>% 
+  mutate(Sample_ID = str_replace(Sample_Name, "CM", "EC"))%>% 
+  mutate(Sample_ID = str_replace(Sample_ID, "XRD", "INC")) %>% 
+  mutate(Sample_ID = str_replace(Sample_ID, "-1", "")) %>% 
+  select(-c(Field_Name, Sample_Name, IGSN, Material, Methods_Deviation)) 
+  
 
 ## Join All Data ####
 
@@ -261,11 +265,12 @@ all_medians = median_respiration %>%
   left_join(median_iron, by = "Sample_ID") %>% 
   left_join(median_cn, by = "Sample_ID") %>% 
   left_join(median_npoc_tn, by = "Sample_ID") %>% 
+  left_join(xrd, by = "Sample_ID") %>% 
   mutate(Sample_Name = str_replace(Sample_ID, "INC", "all")) %>% 
   select(-c(Sample_ID)) %>% 
   relocate(Sample_Name, .before = Median_SpC_microsiemens_per_cm)
 
-## Read in Median Data to get Dry moisture values
+## Read in Median Data from Summary file to get Dry moisture values
 
 median = read.csv("./Data/EC_Sediment_Sample_Data_Summary.csv", skip = 2) %>% 
   filter(grepl("EC", Sample_Name)) %>% 
@@ -292,6 +297,22 @@ effect = read.csv("./Data/EC_Sediment_Effect_Size.csv", skip = 2) %>%
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%
  select(-c(IGSN, Field_Name, Material, Methods_Deviation)) 
 
+## Histogram of wet respiratino raates with vertical line where neutral moments occur
+
+
+hist_df = wet_respiration %>% left_join(effect) %>% 
+  select(c(Sample_Name, Median_Wet_Respiration, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  mutate(Median_Wet_Respiration = abs(as.numeric(Median_Wet_Respiration))) %>% 
+  mutate(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H = abs(as.numeric((Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)))) 
+
+
+ggplot(hist_df, aes(x = Median_Wet_Respiration)) +
+  geom_histogram(bins = 50)+
+  geom_vline(aes(xintercept = Median_Wet_Respiration), data = subset(hist_df, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H < 70))
+
+ggsave("./Physical_Manuscript_Figures/Median_Wet_Rates_Effect.png", width = 30, height = 20)
+
+
 ## Read in grain size/ssa variables ####
 
 grain = read.csv("./Data/v3_CM_SSS_Sediment_Sample_Data_Summary.csv", skip = 2) %>% 
@@ -306,11 +327,12 @@ effect_data = left_join(effect, grain, by = "Sample_Name") %>%
   left_join(all_medians) %>% 
   left_join(median_dry) %>% 
   mutate(across(c(Effect_Size_SpC_microsiemens_per_cm:Mean_Specific_Surface_Area_m2_per_g), as.numeric)) %>%  # make data numeric 
-    select(-c(Effect_Size_Initial_Gravimetric_Moisture_g_per_g, Effect_Size_Final_Gravimetric_Moisture_g_per_g, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+    select(-c(Effect_Size_Initial_Gravimetric_Moisture_g_per_g, Effect_Size_Final_Gravimetric_Moisture_g_per_g, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H, Dolomite_percent, Apatite_percent)) %>% 
   rename(median_Dry_Initial_Gravimetric = median_Initial_Gravimetric) %>% 
   rename(median_Dry_Final_Gravimetric = median_Final_Gravimetric) %>% 
   mutate(Effect_Size_Respiration_Rate_mg_DO_per_L_per_H = abs(Effect_Size_Respiration_Rate_mg_DO_per_L_per_H)) %>% 
-  mutate(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H = abs(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H))  
+  mutate(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H = abs(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
+  mutate(across(contains("percent"), as.numeric))
   
 # Transform Data ----------------------------------------------------------
 
@@ -321,8 +343,8 @@ cube_effect = effect_data %>%
   mutate(across(where(is.numeric), cube_root)) %>% # cube root transform data
   rename_with(where(is.numeric), .fn = ~ paste0("cube_", .x)) %>% 
   column_to_rownames("Sample_Name") %>%
-  mutate(cube_Effect_Size_Fe_mg_per_kg = ifelse(cube_Effect_Size_Fe_mg_per_kg < -1, NA, cube_Effect_Size_Fe_mg_per_kg)) %>% 
-  #filter(cube_Effect_Size_Fe_mg_per_kg > -1) %>%  # remove Fe outlier for analysis 
+  #mutate(cube_Effect_Size_Fe_mg_per_kg = ifelse(cube_Effect_Size_Fe_mg_per_kg < -1, NA, cube_Effect_Size_Fe_mg_per_kg)) %>% 
+  filter(cube_Effect_Size_Fe_mg_per_kg > -1) %>%  # remove Fe outlier for analysis 
   select(-contains("per_L")) %>% 
   relocate(cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, .before = cube_Effect_Size_SpC_microsiemens_per_cm)
 
@@ -356,7 +378,7 @@ scale_cube_effect_pearson <- cor(scale_cube_effect, method = "pearson", use = "c
 
 if (print.images == T){
   
-  png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Pearson_Correlation_Matrix.png"), width = 12, height = 12, units = "in", res = 300)
+  png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_Pearson_Correlation_Matrix_XRD.png"), width = 12, height = 12, units = "in", res = 300)
   
   corrplot(scale_cube_effect_pearson,type = "upper", method = "number", tl.col = "black", tl.cex = 0.8, cl.cex = 0.5, number.cex = 0.5,  title = "Effect Samples Pearson Correlation")
   
@@ -555,11 +577,11 @@ cube_effect = cube_effect %>%
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fine_Sand_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 fs = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Percent_Fine_Sand)) +
-  geom_point(aes(color = category)) +
+  geom_point(aes(color = category), size = 5) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE) + 
   ylab("Effect Size Respiration Rate (mg/kg)") +
   xlab("Fine Sand (%)") + 
@@ -570,11 +592,11 @@ fs = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_ATP_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 atp = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_ATP_picomoles_per_g)) +
-  geom_point(aes(color = category)) +
+  geom_point(aes(color = category), size = 5) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE) + 
   ylab("Effect Size Respiration Rate (mg/kg)") +
   xlab("Median ATP (pmol/g)")+ 
@@ -585,11 +607,11 @@ atp = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_TOC_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 toc = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_X01395_C_percent_per_mg)) +
-  geom_point(aes(color = category)) +
+  geom_point(aes(color = category), size = 5) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = 0.55, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = 0.55, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect, label.x = 0.55, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = 0.55, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE) + 
   ylab("Effect Size Respiration Rate (mg/kg)") +
   xlab("Median TOC (%)")+ 
@@ -600,11 +622,11 @@ toc = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_TN_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 tn = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_X01397_N_percent_per_mg)) +
-  geom_point(aes(color = category)) +
+  geom_point(aes(color = category), size = 5) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = 0.225, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = 0.225, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect, label.x = 0.225, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = 0.225, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE)+ 
   ylab("Effect Size Respiration Rate (mg/kg)") +
   xlab("Median TN (%)")
@@ -614,11 +636,11 @@ tn = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Median_SpC_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 spc = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_SpC_microsiemens_per_cm)) +
-  geom_point(aes(color = category)) +
+  geom_point(aes(color = category), size = 5) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = 2.5, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = 2.5, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect, label.x = 2.5, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = 2.5, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE)+ 
   ylab("Effect Size Respiration Rate (mg/kg)") +
   xlab("Median SpC (\u03BCS/cm)")+ 
@@ -629,12 +651,12 @@ spc = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Effect_Fe_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 fe = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Effect_Size_Fe_mg_per_kg)) +
-  geom_point(aes(color = category)) +
-  geom_point(fe_cube_effect, mapping = aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Effect_Size_Fe_mg_per_kg), color = "red") +
+  geom_point(aes(color = category), size = 5) +
+  geom_point(fe_cube_effect, mapping = aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Effect_Size_Fe_mg_per_kg), color = "red", size = 5) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = -2.5, label.y = 11, size = 4, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = -2.5, label.y = 10.25, size = 4, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect, label.x = -2.5, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = -2.5, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE)+ 
   ylab("Effect Size Respiration Rate (mg/kg)") +
   xlab("Effect Size Fe (II) (mg/kg)")+ 
