@@ -52,6 +52,10 @@ median_respiration = all_respiration %>%
   unite(Sample_Name, c("EL", "Site", "IN"), sep = "_", remove = F) %>% 
   ungroup()
 
+ggplot(median_respiration, aes(x = Median_Respiration_Rate_mg_DO_per_kg_per_H)) + 
+  geom_histogram() + 
+  facet_grid(~Treat, scales = "free")
+
 ## Effect Size ####
 
 effect_data <- median_respiration %>% 
@@ -61,6 +65,7 @@ effect_data <- median_respiration %>%
   distinct(Sample_Name, .keep_all = TRUE) %>% 
   select(-c(Treat)) %>% 
   ungroup()
+
 ## Aggregates ####
 
 agg = read_xlsx("C:/GitHub/ECA_Multireactor_Incubations/Data/EL/water_stable_aggregates_10_24_2024.xlsx") %>% 
@@ -122,7 +127,7 @@ ggplot(effect_real, aes(x = reorder(Sample_Name, Effect_Size_Respiration_Rate_mg
 
 
 effect_agg_pca = effect_agg_wide %>% 
-  select(-c(Remove, Effect_Size_SpC, Effect_Size_Temp, Effect_Size_pH, Site, EL, IN, #Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, 
+  select(-c(Remove, Effect_Size_SpC, Effect_Size_Temp, Effect_Size_pH, Site, EL, IN, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, 
             Effect_Size_Respiration_Rate_mg_DO_per_L_per_H)) %>% column_to_rownames("Sample_Name")
 
 effect_agg_scale = scale(effect_agg_pca)
@@ -152,4 +157,62 @@ ggbiplot(pca_result, obs.scale = 1, var.scale = 1, groups = effect_agg_wide$IN, 
     legend.text = element_text(size = 10)                     # Legend item text size
   )
 
-  
+
+## Effect Size Histogram
+
+## EFFECT CUBE ROOT
+
+
+effect_limits <- c(-1600, 1600)
+
+
+ggplot(effect_data, aes(x = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H))+
+  # geom_histogram(binwidth = 0.15, fill = "#009E73")+
+  geom_histogram(binwidth = 20, aes(fill = after_stat(x))) +
+  scale_fill_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
+                       high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2) +
+  theme_bw()+
+  #theme(axis.title.x = element_text(size = 4),
+  #  axis.title.y = element_text(size = 4),
+  #  axis.text.x = element_text(size = 4),
+  #  axis.text.y = element_text(size =4))+
+  xlim(c(-1600, 1600))+
+  ylab("Count\n")+
+  theme(legend.position = c(0.8, 0.8),
+        legend.key.size = unit(0.15, "in"), 
+        legend.title = element_text(size = 8),
+        axis.title.x = element_text(size = 10)) + 
+  xlab(expression(atop("\n Effect Size", "(Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))) 
+
+
+ggsave("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/MEL_Effect_Histogram.png", width = 30, height = 30)
+
+
+ggplot(effect_data, aes(x = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) + 
+  geom_histogram(aes(fill = after_stat(x))) + 
+  facet_grid(~IN, scales = "free") + 
+  scale_fill_gradient2(name = "Effect Size", limits = effect_limits, low = "firebrick2", mid = "goldenrod2",
+                       high = "dodgerblue2", midpoint = (max(effect_limits)+min(effect_limits))/2) + 
+  theme_bw()
+
+ggplot(agg, aes(x = `total%_aggregates`)) + 
+  geom_histogram(bins = 20) + 
+  theme_bw()
+
+## cube roots 
+
+cube_root <- function(x) sign(x) * (abs(x))^(1/3)
+
+cube_effect = effect_agg %>% 
+  mutate(cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H = cube_root(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) 
+
+cube_effect$agg_size = factor(cube_effect$agg_size, levels = c('53um_aggregates_wt%', "125um_aggregates_wt%", "250um_aggregates_wt%", "2mm_aggregates_wt%", "total%_aggregates"))
+                                                              
+
+ggplot(cube_effect, mapping = aes(x = perc, y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, color = IN)) + 
+  geom_point() + 
+  theme_bw() +
+  facet_wrap(agg_size~., scales = "free", nrow = 1) + 
+  stat_poly_line(data = cube_effect, se = FALSE) + 
+  stat_correlation(label.y = "middle", label.x = "right", size = 3, use_label(c("R2", "P")))
+
