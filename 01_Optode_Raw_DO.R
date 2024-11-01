@@ -10,7 +10,7 @@ rm(list=ls());graphics.off()
 ## INPUTS ####
 pnnl.user = 'laan208'
 
-study.code = 'EL_'
+study.code = 'EV_'
   #EC_
   #EV_
   #RS_

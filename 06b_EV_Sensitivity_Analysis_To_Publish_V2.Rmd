@@ -40,7 +40,7 @@ rm(list=ls());graphics.off()
 #Example:
 pnnl.user = 'laan208'
 
-input.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EV_INC_Raw_DO_By_Min_ReadyForBoye_2024-09-16.csv")
+input.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/Raw_DO_by_Min/EV_INC_Raw_DO_By_Min_ReadyForBoye_2024-11-01.csv")
 
 output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/")
 
@@ -549,7 +549,7 @@ for (i in 1:length(location)){
 
 respiration = respiration[-1,]
 
-write.csv(respiration,paste0(output.path,"EV_Sediment_Incubations_Respiration_Rates_",Sys.Date(),".csv"), row.names = F)
+#write.csv(respiration,paste0(output.path,"EV_Sediment_Incubations_Respiration_Rates_",Sys.Date(),".csv"), row.names = F)
 
 ```
 
@@ -624,187 +624,4 @@ output.path = paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - 
   
 
 write.csv(boye_dev, paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Sediment_Incubations_Respiration_Rates_ReadyForBoye_",Sys.Date(),".csv"), row.names = F)
-```
-## Remove Outlier Samples 
-* A distance matrix is used to remove the replicate most unlike the others if the coefficient of variation is greater than 50%
-
-```{r Remove Outliers}
-
-#Remove RR with -9999, calculate CV for replicates for mg/L and mg/kg values
-
-cv <- boye_dev %>% 
-  mutate(Treat = case_when(grepl("W",Sample_Name)~"Wet",
-                           grepl("D", Sample_Name) ~"Dry")) %>% 
-  separate(Sample_Name, c("Sample_ID", "Replicate"), sep = -1, remove = FALSE) %>% 
-  filter(Respiration_Rate_mg_DO_per_L_per_H > -9999) %>% 
-  group_by(Sample_ID, Treat) %>% 
-  mutate(cv_before_removal_L = abs(sd(Respiration_Rate_mg_DO_per_L_per_H)/mean(Respiration_Rate_mg_DO_per_L_per_H))*100) %>% 
-  mutate(cv_before_removal_kg = abs(sd(Respiration_Rate_mg_DO_per_kg_per_H)/mean(Respiration_Rate_mg_DO_per_kg_per_H))*100) %>% 
-  mutate(cv_diff = cv_before_removal_L - cv_before_removal_kg)
-
-## Start data frame for removals, calculate means of replicate samples
-
-slope.outliers <- cv %>% 
-  unite(kit_treat, Sample_ID, Treat, sep = "_", remove = FALSE) %>% 
-  mutate(Respiration_Rate_mg_DO_per_L_per_H = as.numeric(Respiration_Rate_mg_DO_per_L_per_H)) %>%
-  group_by(Sample_ID, Treat) %>% 
-  mutate(Mean_Slope_All_L = mean(Respiration_Rate_mg_DO_per_L_per_H)) %>% 
-  mutate(Mean_Slope_All_kg = mean(Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  ungroup() %>% 
-  dplyr::select(c(Sample_Name, Respiration_Rate_mg_DO_per_L_per_H,Respiration_Rate_mg_DO_per_kg_per_H, Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat)) %>% 
-  drop_na(Respiration_Rate_mg_DO_per_kg_per_H)
-
-slope.outliers$flag <- NA
-
-slope.final <- as.data.frame(matrix(NA, ncol = 11, nrow =1))
-
-colnames(slope.final) = c("slope.temp","Sample_Name", "kit_treat", "Respiration_Rate_mg_DO_per_L_per_H", "Mean_Slope_All_L", "Mean_Slope_All_kg", "cv_before_removal_L", "cv_before_removal_kg", "cv_after_removal", "Mean_Slope_Removed","flag")
-
-unique.samples = unique(slope.outliers$kit_treat)
-
-#try 0, 10, 30, 50, 100, export histograms of removals, effect sizes
-cv.threshold = 50
-
-#try keeping n = 3,4 samples
-rem.threshold = 3
-
-for (i in 1:length(unique.samples)) {
-  
-  ## Subset replicates
-  data_subset = subset(slope.outliers, slope.outliers$kit_treat == unique.samples[i])
-  
-  ## Pull out Rate values
-  #slope.temp = as.numeric(data_subset$Respiration_Rate_mg_DO_per_L_per_H)
-  slope.temp = as.numeric(data_subset$Respiration_Rate_mg_DO_per_kg_per_H)
-  
-  ## Calculate standard deviation, average, and coefficient of variation of rates
-  slope.temp.sd <- sd(slope.temp)
-  slope.temp.mean <- mean(slope.temp)
-  CV = abs((slope.temp.sd/slope.temp.mean)*100)
-  
-  #looping to get 3 out of 5 best samples
-  for (sample.reduction in 1:5)  {
-    
-    if (slope.temp.mean == 0) {
-      
-      CV = 0
-      
-    }
-    
-    else if (length(slope.temp) > rem.threshold & CV >= cv.threshold) {
-      
-      dist.temp = as.matrix(abs(dist(slope.temp)))
-      dist.comp = numeric()
-      
-      for(slope.now in 1:ncol(dist.temp)) {
-        
-        dist.comp = rbind(dist.comp,c(slope.now,sum(dist.temp[,slope.now])))
-        
-      }
-      
-      dist.comp[,2] = as.numeric(dist.comp[,2])
-      slope.temp = slope.temp[-which.max(dist.comp[,2])]
-      
-      slope.temp.sd <- sd(slope.temp)
-      slope.temp.mean <- mean(slope.temp)
-      slope.temp.cv <- abs((slope.temp.sd/slope.temp.mean)*100)
-      CV = slope.temp.cv
-      slope.temp.range <- max(slope.temp) - min(slope.temp)
-      range = slope.temp.range
-      
-    }
-  }
-  
-  if (length(slope.temp) >= 3) {
-    
-    slope.combined <- as.data.frame(slope.temp)
-    
-    slope.removed <- merge(slope.combined, data_subset, by.x = "slope.temp", by.y = "Respiration_Rate_mg_DO_per_kg_per_H", all.x = TRUE)
-    
-    slope.removed <- slope.removed[!duplicated(slope.removed$Sample_Name), ]
-    
-    slope.removed$cv_after_removal = as.numeric(abs((sd(slope.temp)/mean(slope.temp))*100))
-    
-    slope.removed$Mean_Slope_Removed = as.numeric(mean(slope.temp))
-    
-  }
-  
-  slope.final = rbind(slope.removed, slope.final)
-  
-  rm('slope.temp')
-}
-
-## This data frame has removed samples
-slope.final.flag <- slope.final %>% 
-  mutate(flag = if_else(cv_before_removal_kg < cv_after_removal, "Issue in dropping sample", "N/A")) %>% 
-  rename(Respiration_Rate_mg_DO_per_kg_per_H = slope.temp) %>% 
-  relocate(Respiration_Rate_mg_DO_per_kg_per_H, .after = Sample_Name)
-
-outliers_flag <- left_join(boye_dev, slope.final.flag, by = c("Sample_Name", "Respiration_Rate_mg_DO_per_L_per_H", "Respiration_Rate_mg_DO_per_kg_per_H")) %>% 
-  mutate(Methods_Deviation_flag = ifelse(cv_before_removal_L > 50,  "RATE_CV_050", NA)) %>%  
-  mutate(Methods_Deviation_outlier = ifelse(is.na(cv_before_removal_L) & is.na(Mean_Slope_All_L) & Respiration_Rate_mg_DO_per_L_per_H != -9999, "RATE_CV_050; RATE_CV_000", NA)) %>% 
-  mutate(Methods_Deviation_flag = ifelse(!is.na(Methods_Deviation_flag), Methods_Deviation_flag, Methods_Deviation_outlier)) %>% 
-  mutate(Methods_Deviation = ifelse(Methods_Deviation == "N/A", Methods_Deviation_flag, paste(Methods_Deviation, Methods_Deviation_flag, sep = "; "))) %>% 
-  mutate(Methods_Deviation = ifelse(is.na(Methods_Deviation), "N/A", Methods_Deviation)) %>% 
-  mutate(Methods_Deviation = ifelse(grepl("INC_008", Methods_Deviation), "INC_008", Methods_Deviation)) %>% 
-  dplyr::select(-c(Mean_Slope_All_L, Mean_Slope_All_kg, cv_before_removal_L, cv_before_removal_kg, kit_treat, cv_after_removal, Mean_Slope_Removed, flag, Methods_Deviation_flag, Methods_Deviation_outlier)) %>% 
-  mutate(DO_Concentration_At_Incubation_Time_Zero = round(as.numeric(DO_Concentration_At_Incubation_Time_Zero), 2)) 
-
-cv.threshold = 50
-rem.threshold = 3
-
-eca_respiration_all_final = outliers_flag %>% 
-  mutate(Methods_Deviation = str_replace(Methods_Deviation, "; NA", "")) %>% 
-  mutate(Methods_Deviation)
-
-
-write.csv(eca_respiration_all_final, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-04-24.csv", row.names = F)
-
-```
-
-```{r Summary File }
-
-cv <- function(x) {
-  cv_value <- (sd(x) / mean(x)) * 100
-  return(cv_value)
-}
-
-eca_summary_all = eca_respiration_all_final %>% 
-  filter(Respiration_Rate_mg_DO_per_L_per_H != -9999) %>% 
-  separate(Sample_Name, c("Sample", "Rep"), sep = -1) %>% 
-  dplyr::select(c(Sample, Material, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  group_by(Sample) %>% 
-  summarise(across(where(is.numeric), list(mean = mean, sd = sd, cv = cv))) %>% 
-  mutate(round(across(where(is.numeric)), 3))
-
-eca_summary_best = eca_respiration_all_final %>% 
-  filter(Respiration_Rate_mg_DO_per_L_per_H != -9999) %>% 
-  filter(!grepl("RATE_CV_000", Methods_Deviation)) %>% 
-  separate(Sample_Name, c("Sample", "Rep"), sep = -1) %>% 
-  dplyr::select(c(Sample, Material,  Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
-  group_by(Sample) %>% 
-  summarise(across(where(is.numeric), list(best_mean = mean, best_sd = sd, best_cv = cv))) %>% 
-  mutate(round(across(where(is.numeric)), 3))
-
-eca_summary_join = left_join(eca_summary_all, eca_summary_best, by = "Sample") %>% 
-  rename(Mean_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_mean) %>% 
-  rename(SD_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_sd) %>% 
-  rename(Mean_WithOutliers_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_mean) %>% 
-  rename(SD_WithOutliers_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_sd) %>% 
-  rename(Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_best_mean) %>% 
-  rename(SD_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H = Respiration_Rate_mg_DO_per_L_per_H_best_sd) %>% 
-  rename(Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_best_mean) %>% 
-  rename(SD_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H = Respiration_Rate_mg_DO_per_kg_per_H_best_sd) %>% 
-  rename(Mean_SpC = SpC_mean) %>%
-  rename(SD_SpC = SpC_sd) %>%
-  rename(Mean_pH = pH_mean) %>% 
-  rename(SD_pH = pH_sd) %>% 
-  rename(Mean_Temp = Temp_mean) %>% 
-  rename(SD_Temp = Temp_sd) %>% 
-  rename(Sample_Name = Sample) %>% 
-  mutate(Material = "Sediment") %>% 
-  dplyr::select(c(Sample_Name, Material, Mean_SpC, SD_SpC, Mean_pH, SD_pH, Mean_Temp, SD_Temp, Mean_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H, SD_WithOutliers_Respiration_Rate_mg_DO_per_L_per_H, Mean_WithOutliers_Respiration_Rate_mg_DO_per_kg_per_H, SD_WithOutliers_Respiration_Rate_mg_DO_per_kg_per_H, Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H, SD_OutliersRemoved_Respiration_Rate_mg_DO_per_L_per_H, Mean_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H, SD_OutliersRemoved_Respiration_Rate_mg_DO_per_kg_per_H))
-
-write.csv(eca_summary_join, "C:/Users/laan208/PNNL/Core Richland and Sequim Lab-Field Team - Documents/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_2024-04-24.csv", row.names = F)
-
 ```
