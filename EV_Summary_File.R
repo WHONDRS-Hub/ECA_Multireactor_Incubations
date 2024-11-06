@@ -9,30 +9,22 @@ rm(list=ls());graphics.off()
 #Example:
 pnnl.user = 'laan208'
 
-#Set wd to Boye Files
-setwd("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/Sample_Data/")
-
-
 # Respiration -------------------------------------------------------------
 
-all_respiration <- read.csv("C:/Users/laan208/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-11-01.csv") %>% #, skip = 2) %>% 
-  #slice(-1:-11) %>% 
-  #filter(Field_Name != "#End_Data") %>% 
+all_respiration <- read.csv("C:/Users/laan208/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-11-01.csv") %>% 
   dplyr::select(c(Sample_Name, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) %>% 
   mutate(across(c(SpC:Respiration_Rate_mg_DO_per_kg_per_H), as.numeric))
-#dplyr::select(c(Sample_Name, SpC_microsiemens_per_cm, pH, Temperature_degC, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) %>% 
-# mutate(across(c(SpC_microsiemens_per_cm:Respiration_Rate_mg_DO_per_kg_per_H), as.numeric))
 
 
 median_respiration = all_respiration %>% 
   mutate(Respiration_Rate_mg_DO_per_L_per_H = ifelse(grepl("INC_Method_001|INC_007", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_L_per_H)) %>% 
-  #missing replicates (EC_072-W5/D5),  overexposed samples (EC_027, EC_013, EC_014), less sediment in sample (EC_012-D5)
+  #INC_Method_001 - missing replicates 
+  #INC_007 - optode disk put on backwards
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(grepl("INC_Method_001|INC_007", Methods_Deviation), NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   mutate(SpC = ifelse(grepl("INC_Method_001", Methods_Deviation), NA, SpC)) %>% 
-  # mutate(SpC_microsiemens_per_cm = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, SpC_microsiemens_per_cm)) %>% 
   mutate(pH = ifelse(grepl("INC_Method_001|PH_000", Methods_Deviation), NA, pH)) %>% 
+    #PH_000 - didn't take pH measurement
   mutate(Temp = ifelse(grepl("INC_Method_001", Methods_Deviation), NA, Temp)) %>%
-  # mutate(Temperature_degC = ifelse(grepl("INC_Method_001|INC_Method_002", Methods_Deviation), NA, Temperature_degC)) %>% 
   mutate(Respiration_Rate_mg_DO_per_kg_per_H = ifelse(Respiration_Rate_mg_DO_per_kg_per_H == "-9999", NA, Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   separate(Sample_Name, c("Sample_ID", "Rep"), sep = "-") %>% 
   mutate(Rep = if_else(grepl("D", Rep), "D", "W")) %>%
@@ -53,8 +45,6 @@ median_respiration = all_respiration %>%
 
 grav_inc = read.csv("C:/Users/laan208/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Drying_Masses_Summary_ReadyForBoye_05-07-2024.csv") %>% 
   mutate(across(c(Initial_Water_Mass_g:Incubation_Water_Mass_g), as.numeric))
-
-#Some dry reps have high CV: EC_057 (low moisture), EC_081 (one lower sample), EC_063 (low moisture), EC_088 (one lower sample), EC_076 (low moisture), EC_071 (one lower sample), EC_056 (low moisture), EC_069 (one slightly lower) 
 
 median_grav = grav_inc %>% 
   mutate(Initial_Gravimetric_Moisture = ifelse(grepl("INC_Method_001", Methods_Deviation), NA, Initial_Gravimetric_Moisture)) %>% 
@@ -118,4 +108,4 @@ medians = left_join(median_respiration, median_grav, by = "Sample_Name") %>%
   rename(Median_Missing_Reps = remove_any_true) %>% 
   mutate(Median_Missing_Reps = if_else(is.na(Median_Missing_Reps), FALSE, Median_Missing_Reps))
 
-write.csv(medians,"Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/ECA_EC_Summary_ReadyForBoye_2024-07-31.csv") 
+write.csv(medians,"C:/Users/laan208/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_2024-11-06.csv") 
