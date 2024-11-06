@@ -9,9 +9,9 @@ rm(list=ls());graphics.off()
 
 ## Inputs for Data ####
 pnnl.user = 'laan208'
-study.code = 'EL' #EC, EV, MEL
-date = '2024-10-24' #Date of Moisture Tin File, use for analyzing data before publishing
-year = '2024' # Year of ECA incubation
+study.code = 'EV' #EC, EV, MEL
+date = '2024-08-22' #Date of Moisture Tin File, use for analyzing data before publishing
+year = '2023' # Year of ECA incubation
   
 
 ## Pull in Data ####
@@ -23,7 +23,12 @@ dry_wt <- read.csv("C:/GitHub/ECA_Multireactor_Incubations/Data/v3_CM_SSS_Sedime
   select(c(Sample_Name, Mean_62948_Gravimetric_Moisture_g_per_g)) 
 } else if (study.code == "EV"){
   
-  dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/MOI/03_ProcessedData/",study.code,"_MOI_ReadyForBoye_", date,".csv"))
+  dry_wt <- read.csv(paste0("C:/Users/",pnnl.user,"/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/MOI/03_ProcessedData/",study.code,"_MOI_ReadyForBoye_", date,".csv")) %>% 
+    filter(!grepl("removed outlier", flag)) %>% 
+    separate(Sample_Name, c("EV", "Site", "MOI"), sep = "_") %>% 
+    separate(MOI, c("MOI", "Rep"), sep = "-") %>% 
+    group_by(Site, MOI) %>% 
+    mutate(Mean_Gravimetric_Moisture = mean(Gravimetric_Moisture))
     
 } else if (study.code == "EL"){
   
@@ -65,12 +70,24 @@ dry_wt_averages <- dry_wt %>%
     distinct(Sample_ID, .keep_all = T) %>% 
     select(c(Sample_ID,average_wet_g_by_dry_g, Mean_Gravimetric_Moisture))
   
+} else if (study.code == "EV") {
+  
+  dry_wt_averages <- dry_wt %>% 
+    filter(Gravimetric_Moisture != -9999) %>% 
+    mutate(average_wet_g_by_dry_g = 1 + as.numeric((Mean_Gravimetric_Moisture))) %>% 
+    unite(Sample_ID, c(EV, Site, MOI), sep = "_") %>% 
+    distinct(Sample_ID, .keep_all = T) %>% 
+    select(c(Sample_ID,average_wet_g_by_dry_g, Mean_Gravimetric_Moisture)) %>% 
+    mutate(Sample_ID = str_replace(Sample_ID, "_MOI", ""))
+  
 }
   
 
 ## 21 Day Incubation
 
 # For ECA: 37,38 was incubated on 11/23 so needs to be removed from sheet, 72-5 were not incubated (not enough sediment), 12-D5 didn't have 20 g of sediment, 21 and 33 incubated on 9/28. Remove Jar samples
+
+# No issues in EV
 
 all_moisture = moisture %>% 
   mutate(Date = as.Date(Date)) %>% 
@@ -110,7 +127,14 @@ merged <- all_moisture %>%
   unite(Sample_Name, c("Sample_ID", "INC"), remove = FALSE) %>% 
   left_join(dry_wt_averages, by = "Sample_ID") 
 
-} else if (study.code == "EL") {
+} else if (study.code == "EV"){
+  
+  merged <- all_moisture %>% 
+    unite(Sample_ID, c("EC", "Site")) %>% 
+    unite(Sample_Name, c("Sample_ID", "INC"), remove = FALSE) %>% 
+    left_join(dry_wt_averages, by = "Sample_ID") 
+  
+}else if (study.code == "EL") {
     
   merged <- all_moisture %>% 
     separate(INC, c("INC", "Rep")) %>% 
