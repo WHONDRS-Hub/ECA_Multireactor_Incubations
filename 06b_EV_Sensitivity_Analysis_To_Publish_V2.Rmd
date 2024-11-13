@@ -75,7 +75,7 @@ data = read.csv(input.path)
   + Tested range: 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, No removals
 
 * High Slope Threshold (high.slope.thresh) = -0.04
-  + Remove saturation point if slope is pretty flat     but starts low (might be able to remove)
+  + Remove saturation point if slope is pretty flat but starts low (might be able to remove)
 
 * Time Same (time.same) = 7
   + Keep 2 minute DO value even if it was put on the rollers at the same time a photo was taken if it is lower than this value
