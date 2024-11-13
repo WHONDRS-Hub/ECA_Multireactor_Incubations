@@ -73,7 +73,8 @@ agg = read_xlsx("C:/GitHub/ECA_Multireactor_Incubations/Data/EL/water_stable_agg
   mutate(Sample_Name = str_replace(Sample_Name, "-1", "")) %>% 
   select(-c(sample_name)) %>%
   relocate(Sample_Name, .before=`53um_aggregates_wt%`) %>% 
-  mutate(Sample_Name = str_replace(Sample_Name, "MEL", "EL"))
+  mutate(Sample_Name = str_replace(Sample_Name, "MEL", "EL")) %>% 
+  separate(Sample_Name, c("Site", "Level"), sep = "_IN", remove = F)
 
 ## Figures ####
 
@@ -197,6 +198,7 @@ ggplot(effect_data, aes(x = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) +
 
 ggplot(agg, aes(x = `total%_aggregates`)) + 
   geom_histogram(bins = 20) + 
+  facet_grid(~Level, scales = "free") +
   theme_bw()
 
 ## cube roots 
@@ -216,3 +218,88 @@ ggplot(cube_effect, mapping = aes(x = perc, y = cube_Effect_Size_Respiration_Rat
   stat_poly_line(data = cube_effect, se = FALSE) + 
   stat_correlation(label.y = "middle", label.x = "right", size = 3, use_label(c("R2", "P")))
 
+corr_data = effect_agg_wide %>% 
+  select(c(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H,`53um_aggregates_wt%`, `125um_aggregates_wt%`, `250um_aggregates_wt%`, `2mm_aggregates_wt%`, `total%_aggregates`)) %>% 
+  dplyr::rename("53 um aggregates"  = `53um_aggregates_wt%`) %>% 
+  dplyr::rename(`125 um aggregates %` = `125um_aggregates_wt%`) %>% 
+  dplyr::rename(`250 um aggregates %` = `250um_aggregates_wt%`) %>% 
+  dplyr::rename(`2 mm aggregates %` = `2mm_aggregates_wt%`) %>% 
+  dplyr::rename(`Total % Aggregates` = `total%_aggregates`) %>% 
+  dplyr:: rename("Effect Size Respiration Rates (Wet - Dry)" = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H) %>% 
+  column_to_rownames("Sample_Name")
+
+low_corr_data = effect_agg_wide %>% 
+  filter(IN == "INL") %>% 
+  select(c(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H,`53um_aggregates_wt%`, `125um_aggregates_wt%`, `250um_aggregates_wt%`, `2mm_aggregates_wt%`, `total%_aggregates`)) %>% 
+  dplyr::rename("53 um aggregates"  = `53um_aggregates_wt%`) %>% 
+  dplyr::rename(`125 um aggregates %` = `125um_aggregates_wt%`) %>% 
+  dplyr::rename(`250 um aggregates %` = `250um_aggregates_wt%`) %>% 
+  dplyr::rename(`2 mm aggregates %` = `2mm_aggregates_wt%`) %>% 
+  dplyr::rename(`Total % Aggregates` = `total%_aggregates`) %>% 
+  dplyr:: rename("Effect Size Respiration Rates (Wet - Dry)" = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)%>% 
+  column_to_rownames("Sample_Name")
+  
+high_corr_data = effect_agg_wide %>% 
+  filter(IN == "INH") %>% 
+  select(c(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H,`53um_aggregates_wt%`, `125um_aggregates_wt%`, `250um_aggregates_wt%`, `2mm_aggregates_wt%`, `total%_aggregates`)) %>% 
+  dplyr::rename("53 um aggregates"  = `53um_aggregates_wt%`) %>% 
+  dplyr::rename(`125 um aggregates %` = `125um_aggregates_wt%`) %>% 
+  dplyr::rename(`250 um aggregates %` = `250um_aggregates_wt%`) %>% 
+  dplyr::rename(`2 mm aggregates %` = `2mm_aggregates_wt%`) %>% 
+  dplyr::rename(`Total % Aggregates` = `total%_aggregates`) %>% 
+  dplyr:: rename("Effect Size Respiration Rates (Wet - Dry)" = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)%>% 
+  column_to_rownames("Sample_Name")
+
+spearman <- cor(corr_data, method = "spearman", use = "complete.obs")
+
+corrplot(spearman,type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Spearman Correlation")
+
+spearman_high <- cor(high_corr_data, method = "spearman", use = "complete.obs")
+
+corr_effect_high = matrix(spearman_high[1, ], nrow = 1)
+
+colnames(corr_effect_high) = colnames(spearman_high)
+
+rownames(corr_effect_high) = rownames(spearman_high)[1]
+
+spearman_low <- cor(low_corr_data, method = "spearman", use = "complete.obs")
+
+corr_effect_low = matrix(spearman_low[1, ], nrow = 1)
+
+colnames(corr_effect_low) = colnames(spearman_low)
+
+rownames(corr_effect_low) = rownames(spearman_low)[1]
+
+corr_effect_high_df = as.data.frame(corr_effect_high) %>% 
+  reshape2::melt() %>% 
+  dplyr::rename(Coefficients = value) %>% 
+  filter(Coefficients != 1) %>% 
+  mutate(y = "Surface")
+
+corr_effect_low_df = as.data.frame(corr_effect_low) %>% 
+  reshape2::melt() %>% 
+  dplyr::rename(Coefficients = value) %>% 
+  filter(Coefficients != 1) %>% 
+  mutate(y = "Subsurface")
+
+color_palette_s = colorRampPalette(c("#B2182B", "#F7F7F7", "#2166AC"))(200)
+
+max_p = 1
+min_p = -1
+
+ggplot() +
+  geom_tile(corr_effect_high_df, fill = "white", color = "black", mapping = aes(variable, y)) +
+  geom_text(corr_effect_high_df, mapping = aes(x = variable, y = y, label = round(Coefficients, 2), color = Coefficients), size = 5, fontface = "bold") + 
+  geom_tile(corr_effect_low_df, fill = "white", color = "black", mapping = aes(variable, y)) +
+  geom_text(corr_effect_low_df, mapping = aes(x = variable, y = y, label = round(Coefficients, 2), color = Coefficients), size = 5, fontface = "bold") + 
+  scale_color_gradientn(colors = color_palette_s, 
+                        limit = c(min_p, max_p),
+                        guide = "none") + 
+  theme_bw() + 
+  theme(aspect.ratio = 0.45, 
+        axis.text.x = element_text(angle = 90, hjust = 0, size = 15), 
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank())+#, 
+        #axis.text.y = element_blank()) +
+  scale_x_discrete(position = "top")

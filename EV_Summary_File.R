@@ -1,5 +1,5 @@
 ## EV Data Package Summary File
-#11/12024 M.Laan
+#11/1/2024 M.Laan
 
 library(tidyverse)
 
@@ -14,6 +14,14 @@ pnnl.user = 'laan208'
 all_respiration <- read.csv("C:/Users/laan208/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Sediment_Incubations_Respiration_Rates_ReadyForBoye_2024-11-01.csv") %>% 
   dplyr::select(c(Sample_Name, SpC, pH, Temp, Respiration_Rate_mg_DO_per_L_per_H, Respiration_Rate_mg_DO_per_kg_per_H, Methods_Deviation)) %>% 
   mutate(across(c(SpC:Respiration_Rate_mg_DO_per_kg_per_H), as.numeric))
+
+all_respiration %>%
+  mutate(Treat = if_else(grepl("D", Sample_Name), "Dry", "Wet")) %>% 
+  filter(Respiration_Rate_mg_DO_per_kg_per_H > -9999) %>% 
+ggplot(aes(x = Respiration_Rate_mg_DO_per_kg_per_H, fill = Treat)) + 
+  geom_histogram() + 
+  theme_bw()+ 
+  scale_fill_manual(values = c("Wet" = "#0072B2", "Dry" = "#D55E00"))
 
 
 median_respiration = all_respiration %>% 
@@ -40,6 +48,13 @@ median_respiration = all_respiration %>%
   dplyr::select(c(Sample_ID, Rep, Median_SpC, Median_pH, Median_Temp, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H, Remove)) %>% 
   # select(c(Sample_ID, Rep, Median_SpC_microsiemens_per_cm, Median_pH, Median_Temperature_degC, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H, Remove)) %>% 
   unite(Sample_Name, c("Sample_ID", "Rep"))
+
+median_respiration %>%
+  mutate(Treat = if_else(grepl("D", Sample_Name), "Dry", "Wet")) %>% 
+  ggplot(aes(x = Median_Respiration_Rate_mg_DO_per_kg_per_H, fill = Treat)) + 
+  geom_histogram() + 
+  theme_bw()+ 
+  scale_fill_manual(values = c("Wet" = "#0072B2", "Dry" = "#D55E00"))
 
 # Gravimetric Moisture ----------------------------------------------------
 
@@ -109,3 +124,19 @@ medians = left_join(median_respiration, median_grav, by = "Sample_Name") %>%
   mutate(Median_Missing_Reps = if_else(is.na(Median_Missing_Reps), FALSE, Median_Missing_Reps))
 
 write.csv(medians,"C:/Users/laan208/OneDrive - PNNL/Shared Documents - Core Richland and Sequim Lab-Field Team/Data Generation and Files/ECA/INC/03_ProcessedData/EV_Sediment_Incubations_Respiration_Rates_Summary_ReadyForBoye_2024-11-06.csv") 
+
+effect_data <- medians %>% 
+  separate(Sample_Name, c("Sample_Name", "Treat"), sep = "-") %>% 
+  mutate(Sample_Name = paste0(Sample_Name, "_all")) %>% 
+  group_by(Sample_Name) %>% 
+  mutate(across(where(is.numeric), ~. [Treat == "W"] - .[Treat  == "D"])) %>% 
+  rename_with(~ str_replace_all(., "Median_", "Effect_Size_")) %>% 
+  distinct(Sample_Name, .keep_all = TRUE) %>% 
+  mutate(Methods_Deviation = if_else(Effect_Size_Missing_Reps == TRUE, "EFFECT_001", "N/A")) %>% 
+  select(-c(Treat, Effect_Size_Missing_Reps))
+
+ggplot(effect_data, aes(x = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) + 
+  geom_histogram() + 
+  theme_bw()
+
+
