@@ -2,7 +2,7 @@
 
 # This script makes figures for ECA physical manuscript and performs PCA Analysis and LASSO regression
 
-library(tidyverse);library(corrplot);library(ggpubr);library(ggpmisc);library(factoextra);library(stringr);library(glmnet);library(magick); library(ggnewscale)
+library(tidyverse);library(corrplot);library(ggpubr);library(ggpmisc);library(factoextra);library(stringr);library(glmnet);library(magick); library(ggnewscale); library(FSA); library(multcompView); library(rcompanion)
 
 rm(list=ls());graphics.off()
 
@@ -265,7 +265,7 @@ all_medians = median_respiration %>%
   left_join(median_iron, by = "Sample_ID") %>% 
   left_join(median_cn, by = "Sample_ID") %>% 
   left_join(median_npoc_tn, by = "Sample_ID") %>% 
-  left_join(xrd, by = "Sample_ID") %>% 
+  #left_join(xrd, by = "Sample_ID") %>% 
   mutate(Sample_Name = str_replace(Sample_ID, "INC", "all")) %>% 
   select(-c(Sample_ID)) %>% 
   relocate(Sample_Name, .before = Median_SpC_microsiemens_per_cm)
@@ -327,7 +327,7 @@ effect_data = left_join(effect, grain, by = "Sample_Name") %>%
   left_join(all_medians) %>% 
   left_join(median_dry) %>% 
   mutate(across(c(Effect_Size_SpC_microsiemens_per_cm:Mean_Specific_Surface_Area_m2_per_g), as.numeric)) %>%  # make data numeric 
-    select(-c(Effect_Size_Initial_Gravimetric_Moisture_g_per_g, Effect_Size_Final_Gravimetric_Moisture_g_per_g, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H, Dolomite_percent, Apatite_percent)) %>% 
+    select(-c(Effect_Size_Initial_Gravimetric_Moisture_g_per_g, Effect_Size_Final_Gravimetric_Moisture_g_per_g, Median_Respiration_Rate_mg_DO_per_L_per_H, Median_Respiration_Rate_mg_DO_per_kg_per_H)) %>% 
   rename(median_Dry_Initial_Gravimetric = median_Initial_Gravimetric) %>% 
   rename(median_Dry_Final_Gravimetric = median_Final_Gravimetric) %>% 
   mutate(Effect_Size_Respiration_Rate_mg_DO_per_L_per_H = abs(Effect_Size_Respiration_Rate_mg_DO_per_L_per_H)) %>% 
@@ -554,7 +554,7 @@ sse <- sum((yvar_predict - yvar)^2)
 
 rsq = 1 - sse/sst
 
-rsq #0.45
+rsq #0.45, 0.48 with xrd
 
 ds_lasso_df = as.data.frame(as.matrix(all_lasso_coefs))
 
@@ -577,90 +577,97 @@ cube_effect = cube_effect %>%
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fine_Sand_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 fs = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Percent_Fine_Sand)) +
-  geom_point(aes(color = category), size = 5) +
+  geom_point(size = 5, shape = 1) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
   stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
   stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
-  stat_poly_line(data = cube_effect, se = FALSE) + 
-  ylab("Effect Size Respiration Rate (mg/kg)") +
-  xlab("Fine Sand (%)") + 
-  theme(legend.position  = "none")
+  stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed') + 
+  #ylab(expression("Effect Size Respiration Rate (mg kg"^-1*")"^(1/3))) +
+  ylab("")+
+  xlab(expression("Fine Sand (%)"^(1/3))) + 
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
 
 #dev.off()
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_ATP_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 atp = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_ATP_picomoles_per_g)) +
-  geom_point(aes(color = category), size = 5) +
+  geom_point(size = 5, shape  = 1) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
   stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
   stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
-  stat_poly_line(data = cube_effect, se = FALSE) + 
-  ylab("Effect Size Respiration Rate (mg/kg)") +
-  xlab("Median ATP (pmol/g)")+ 
-  theme(legend.position  = "none")
+  stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed') + 
+  #ylab(expression("Effect Size Respiration Rate (mg kg"^-1*")"^(1/3))) +
+  ylab("")+
+  xlab(expression("Median ATP (pmol g"^-1*")"^(1/3)))+ 
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
 
 #dev.off()
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_TOC_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 toc = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_X01395_C_percent_per_mg)) +
-  geom_point(aes(color = category), size = 5) +
+  geom_point(shape = 1, size = 5) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
   stat_cor(data = cube_effect, label.x = 0.55, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
   stat_cor(data = cube_effect, label.x = 0.55, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
-  stat_poly_line(data = cube_effect, se = FALSE) + 
-  ylab("Effect Size Respiration Rate (mg/kg)") +
-  xlab("Median TOC (%)")+ 
-  theme(legend.position  = "none")
+  stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed') + 
+  #ylab(expression("Effect Size Respiration Rate (mg kg"^-1*")"^(1/3))) +
+  ylab("")+
+  xlab(expression("Median TOC (%)"^(1/3)))+ 
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
 
 #dev.off()
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_TN_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 tn = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_X01397_N_percent_per_mg)) +
-  geom_point(aes(color = category), size = 5) +
+  geom_point(shape =1, size = 5) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
   stat_cor(data = cube_effect, label.x = 0.225, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
   stat_cor(data = cube_effect, label.x = 0.225, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
-  stat_poly_line(data = cube_effect, se = FALSE)+ 
-  ylab("Effect Size Respiration Rate (mg/kg)") +
-  xlab("Median TN (%)")
+  stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed')+ 
+ # ylab("Effect Size Respiration Rate (mg/kg)") +
+  ylab("")+
+  xlab(expression("Median TN (%)"^(1/3)))+ 
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
 
 #dev.off()
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Median_SpC_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 spc = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_SpC_microsiemens_per_cm)) +
-  geom_point(aes(color = category), size = 5) +
+  geom_point(shape = 1, size = 5) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
   stat_cor(data = cube_effect, label.x = 2.5, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
   stat_cor(data = cube_effect, label.x = 2.5, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
-  stat_poly_line(data = cube_effect, se = FALSE)+ 
-  ylab("Effect Size Respiration Rate (mg/kg)") +
-  xlab("Median SpC (\u03BCS/cm)")+ 
-  theme(legend.position  = "none")
+  stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed')+ 
+  #ylab("Effect Size Respiration Rate (mg/kg)") +
+  ylab("")+
+  xlab(expression("Median SpC (\u03BCS cm"^-1*")"^(1/3)))+ 
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
 
 #dev.off()
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Effect_Fe_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 fe = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Effect_Size_Fe_mg_per_kg)) +
-  geom_point(aes(color = category), size = 5) +
+  geom_point(shape = 1, size = 5) +
   geom_point(fe_cube_effect, mapping = aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Effect_Size_Fe_mg_per_kg), color = "red", size = 5) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
   stat_cor(data = cube_effect, label.x = -2.5, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
   stat_cor(data = cube_effect, label.x = -2.5, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
-  stat_poly_line(data = cube_effect, se = FALSE)+ 
-  ylab("Effect Size Respiration Rate (mg/kg)") +
-  xlab("Effect Size Fe (II) (mg/kg)")+ 
-  theme(legend.position  = "none")
+  stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed')+ 
+  #ylab(expression("Effect Size Respiration Rate (mg kg"^-1*")"^(1/3))) +
+  ylab("")+
+  xlab(expression("Effect Size Fe (II) (mg kg"^-1*")"^(1/3)))+ 
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
 
 #dev.off()
 
@@ -669,7 +676,7 @@ fe = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_
 lasso_pear_df = bind_rows(ds_lasso_df, corr_effect_df) %>% 
   rename(type = y) %>% 
   filter(!grepl("Silt", variable)) %>% 
-  mutate(variable = ifelse(variable == "cube_Effect_Size_SpC_microsiemens_per_cm", " Effect Size Specific Conductivity (\u03BCS/cm)", ifelse(variable == "cube_Effect_Size_pH", "Effect Size pH", ifelse(variable == "cube_Effect_Size_Temperature_degC", " Effect Size Temperature (\u00B0C)",  ifelse(variable == "cube_Effect_Size_Fe_mg_per_kg", "Effect Size Fe (II) (mg/kg)", ifelse(variable == "cube_Effect_Size_ATP_picomoles_per_g", "Effect Size ATP (pmol/g)", ifelse(variable == "cube_Effect_Size_Extractable_NPOC_mg_per_kg", "Effect Size Extractable NPOC (mg/kg)", ifelse(variable == "cube_Effect_Size_Extractable_TN_mg_per_kg", "Effect Size Extractable TN (mg/kg)", ifelse(variable == "cube_Effect_Size_C_percent_per_mg", "Effect Size TOC (%)", ifelse(variable == "cube_Effect_Size_N_percent_per_mg", "Effect Size TN (%)", ifelse(variable == "cube_Percent_Tot_Sand", "Total Sand (%)", ifelse(variable == "cube_Percent_Med_Sand", "Medium Sand (%)", ifelse(variable == "cube_Percent_Fine_Sand", "Fine Sand (%)", ifelse(variable == "cube_Median_SpC_microsiemens_per_cm", "Median Specific Conductivity (\u03BCS/cm)", ifelse(variable == "cube_Median_pH", "Median pH", ifelse(variable == "cube_Median_Temperature_degC", "Median Temperature (\u00B0C)", ifelse(variable == "cube_Median_ATP_picomoles_per_g", "Median ATP (pmol/g)",  ifelse(variable == "cube_Median_Fe_mg_per_kg", "Median Fe (II) (mg/kg)", ifelse(variable == "cube_Median_X01395_C_percent_per_mg", "Median TOC (%)",   ifelse(variable ==  "cube_Median_X01397_N_percent_per_mg", "Median TN (%)", ifelse(variable == "cube_Median_Extractable_NPOC_mg_per_kg", "Median Extractable NPOC (mg/kg)", ifelse(variable == "cube_Median_Extractable_TN_mg_per_kg", "Median Extractable TN (mg/kg)", ifelse(variable == "cube_median_Dry_Initial_Gravimetric", "Median Initial Dry Gravimetric Moisture (g/g)", ifelse(variable == "cube_Percent_Coarse_Sand", "Coarse Sand (%)", ifelse(variable == "cube_Percent_Clay", "Clay (%)", ifelse(variable == "cube_Mean_Specific_Surface_Area_m2_per_g", "Specific Surface Area (m\u00B2/g)", ifelse(variable == "cube_median_Dry_Final_Gravimetric", "Median Final Dry Gravimetric Moisture (g/g)",
+  mutate(variable = ifelse(variable == "cube_Effect_Size_SpC_microsiemens_per_cm", "Effect Size Specific Conductivity (\u03BCS cm\u207b\u00b9)", ifelse(variable == "cube_Effect_Size_pH", "Effect Size pH", ifelse(variable == "cube_Effect_Size_Temperature_degC", " Effect Size Temperature (\u00B0C)",  ifelse(variable == "cube_Effect_Size_Fe_mg_per_kg", "Effect Size Fe (II) (mg kg\u207b\u00b9)", ifelse(variable == "cube_Effect_Size_ATP_picomoles_per_g", "Effect Size ATP (pmol g\u207b\u00b9)", ifelse(variable == "cube_Effect_Size_Extractable_NPOC_mg_per_kg", "Effect Size Extractable NPOC (mg kg\u207b\u00b9)", ifelse(variable == "cube_Effect_Size_Extractable_TN_mg_per_kg", "Effect Size Extractable TN (mg kg\u207b\u00b9)", ifelse(variable == "cube_Effect_Size_C_percent_per_mg", "Effect Size TOC (%)", ifelse(variable == "cube_Effect_Size_N_percent_per_mg", "Effect Size TN (%)", ifelse(variable == "cube_Percent_Tot_Sand", "Total Sand (%)", ifelse(variable == "cube_Percent_Med_Sand", "Medium Sand (%)", ifelse(variable == "cube_Percent_Fine_Sand", "Fine Sand (%)", ifelse(variable == "cube_Median_SpC_microsiemens_per_cm", "Median Specific Conductivity (\u03BCS cm\u207b\u00b9)", ifelse(variable == "cube_Median_pH", "Median pH", ifelse(variable == "cube_Median_Temperature_degC", "Median Temperature (\u00B0C)", ifelse(variable == "cube_Median_ATP_picomoles_per_g", "Median ATP (pmol g\u207b\u00b9)",  ifelse(variable == "cube_Median_Fe_mg_per_kg", "Median Fe (II) (mg kg\u207b\u00b9)", ifelse(variable == "cube_Median_X01395_C_percent_per_mg", "Median TOC (%)",   ifelse(variable ==  "cube_Median_X01397_N_percent_per_mg", "Median TN (%)", ifelse(variable == "cube_Median_Extractable_NPOC_mg_per_kg", "Median Extractable NPOC (mg kg\u207b\u00b9)", ifelse(variable == "cube_Median_Extractable_TN_mg_per_kg", "Median Extractable TN (mg kg\u207b\u00b9)", ifelse(variable == "cube_median_Dry_Initial_Gravimetric", "Median Initial Dry Gravimetric Moisture (g g\u207b\u00b9)", ifelse(variable == "cube_Percent_Coarse_Sand", "Coarse Sand (%)", ifelse(variable == "cube_Percent_Clay", "Clay (%)", ifelse(variable == "cube_Mean_Specific_Surface_Area_m2_per_g", "Specific Surface Area (m\u00B2 g\u207b\u00b9)", ifelse(variable == "cube_median_Dry_Final_Gravimetric", "Median Final Dry Gravimetric Moisture (g g\u207b\u00b9)",
  variable)))))))))))))))))))))))))))
 
 limit_pearson = lasso_pear_df %>% 
@@ -724,64 +731,49 @@ pearson_df = lasso_pear_df %>%
 
 ## Merge Matrices + Scatter Plots
 
-col_scatter = ggarrange(fs, atp, tn, fe, spc, toc, ncol = 3, nrow = 2, common.legend =  T, legend = "right",  labels = c("A", "B", "C", "D", "E", "F", "G"))
+col_scatter = ggarrange(fs, atp, tn, fe, spc, toc, ncol = 3, nrow = 2, common.legend =  T, legend = "right",  labels = c("B", "C", "D", "E", "F", "G", "H"), label.x = 0.875, label.y = 0.22, align = "hv", heights = c(1,1), font.label = list(size = 25))
 
-ggsave("./Physical_Manuscript_Figures/Color_Category_Scatter_Plots.png", width = 30, height = 20)
+col_scatter_ann = annotate_figure(col_scatter, left = text_grob(expression("Effect Size Respiration Rate mg kg"^-1*")"^(1/3)), rot = 90, size = 22))
+
+col_scatter_ann
+
+ggsave("./Physical_Manuscript_Figures/Scatter_Plots.png", plot = col_scatter_ann, width = 18, height = 12)
+
+
+scatter_matrix = ggarrange(combined_matrix, col_scatter_ann, nrow = 2, heights = c(1,1))
+scatter_matrix
+
+#ggsave("./Physical_Manuscript_Figures/Scatter_Heat_Map_Format.png", plot = scatter_matrix, width = 18, height = 12)
 
 combine_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Archive/2024-09-19_Combined_Heat_Matrix.png")
 
 combine_label_image = image_annotate(combine_hm_image, "A", size = 100, location = "+25+50", color = "black")
 
-fine_sand_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-19_Cube_Median_Effect_vs_Fine_Sand_Scatter.png")
+scatter_plot = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Scatter_Plots.png")
 
-fine_sand_label_image = image_annotate(fine_sand_image, "B", size = 65, location = "+30+20", color = "black")
+scatter_scale = image_scale(scatter_plot, "59%")
 
-fine_sand_scale_image = image_scale(fine_sand_label_image, "65%")
+# Get the original dimensions of scatter_scale
+scatter_width <- image_info(scatter_scale)$width
+scatter_height <- image_info(scatter_scale)$height
 
-atp_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-17_Cube_Median_Effect_vs_ATP_Scatter.png")
+# Add padding to the left by increasing the canvas width
+scatter_scale_padded <- image_extent(
+  scatter_scale,
+  geometry = paste0(scatter_width + 300, "x", scatter_height), # Add 200 pixels to the width
+  gravity = "center" # Content stays on the left, padding is added to the left
+)
 
-atp_label_image = image_annotate(atp_image, "C", size = 65, location = "+30+20", color = "black")
 
-atp_scale_image = image_scale(atp_label_image, "65%")
+whole_image = image_append(c(combine_label_image, scatter_scale_padded), stack = TRUE)
 
-fe_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-17_Cube_Median_Effect_vs_Effect_Fe_Scatter.png")
-
-fe_label_image = image_annotate(fe_image, "E", size = 65, location = "+30+20", color = "black")
-
-fe_scale_image = image_scale(fe_label_image, "65%")
-
-tn_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-17_Cube_Median_Effect_vs_TN_Scatter.png")
-
-tn_label_image = image_annotate(tn_image, "D", size = 65, location = "+30+20", color = "black")
-
-tn_scale_image = image_scale(tn_label_image, "65%")
-
-spc_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-17_Cube_Median_Effect_vs_Median_SpC_Scatter.png")
-
-spc_label_image = image_annotate(spc_image, "F", size = 65, location = "+30+20", color = "black")
-
-spc_scale_image = image_scale(spc_label_image, "65%")
-
-toc_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/2024-09-17_Cube_Median_Effect_vs_TOC_Scatter.png")
-
-toc_label_image = image_annotate(toc_image, "G", size = 65, location = "+30+20", color = "black")
-
-toc_scale_image = image_scale(toc_label_image, "65%")
-
-first_row_image = image_append(c(fine_sand_scale_image, atp_scale_image, tn_scale_image))
-
-second_row_image = image_append(c(fe_scale_image, spc_scale_image, toc_scale_image))
-
-whole_image = image_append(c(combine_label_image, first_row_image, second_row_image), stack = TRUE)
-
-image_write(whole_image, path = "./Physical_Manuscript_Figures/2024-09-19_Combined_Heat_Map.png")
-
+image_write(whole_image, path = "./Physical_Manuscript_Figures/Scatter_Heat_Map.png")
 
 ## Conceptual Model ####
 
- d50 = read.csv("./Data/D50_Calculations.csv")
+d50 = read.csv("./Data/D50_Calculations.csv")
   
- effect_d50 = left_join(effect_data, d50, by = "Sample_Name")
+effect_d50 = left_join(effect_data, d50, by = "Sample_Name")
  
  dummy_row = data.frame(d50 = 0.053)
  
@@ -798,8 +790,8 @@ d50_plot = effect_d50 %>%
    theme_bw() + 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)#, 
         #axis.title.y = element_text(size = 6)
-        ) +
-  annotate("text", x = Inf, y = Inf, label = "A", hjust = 3, vjust = 2, size = 6)
+        ) #+
+  #annotate("text", x = Inf, y = Inf, label = "A", hjust = 3, vjust = 2, size = 6)
 
 fine_sand = effect_d50 %>% 
   rename(Sample = Sample_Name) %>% 
@@ -1401,11 +1393,19 @@ d50_cat = ggplot(effect_analysis, aes(x = category, y = Effect_Size_Respiration_
 
 fs_cat = ggplot(effect_analysis, aes(x = category, y = Percent_Fine_Sand,  fill = category)) +
   geom_boxplot() +
-  geom_text(aes(label = cld_fs, y = 85))
+  geom_text(aes(label = cld_fs, y = 85)) + 
+  theme_bw() +
+  ylab("Fine Sand (%)") + 
+  xlab("") +
+  theme(legend.title = element_blank())
 
 atp_cat = ggplot(effect_analysis, aes(x = category, y = Median_ATP_picomoles_per_g,  fill = category)) +
   geom_boxplot() +
-  geom_text(aes(label = cld_atp, y = 325))
+  geom_text(aes(label = cld_atp, y = 325))+ 
+  theme_bw() +
+  ylab(expression("ATP (pmol g"^-1*")")) + 
+  xlab("") +
+  theme(legend.title = element_blank())
 
 fe_diff_cat = ggplot(effect_analysis, aes(x = category, y = Effect_Size_Fe_mg_per_kg,  fill = category)) +
   geom_boxplot()+
@@ -1440,7 +1440,7 @@ grav_by_ssa = all_d50 %>%
   geom_boxplot()
 
 
-all_boxes_row = ggarrange(d50_cat, fs_cat, atp_cat, fe_cat, tn_cat, nrow = 5)
+all_boxes_row = ggarrange(d50_cat, fs_cat, atp_cat, fe_diff_cat, tn_cat, nrow = 5)
 
 ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Rows.png", width = 20, height = 20)
 
@@ -1452,6 +1452,31 @@ ggsave("./Physical_Manuscript_Figures/D50_Boxplots_Cols_Parametric.png", width =
 final_range = annotate_figure(range_box, bottom = text_grob("D50", size = 12, vjust = 0.5))
 
 final_range
+
+## Final Conceptual Figure?? ####
+d50_plot = d50_plot +
+  ylab(expression("Effect Size Respiration (mg kg"^-1*")")) +
+  theme(axis.title.y = element_text(size = 10),
+        axis.title.x = element_text(size = 10), 
+        legend.key.size = unit(0.5, "cm"),
+        axis.text.x = element_text(size = 8), 
+        axis.text.y = element_text(size = 8))
+
+fs_cat = fs_cat + 
+  theme(legend.position = "none", aspect.ratio = 1)
+
+leg <- get_legend(atp_cat)
+# Convert to a ggplot and print
+legend = as_ggplot(leg)
+
+atp_cat_save = atp_cat +
+  theme(legend.position = "none", aspect.ratio = 1)
+
+
+d50_box = ggarrange(d50_plot, labels = c("A"), nrow = 2,
+                ggarrange(fs_cat, atp_cat_save, legend, ncol = 3, widths = c(5,5,2), labels = c("B", "C")))
+
+ggsave("./Physical_Manuscript_Figures/d50_boxes.png", width = 12, height = 9, plot = d50_box)
 
 ## Control Point Influence
 
