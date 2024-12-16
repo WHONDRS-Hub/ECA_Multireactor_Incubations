@@ -1463,18 +1463,16 @@ d50_plot = d50_plot +
         axis.text.y = element_text(size = 8))
 
 fs_cat = fs_cat + 
-  theme(legend.position = "none", aspect.ratio = 1)
-
-leg <- get_legend(atp_cat)
-# Convert to a ggplot and print
-legend = as_ggplot(leg)
+  theme(legend.position = "none", aspect.ratio = 1,
+        plot.margin = unit(c(0, -1, 0, 0), "cm")) 
 
 atp_cat_save = atp_cat +
-  theme(legend.position = "none", aspect.ratio = 1)
+  theme(legend.position = "none", aspect.ratio = 1,
+        plot.margin = unit(c(0, 0, 0, -1), "cm"))
 
 
 d50_box = ggarrange(d50_plot, labels = c("A"), nrow = 2,
-                ggarrange(fs_cat, atp_cat_save, legend, ncol = 3, widths = c(5,5,2), labels = c("B", "C")))
+                ggarrange(fs_cat, atp_cat_save, ncol = 2, widths = c(3,3), labels = c("B", "C"), hjust = -5, align = "h"))
 
 ggsave("./Physical_Manuscript_Figures/d50_boxes.png", width = 12, height = 9, plot = d50_box)
 
