@@ -3,15 +3,83 @@
 
 #pull out 12D-H5, 12L-W5, 16L-D2
 
-library(tidyverse); library(readxl); library(ggpmisc); library(corrplot); library(Hmisc)
+library(ggbiplot)
+library(tidyverse); library(readxl); library(ggpmisc); library(corrplot); library(Hmisc)#; 
 
 rm(list=ls());graphics.off()
+
+current_path <- rstudioapi::getActiveDocumentContext()$path
+setwd(dirname(current_path))
+setwd("../..")
+getwd()
 
 # Set working directory to data file
 #Example:
 pnnl.user = 'laan208'
 
+## Panel Functions ####
 
+pear.panel.cor <- function(x, y, digits=2, prefix="", cex.cor)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r = (cor(x, y, method = c("pearson")))
+  txt <- format(c(r, 0.123456789), digits=digits)[1]
+  txt <- paste(prefix, txt, sep="")
+  if(missing(cex.cor)) {cex.cor <- 0.8/strwidth(txt)} 
+  text(0.5, 0.5, txt, cex = cex.cor * (1 + abs(r))/2)
+  
+  # if(missing(cex.cor)) {cex <- 1.2/strwidth(txt)} else {cex = cex.cor}
+  # text(0.5, 0.5, txt, cex = cex * sin(sqrt(abs(r))))
+  
+  test <- cor.test(x,y)
+  Signif <- symnum(test$p.value, corr = FALSE, na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " "))
+  #text(0.5, 0.5, txt, cex = cex * r)
+  text(.5, .8, Signif, cex=cex.cor, col=2)
+  
+}
+
+spear.panel.cor <- function(x, y, digits=2, prefix="", cex.cor)
+{
+  
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  
+  r = (cor(x, y, method = c("spearman")))
+  txt <- format(c(r, 0.123456789), digits=digits)[1]
+  txt <- paste(prefix, txt, sep="")
+  
+  if(missing(cex.cor)) {cex.cor <- 0.8/strwidth(txt)}
+  text(0.5, 0.5, txt, cex = cex.cor * (1 + abs(r))/2)
+  
+  # if(missing(cex.cor)) {cex <- 1.2/strwidth(txt)} else {cex = cex.cor}
+  # text(0.5, 0.5, txt, cex = cex * sin(sqrt(abs(r))))
+  
+  test <- cor.test(x,y, method = "spearman")
+  Signif <- symnum(test$p.value, corr = FALSE, na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1), symbols = c("***", "**", "*", ".", " "))
+  #text(0.5, 0.5, txt, cex = cex * r)
+  text(.5, .8, Signif, cex=cex.cor, col=2)
+  
+}
+
+panel.smooth <- function(x, y) {
+  points(x, y, pch = 19, col = rgb(0.1, 0.2, 0.5, alpha = 0.3))
+  abline(lm(y ~ x), col = 'blue', lty = 2)
+}
+
+panel.hist <- function(x, ...) {
+  usr <- par("usr"); on.exit(par(usr))
+  #par(usr = c(usr[1:2], 0, 2))
+  par(usr = c(range(x), 0, 1))
+  
+ 
+  
+  h <- hist(x, plot = FALSE)#, breaks = "FD")
+  breaks <- h$breaks; nB <- length(breaks)
+  y <- h$counts; y <- y/max(y)
+  
+  rect(breaks[-nB], 0, breaks[-1], y, col="grey", border="white", ...)
+}
 
 # Respiration -------------------------------------------------------------
 
@@ -142,8 +210,6 @@ pca_scores = as.data.frame(pca_result$x)
 pca_scores$Group = effect_agg_wide$IN
 
 
-library(ggbiplot)
-
 ggbiplot(pca_result, obs.scale = 1, var.scale = 1, groups = effect_agg_wide$IN, ellipse = T) + 
   #scale_color_gradient(low = "blue", high = "red", name = "Effect Size") + 
   theme_minimal()+
@@ -158,10 +224,7 @@ ggbiplot(pca_result, obs.scale = 1, var.scale = 1, groups = effect_agg_wide$IN, 
 ## Effect Size Histogram
 
 ## EFFECT CUBE ROOT
-
-
 effect_limits <- c(-1600, 1600)
-
 
 ggplot(effect_data, aes(x = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H))+
   # geom_histogram(binwidth = 0.15, fill = "#009E73")+
@@ -265,6 +328,20 @@ pear_effect_high = matrix(pearson_high[1, ], nrow = 1)
 colnames(pear_effect_high) = colnames(pearson_high)
 rownames(pear_effect_high) = c("Pearson Correlation Coefficient")
 
+## Pairs Correlation Matrix
+
+png(file = paste0("./EL/Figures/", as.character(Sys.Date()),"_Surface_Pearson_Correlation_Matrix.png"), width = 6, height = 6, units = "in", res = 300)
+
+pairs(high_corr_data, 
+      lower.panel = panel.smooth, 
+      upper.panel = pear.panel.cor, 
+      diag.panel = panel.hist, 
+      labels = colnames(high_corr_data), 
+      cex.labels = 0.3,
+      main = "Pearson Surface Soil")
+
+dev.off()
+
 ## Subsurface Pearson Correlations ##
 
 pearson_low <- cor(low_corr_data, method = "pearson", use = "complete.obs")
@@ -279,6 +356,22 @@ pear_low_p = pear_low_p[,-1]
 pear_effect_low = matrix(pearson_low[1, ], nrow = 1)
 colnames(pear_effect_low) = colnames(pearson_low)
 rownames(pear_effect_low) = c("Pearson Correlation Coefficient")
+
+## Pairs Correlation Matrix
+
+png(file = paste0("./EL/Figures/", as.character(Sys.Date()),"_Subsurface_Pearson_Correlation_Matrix.png"), width = 6, height = 6, units = "in", res = 300)
+
+pairs(low_corr_data, 
+      lower.panel = panel.smooth, 
+      upper.panel = pear.panel.cor, 
+      diag.panel = panel.hist, 
+      labels = colnames(low_corr_data), 
+      cex.labels = 0.3,
+      main = "Pearson Subsurface Soil")
+
+dev.off()
+
+## Make dataframes
 
 pear_effect_high_df = as.data.frame(pear_effect_high) %>% 
   select(-c(`Effect Size Respiration Rates (Wet - Dry)`)) %>% 
@@ -362,6 +455,20 @@ cube_pear_effect_high = matrix(cube_pearson_high[1, ], nrow = 1)
 colnames(cube_pear_effect_high) = colnames(cube_pearson_high)
 rownames(cube_pear_effect_high) = c("Pearson Correlation Coefficient")
 
+## Pairs Correlation Matrix
+
+png(file = paste0("./EL/Figures/", as.character(Sys.Date()),"_Surface_Cube_Root_Pearson_Correlation_Matrix.png"), width = 6, height = 6, units = "in", res = 300)
+
+pairs(cube_high_data, 
+      lower.panel = panel.smooth, 
+      upper.panel = pear.panel.cor, 
+      diag.panel = panel.hist, 
+      labels = colnames(cube_high_data), 
+      cex.labels = 0.3,
+      main = "Pearson Cube Root Surface Soil")
+
+dev.off()
+
 ## Subsurface Pearson Correlations ##
 
 cube_pearson_low <- cor(cube_low_data, method = "pearson", use = "complete.obs")
@@ -371,6 +478,20 @@ cube_pear_low_p = as.data.frame(matrix(((rcorr(as.matrix(cube_low_data)))$P)[1, 
 colnames(cube_pear_low_p) = colnames(cube_pearson_low)
 rownames(cube_pear_low_p) = c("Pearson_p_value")
 cube_pear_low_p = cube_pear_low_p[,-1]
+
+## Pairs Correlation Matrix
+
+png(file = paste0("./EL/Figures/", as.character(Sys.Date()),"_Subsurface_Cube_Root_Pearson_Correlation_Matrix.png"), width = 6, height = 6, units = "in", res = 300)
+
+pairs(cube_low_data, 
+      lower.panel = panel.smooth, 
+      upper.panel = pear.panel.cor, 
+      diag.panel = panel.hist, 
+      labels = colnames(cube_low_data), 
+      cex.labels = 0.3,
+      main = "Pearson Cube Root Suburface Soil")
+
+dev.off()
 
 # pull out Pearson correlation values 
 cube_pear_effect_low = matrix(cube_pearson_low[1, ], nrow = 1)
@@ -447,6 +568,20 @@ corr_effect_high = matrix(spearman_high[1, ], nrow = 1)
 colnames(corr_effect_high) = colnames(spearman_high)
 rownames(corr_effect_high) = c("Spearman Correlation Coefficient")
 
+## Pairs Correlation Matrix
+
+png(file = paste0("./EL/Figures/", as.character(Sys.Date()),"_Surface_Spearman_Correlation_Matrix.png"), width = 6, height = 6, units = "in", res = 300)
+
+pairs(high_corr_data, 
+      lower.panel = panel.smooth, 
+      upper.panel = spear.panel.cor, 
+      diag.panel = panel.hist, 
+      labels = colnames(high_corr_data), 
+      cex.labels = 0.3,
+      main = "Spearman Surface Soil")
+
+dev.off()
+
 ## Subsurface Spearman Correlations
 spearman_low <- cor(low_corr_data, method = "spearman", use = "complete.obs")
 
@@ -455,6 +590,20 @@ spear_low_p = as.data.frame(matrix(((rcorr(as.matrix(low_corr_data), type = "spe
 colnames(spear_low_p) = colnames(spearman_low)
 rownames(spear_low_p) = c("Spearman_p_value")
 spear_low_p = spear_low_p[,-1]
+
+## Pairs Correlation Matrix
+
+png(file = paste0("./EL/Figures/", as.character(Sys.Date()),"_Subsurface_Spearman_Correlation_Matrix.png"), width = 6, height = 6, units = "in", res = 300)
+
+pairs(low_corr_data, 
+      lower.panel = panel.smooth, 
+      upper.panel = spear.panel.cor, 
+      diag.panel = panel.hist, 
+      labels = colnames(low_corr_data), 
+      cex.labels = 0.3,
+      main = "Spearman Subsurface Soil")
+
+dev.off()
 
 # Spearman Correlation Coefficients
 corr_effect_low = matrix(spearman_low[1, ], nrow = 1)
