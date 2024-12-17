@@ -3,7 +3,7 @@
 
 #pull out 12D-H5, 12L-W5, 16L-D2
 
-library(tidyverse); library(readxl)
+library(tidyverse); library(readxl); library(ggpmisc); library(corrplot); library(Hmisc)
 
 rm(list=ls());graphics.off()
 
@@ -11,8 +11,6 @@ rm(list=ls());graphics.off()
 #Example:
 pnnl.user = 'laan208'
 
-#Set wd to Boye Files
-setwd("Z:/00_Cross-SFA_ESSDIVE-Data-Package-Upload/01_Study-Data-Package-Folders/ECA_Data_Package/EC_Data_Package/Sample_Data/")
 
 
 # Respiration -------------------------------------------------------------
@@ -50,6 +48,7 @@ median_respiration = all_respiration %>%
   mutate(Median_Respiration_Rate_mg_DO_per_kg_per_H = Median_Respiration_Rate_mg_DO_per_kg_per_H * -1) %>% 
   separate(Sample_Name, c("EL", "Site", "IN", "Treat"), sep = "_") %>% 
   unite(Sample_Name, c("EL", "Site", "IN"), sep = "_", remove = F) %>% 
+  unite(Site, c("EL", "Site"), sep = "_") %>% 
   ungroup()
 
 ggplot(median_respiration, aes(x = Median_Respiration_Rate_mg_DO_per_kg_per_H)) + 
@@ -68,7 +67,7 @@ effect_data <- median_respiration %>%
 
 ## Aggregates ####
 
-agg = read_xlsx("C:/GitHub/ECA_Multireactor_Incubations/Data/EL/water_stable_aggregates_10_24_2024.xlsx") %>% 
+agg = read_xlsx("C:/GitHub/ECA_Multireactor_Incubations/EL/Data/water_stable_aggregates_10_24_2024.xlsx") %>% 
   mutate(Sample_Name = str_replace(sample_name, "AG", "IN")) %>% 
   mutate(Sample_Name = str_replace(Sample_Name, "-1", "")) %>% 
   select(-c(sample_name)) %>%
@@ -78,13 +77,13 @@ agg = read_xlsx("C:/GitHub/ECA_Multireactor_Incubations/Data/EL/water_stable_agg
 
 ## Figures ####
 
-resp_agg = left_join(agg, median_respiration, by = "Sample_Name") %>% 
+resp_agg = left_join(agg, median_respiration, by = c("Sample_Name", "Site")) %>% 
   select(-c(Remove, Median_SpC, Median_Temp, Median_pH)) %>% 
   relocate(Treat, .after = "Sample_Name") %>% 
   pivot_longer(cols = starts_with("53um_aggregates_wt%"):starts_with("total%_aggregates"), 
                names_to = "agg_size", values_to = "perc")
 
-effect_agg = left_join(agg, effect_data, by = "Sample_Name") %>% 
+effect_agg = left_join(agg, effect_data, by = c("Sample_Name", "Site")) %>% 
   select(-c(Remove, Effect_Size_SpC, Effect_Size_Temp, Effect_Size_pH)) %>% 
   pivot_longer(cols = starts_with("53um_aggregates_wt%"):starts_with("total%_aggregates"), 
                names_to = "agg_size", values_to = "perc")
@@ -111,13 +110,10 @@ ggplot(effect_agg, aes(x = perc, y = Effect_Size_Respiration_Rate_mg_DO_per_kg_p
   geom_point(aes(color = IN))+
   facet_wrap(~agg_size)
 
-ggplot(effect_agg, aes(x = perc, y = Effect_Size_Respiration_Rate_mg_DO_per_L_per_H)) +
-  geom_point(aes(color = IN))+
-  facet_wrap(~agg_size)
 
 ## PCA? ####
 
-effect_agg_wide = left_join(agg, effect_data, by = "Sample_Name")
+effect_agg_wide = left_join(agg, effect_data, by = c("Sample_Name", "Site"))
 
 effect_real = effect_agg_wide %>% 
   filter(Effect_Size_Respiration_Rate_mg_DO_per_L_per_H < 100)
@@ -128,7 +124,7 @@ ggplot(effect_real, aes(x = reorder(Sample_Name, Effect_Size_Respiration_Rate_mg
 
 
 effect_agg_pca = effect_agg_wide %>% 
-  select(-c(Remove, Effect_Size_SpC, Effect_Size_Temp, Effect_Size_pH, Site, EL, IN, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, 
+  select(-c(Remove, Effect_Size_SpC, Effect_Size_Temp, Effect_Size_pH, Site, IN, Level, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, 
             Effect_Size_Respiration_Rate_mg_DO_per_L_per_H)) %>% column_to_rownames("Sample_Name")
 
 effect_agg_scale = scale(effect_agg_pca)
@@ -201,26 +197,12 @@ ggplot(agg, aes(x = `total%_aggregates`)) +
   facet_grid(~Level, scales = "free") +
   theme_bw()
 
-## cube roots 
 
-cube_root <- function(x) sign(x) * (abs(x))^(1/3)
-
-cube_effect = effect_agg %>% 
-  mutate(cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H = cube_root(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) 
-
-cube_effect$agg_size = factor(cube_effect$agg_size, levels = c('53um_aggregates_wt%', "125um_aggregates_wt%", "250um_aggregates_wt%", "2mm_aggregates_wt%", "total%_aggregates"))
-                                                              
-
-ggplot(cube_effect, mapping = aes(x = perc, y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, color = IN)) + 
-  geom_point() + 
-  theme_bw() +
-  facet_wrap(agg_size~., scales = "free", nrow = 1) + 
-  stat_poly_line(data = cube_effect, se = FALSE) + 
-  stat_correlation(label.y = "middle", label.x = "right", size = 3, use_label(c("R2", "P")))
+## Correlation Matrices ####
 
 corr_data = effect_agg_wide %>% 
   select(c(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H,`53um_aggregates_wt%`, `125um_aggregates_wt%`, `250um_aggregates_wt%`, `2mm_aggregates_wt%`, `total%_aggregates`)) %>% 
-  dplyr::rename("53 um aggregates"  = `53um_aggregates_wt%`) %>% 
+  dplyr::rename(`53 um aggregates %`  = `53um_aggregates_wt%`) %>% 
   dplyr::rename(`125 um aggregates %` = `125um_aggregates_wt%`) %>% 
   dplyr::rename(`250 um aggregates %` = `250um_aggregates_wt%`) %>% 
   dplyr::rename(`2 mm aggregates %` = `2mm_aggregates_wt%`) %>% 
@@ -231,7 +213,7 @@ corr_data = effect_agg_wide %>%
 low_corr_data = effect_agg_wide %>% 
   filter(IN == "INL") %>% 
   select(c(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H,`53um_aggregates_wt%`, `125um_aggregates_wt%`, `250um_aggregates_wt%`, `2mm_aggregates_wt%`, `total%_aggregates`)) %>% 
-  dplyr::rename("53 um aggregates"  = `53um_aggregates_wt%`) %>% 
+  dplyr::rename(`53 um aggregates %`  = `53um_aggregates_wt%`) %>% 
   dplyr::rename(`125 um aggregates %` = `125um_aggregates_wt%`) %>% 
   dplyr::rename(`250 um aggregates %` = `250um_aggregates_wt%`) %>% 
   dplyr::rename(`2 mm aggregates %` = `2mm_aggregates_wt%`) %>% 
@@ -242,7 +224,7 @@ low_corr_data = effect_agg_wide %>%
 high_corr_data = effect_agg_wide %>% 
   filter(IN == "INH") %>% 
   select(c(Sample_Name, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H,`53um_aggregates_wt%`, `125um_aggregates_wt%`, `250um_aggregates_wt%`, `2mm_aggregates_wt%`, `total%_aggregates`)) %>% 
-  dplyr::rename("53 um aggregates"  = `53um_aggregates_wt%`) %>% 
+  dplyr::rename(`53 um aggregates %`  = `53um_aggregates_wt%`) %>% 
   dplyr::rename(`125 um aggregates %` = `125um_aggregates_wt%`) %>% 
   dplyr::rename(`250 um aggregates %` = `250um_aggregates_wt%`) %>% 
   dplyr::rename(`2 mm aggregates %` = `2mm_aggregates_wt%`) %>% 
@@ -250,48 +232,268 @@ high_corr_data = effect_agg_wide %>%
   dplyr:: rename("Effect Size Respiration Rates (Wet - Dry)" = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)%>% 
   column_to_rownames("Sample_Name")
 
+## Cube Root Transformations ####
+
+cube_root <- function(x) sign(x) * (abs(x))^(1/3)
+
+cube_corr_data = corr_data %>%
+  dplyr::mutate(across(where(is.numeric), cube_root))
+
+cube_high_data = high_corr_data %>%
+  dplyr::mutate(across(where(is.numeric), cube_root))
+
+cube_low_data = low_corr_data %>%
+  dplyr::mutate(across(where(is.numeric), cube_root))
+
+## Pearson Correlations ####
+pearson = cor(corr_data, method = "pearson", use = "complete.obs")
+
+pear_corr_all = corrplot(pearson, type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Pearson Correlation")
+
+## Surface Pearson Correlations ##
+
+pearson_high <- cor(high_corr_data, method = "pearson", use = "complete.obs")
+
+# calculate p-values for pearson correlation matrix, this should be the same as linear regression?
+pear_high_p = as.data.frame(matrix(((rcorr(as.matrix(high_corr_data)))$P)[1, ], nrow = 1)) 
+colnames(pear_high_p) = colnames(pearson_high)
+rownames(pear_high_p) = c("Pearson_p_value")
+pear_high_p = pear_high_p[,-1]
+
+# Pull out Pearson correlation values
+pear_effect_high = matrix(pearson_high[1, ], nrow = 1)
+colnames(pear_effect_high) = colnames(pearson_high)
+rownames(pear_effect_high) = c("Pearson Correlation Coefficient")
+
+## Subsurface Pearson Correlations ##
+
+pearson_low <- cor(low_corr_data, method = "pearson", use = "complete.obs")
+
+# calculate p-values for pearson correlation matrix, this should be the same as linear regression?
+pear_low_p = as.data.frame(matrix(((rcorr(as.matrix(low_corr_data)))$P)[1, ], nrow = 1)) 
+colnames(pear_low_p) = colnames(pearson_low)
+rownames(pear_low_p) = c("Pearson_p_value")
+pear_low_p = pear_low_p[,-1]
+
+# pull out Pearson correlation values 
+pear_effect_low = matrix(pearson_low[1, ], nrow = 1)
+colnames(pear_effect_low) = colnames(pearson_low)
+rownames(pear_effect_low) = c("Pearson Correlation Coefficient")
+
+pear_effect_high_df = as.data.frame(pear_effect_high) %>% 
+  select(-c(`Effect Size Respiration Rates (Wet - Dry)`)) %>% 
+  rbind(pear_high_p) %>% 
+  rownames_to_column("Type") %>% 
+  pivot_longer(-Type, names_to = "Aggregate Size", values_to = "Value") %>% 
+  pivot_wider(
+    names_from = Type,
+    values_from = Value
+  ) %>% 
+  mutate(y = "Surface")
+
+pear_effect_low_df = as.data.frame(pear_effect_low) %>% 
+  select(-c(`Effect Size Respiration Rates (Wet - Dry)`)) %>% 
+  rbind(pear_low_p) %>% 
+  rownames_to_column("Type") %>% 
+  pivot_longer(-Type, names_to = "Aggregate Size", values_to = "Value") %>% 
+  pivot_wider(
+    names_from = Type,
+    values_from = Value
+  ) %>% 
+  mutate(y = "Subsurface")
+
+color_palette_s = colorRampPalette(c("#B2182B", "#F7F7F7", "#2166AC"))(200)
+
+agg_order = c("53 um aggregates %", "125 um aggregates %", "250 um aggregates %", "2 mm aggregates %", "Total % Aggregates")
+
+max_p = 1
+min_p = -1
+
+pear_matrix = ggplot() +
+  geom_tile(pear_effect_high_df, fill = "white", color = "black", mapping = aes(factor(`Aggregate Size`, level = agg_order), y)) +
+  geom_text(pear_effect_high_df, mapping = aes(x = factor(`Aggregate Size`, level = agg_order), y = y, label = round(`Pearson Correlation Coefficient`, 2), color = `Pearson Correlation Coefficient`), size = 5, fontface = "bold") + 
+  geom_tile(pear_effect_low_df, fill = "white", color = "black", mapping = aes(factor(`Aggregate Size`, level = agg_order), y)) +
+  geom_text(pear_effect_low_df, mapping = aes(x = factor(`Aggregate Size`, level = agg_order), y = y, label = round(`Pearson Correlation Coefficient`, 2), color = `Pearson Correlation Coefficient`), size = 5, fontface = "bold") + 
+  scale_color_gradientn(colors = color_palette_s, 
+                        limit = c(min_p, max_p),
+                        guide = "none") + 
+  theme_bw() + 
+  theme(aspect.ratio = 0.45, 
+        axis.text.x = element_text(angle = 90, hjust = 0, size = 15), 
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_text(size = 15))+#, 
+  #axis.text.y = element_blank()) +
+  scale_x_discrete(position = "top")
+
+ggsave("C:/Github/ECA_Multireactor_Incubations/EL/Figures/Pearson_Correlation_Depths.png", plot = pear_matrix, width = 12, height = 6)
+
+## Pearson Cube Root Correlations ##
+
+## Cube Root Transformations ##
+
+cube_corr_data = corr_data %>%
+  dplyr::mutate(across(where(is.numeric), cube_root))
+
+cube_high_data = high_corr_data %>%
+  dplyr::mutate(across(where(is.numeric), cube_root))
+
+cube_low_data = low_corr_data %>%
+  dplyr::mutate(across(where(is.numeric), cube_root))
+
+## Pearson Correlations ####
+cube_pearson = cor(cube_corr_data, method = "pearson", use = "complete.obs")
+
+cube_pear_corr_all = corrplot(cube_pearson, type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Cube Root Pearson Correlation")
+
+## Surface Pearson Correlations ##
+
+cube_pearson_high <- cor(cube_high_data, method = "pearson", use = "complete.obs")
+
+# calculate p-values for pearson correlation matrix, this should be the same as linear regression?
+cube_pear_high_p = as.data.frame(matrix(((rcorr(as.matrix(cube_high_data)))$P)[1, ], nrow = 1)) 
+colnames(cube_pear_high_p) = colnames(cube_pearson_high)
+rownames(cube_pear_high_p) = c("Pearson_p_value")
+cube_pear_high_p = cube_pear_high_p[,-1]
+
+# Pull out Pearson correlation values
+cube_pear_effect_high = matrix(cube_pearson_high[1, ], nrow = 1)
+colnames(cube_pear_effect_high) = colnames(cube_pearson_high)
+rownames(cube_pear_effect_high) = c("Pearson Correlation Coefficient")
+
+## Subsurface Pearson Correlations ##
+
+cube_pearson_low <- cor(cube_low_data, method = "pearson", use = "complete.obs")
+
+# calculate p-values for pearson correlation matrix, this should be the same as linear regression?
+cube_pear_low_p = as.data.frame(matrix(((rcorr(as.matrix(cube_low_data)))$P)[1, ], nrow = 1)) 
+colnames(cube_pear_low_p) = colnames(cube_pearson_low)
+rownames(cube_pear_low_p) = c("Pearson_p_value")
+cube_pear_low_p = cube_pear_low_p[,-1]
+
+# pull out Pearson correlation values 
+cube_pear_effect_low = matrix(cube_pearson_low[1, ], nrow = 1)
+colnames(cube_pear_effect_low) = colnames(cube_pearson_low)
+rownames(cube_pear_effect_low) = c("Pearson Correlation Coefficient")
+
+cube_pear_effect_high_df = as.data.frame(cube_pear_effect_high) %>% 
+  select(-c(`Effect Size Respiration Rates (Wet - Dry)`)) %>% 
+  rbind(cube_pear_high_p) %>% 
+  rownames_to_column("Type") %>% 
+  pivot_longer(-Type, names_to = "Aggregate Size", values_to = "Value") %>% 
+  pivot_wider(
+    names_from = Type,
+    values_from = Value
+  ) %>% 
+  mutate(y = "Surface")
+
+cube_pear_effect_low_df = as.data.frame(cube_pear_effect_low) %>% 
+  select(-c(`Effect Size Respiration Rates (Wet - Dry)`)) %>% 
+  rbind(cube_pear_low_p) %>% 
+  rownames_to_column("Type") %>% 
+  pivot_longer(-Type, names_to = "Aggregate Size", values_to = "Value") %>% 
+  pivot_wider(
+    names_from = Type,
+    values_from = Value
+  ) %>% 
+  mutate(y = "Subsurface")
+
+color_palette_s = colorRampPalette(c("#B2182B", "#F7F7F7", "#2166AC"))(200)
+
+agg_order = c("53 um aggregates %", "125 um aggregates %", "250 um aggregates %", "2 mm aggregates %", "Total % Aggregates")
+
+max_p = 1
+min_p = -1
+
+cube_pear_matrix = ggplot() +
+  geom_tile(cube_pear_effect_high_df, fill = "white", color = "black", mapping = aes(factor(`Aggregate Size`, level = agg_order), y)) +
+  geom_text(cube_pear_effect_high_df, mapping = aes(x = factor(`Aggregate Size`, level = agg_order), y = y, label = round(`Pearson Correlation Coefficient`, 2), color = `Pearson Correlation Coefficient`), size = 5, fontface = "bold") + 
+  geom_tile(cube_pear_effect_low_df, fill = "white", color = "black", mapping = aes(factor(`Aggregate Size`, level = agg_order), y)) +
+  geom_text(cube_pear_effect_low_df, mapping = aes(x = factor(`Aggregate Size`, level = agg_order), y = y, label = round(`Pearson Correlation Coefficient`, 2), color = `Pearson Correlation Coefficient`), size = 5, fontface = "bold") + 
+  scale_color_gradientn(colors = color_palette_s, 
+                        limit = c(min_p, max_p),
+                        guide = "none") + 
+  theme_bw() + 
+  theme(aspect.ratio = 0.45, 
+        axis.text.x = element_text(angle = 90, hjust = 0, size = 15), 
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y = element_text(size = 15))+#, 
+  #axis.text.y = element_blank()) +
+  scale_x_discrete(position = "top")
+
+ggsave("C:/Github/ECA_Multireactor_Incubations/EL/Figures/Cube_Pearson_Correlation_Depths.png", plot = cube_pear_matrix, width = 12, height = 6)
+
+## Spearman Correlations ####
 spearman <- cor(corr_data, method = "spearman", use = "complete.obs")
 
 corrplot(spearman,type = "upper", method = "number", tl.col = "black", tl.cex = 1.6, cl.cex = 1.25,  title = "Spearman Correlation")
 
+
+## Surface Spearman Correlations ##
+
 spearman_high <- cor(high_corr_data, method = "spearman", use = "complete.obs")
 
+# calculate p-values for pearson correlation matrix, this should be the same as linear regression?
+spear_high_p = as.data.frame(matrix(((rcorr(as.matrix(high_corr_data), type = "spearman"))$P)[1, ], nrow = 1))
+colnames(spear_high_p) = colnames(spearman_high)
+rownames(spear_high_p) = c("Spearman_p_value")
+spear_high_p = spear_high_p[,-1]
+
+# Spearman Correlation Coefficients
 corr_effect_high = matrix(spearman_high[1, ], nrow = 1)
-
 colnames(corr_effect_high) = colnames(spearman_high)
+rownames(corr_effect_high) = c("Spearman Correlation Coefficient")
 
-rownames(corr_effect_high) = rownames(spearman_high)[1]
-
+## Subsurface Spearman Correlations
 spearman_low <- cor(low_corr_data, method = "spearman", use = "complete.obs")
 
+# P values
+spear_low_p = as.data.frame(matrix(((rcorr(as.matrix(low_corr_data), type = "spearman"))$P)[1, ], nrow = 1))
+colnames(spear_low_p) = colnames(spearman_low)
+rownames(spear_low_p) = c("Spearman_p_value")
+spear_low_p = spear_low_p[,-1]
+
+# Spearman Correlation Coefficients
 corr_effect_low = matrix(spearman_low[1, ], nrow = 1)
-
 colnames(corr_effect_low) = colnames(spearman_low)
-
-rownames(corr_effect_low) = rownames(spearman_low)[1]
+rownames(corr_effect_low) = c("Spearman Correlation Coefficient")
 
 corr_effect_high_df = as.data.frame(corr_effect_high) %>% 
-  reshape2::melt() %>% 
-  dplyr::rename(Coefficients = value) %>% 
-  filter(Coefficients != 1) %>% 
+  select(-c(`Effect Size Respiration Rates (Wet - Dry)`)) %>% 
+  rbind(spear_high_p) %>% 
+  rownames_to_column("Type") %>% 
+  pivot_longer(-Type, names_to = "Aggregate Size", values_to = "Value") %>% 
+  pivot_wider(
+    names_from = Type,
+    values_from = Value
+  ) %>% 
   mutate(y = "Surface")
 
 corr_effect_low_df = as.data.frame(corr_effect_low) %>% 
-  reshape2::melt() %>% 
-  dplyr::rename(Coefficients = value) %>% 
-  filter(Coefficients != 1) %>% 
-  mutate(y = "Subsurface")
+  select(-c(`Effect Size Respiration Rates (Wet - Dry)`)) %>% 
+  rbind(spear_low_p) %>% 
+  rownames_to_column("Type") %>% 
+  pivot_longer(-Type, names_to = "Aggregate Size", values_to = "Value") %>% 
+  pivot_wider(
+    names_from = Type,
+    values_from = Value
+  ) %>% 
+  mutate(y = "Subsurface") 
+
 
 color_palette_s = colorRampPalette(c("#B2182B", "#F7F7F7", "#2166AC"))(200)
 
 max_p = 1
 min_p = -1
 
-ggplot() +
-  geom_tile(corr_effect_high_df, fill = "white", color = "black", mapping = aes(variable, y)) +
-  geom_text(corr_effect_high_df, mapping = aes(x = variable, y = y, label = round(Coefficients, 2), color = Coefficients), size = 5, fontface = "bold") + 
-  geom_tile(corr_effect_low_df, fill = "white", color = "black", mapping = aes(variable, y)) +
-  geom_text(corr_effect_low_df, mapping = aes(x = variable, y = y, label = round(Coefficients, 2), color = Coefficients), size = 5, fontface = "bold") + 
+spear_matrix = ggplot() +
+  geom_tile(corr_effect_high_df, fill = "white", color = "black", mapping = aes(factor(`Aggregate Size`, level = agg_order), y)) +
+  geom_text(corr_effect_high_df, mapping = aes(x = factor(`Aggregate Size`, level = agg_order), y = y, label = round(`Spearman Correlation Coefficient`, 2), color = `Spearman Correlation Coefficient`), size = 5, fontface = "bold") + 
+  geom_tile(corr_effect_low_df, fill = "white", color = "black", mapping = aes(factor(`Aggregate Size`, level = agg_order), y)) +
+  geom_text(corr_effect_low_df, mapping = aes(x = factor(`Aggregate Size`, level = agg_order), y = y, label = round(`Spearman Correlation Coefficient`, 2), color = `Spearman Correlation Coefficient`), size = 5, fontface = "bold") + 
   scale_color_gradientn(colors = color_palette_s, 
                         limit = c(min_p, max_p),
                         guide = "none") + 
@@ -303,3 +505,55 @@ ggplot() +
         axis.ticks.y = element_blank())+#, 
         #axis.text.y = element_blank()) +
   scale_x_discrete(position = "top")
+
+ggsave("C:/Github/ECA_Multireactor_Incubations/EL/Figures/Spearman_Correlation_Depths.png", plot = spear_matrix, width = 12, height = 6)
+
+## Aggregate Scatter Plots  ####
+
+## Untransformed Data ##
+
+effect_agg$agg_size = factor(effect_agg$agg_size, levels = c('53um_aggregates_wt%', "125um_aggregates_wt%", "250um_aggregates_wt%", "2mm_aggregates_wt%", "total%_aggregates"))
+
+agg_depth_scatter = ggplot(effect_agg, mapping = aes(x = perc, y = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, color = IN)) + 
+  geom_point() + 
+  theme_bw() +
+  facet_wrap(agg_size~., scales = "free", nrow = 1) + 
+  stat_poly_line(data = effect_agg, se = FALSE) + 
+  stat_correlation(method = "pearson", label.y = "middle", label.x = "right", size = 3, use_label(c("R2", "P")))
+
+ggsave("C:/Github/ECA_Multireactor_Incubations/EL/Figures/EL_Depth_Agg_Scatter_Plots_No_Transform.png", plot = agg_depth_scatter, width = 20, height = 10)
+
+## Cube Root Transformed Data ##
+
+cube_effect_agg = effect_agg %>% 
+  dplyr::mutate(across(where(is.numeric), cube_root))
+
+cube_effect_agg$agg_size = factor(cube_effect_agg$agg_size, levels = c('53um_aggregates_wt%', "125um_aggregates_wt%", "250um_aggregates_wt%", "2mm_aggregates_wt%", "total%_aggregates"))
+
+cube_agg_depth_scatter = ggplot(cube_effect_agg, mapping = aes(x = perc, y = Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, color = IN)) + 
+  geom_point() + 
+  theme_bw() +
+  facet_wrap(agg_size~., scales = "free", nrow = 1) + 
+  stat_poly_line(data = cube_effect_agg, se = FALSE) + 
+  stat_correlation(method = "pearson", label.y = "middle", label.x = "right", size = 3, use_label(c("R2", "P")))
+
+ggsave("C:/Github/ECA_Multireactor_Incubations/EL/Figures/EL_Depth_Agg_Scatter_Plots_Cube_Transform.png", plot = cube_agg_depth_scatter, width = 20, height = 10)
+
+## Cube Effect vs. Untransformed Aggregate %'s ##
+
+cube_effect = effect_agg %>% 
+  mutate(cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H = cube_root(Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H)) 
+
+cube_effect$agg_size = factor(cube_effect$agg_size, levels = c('53um_aggregates_wt%', "125um_aggregates_wt%", "250um_aggregates_wt%", "2mm_aggregates_wt%", "total%_aggregates"))
+
+
+cube_effect_agg_depth = ggplot(cube_effect, mapping = aes(x = perc, y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, color = IN)) + 
+  geom_point() + 
+  theme_bw() +
+  facet_wrap(agg_size~., scales = "free", nrow = 1) + 
+  stat_poly_line(data = cube_effect, se = FALSE) + 
+  stat_correlation(method = "pearson", label.y = "middle", label.x = "right", size = 3, use_label(c("R2", "P")))
+
+
+ggsave("C:/Github/ECA_Multireactor_Incubations/EL/Figures/EL_Depth_Agg_Scatter_Plots.png", plot = cube_effect_agg_depth, width = 20, height = 10)
+
