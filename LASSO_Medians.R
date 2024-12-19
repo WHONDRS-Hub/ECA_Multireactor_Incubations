@@ -577,97 +577,97 @@ cube_effect = cube_effect %>%
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fine_Sand_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 fs = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Percent_Fine_Sand)) +
-  geom_point(size = 5, shape = 1) +
+  geom_point(size = 2, shape = 1) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 3, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 3, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed') + 
   #ylab(expression("Effect Size Respiration Rate (mg kg"^-1*")"^(1/3))) +
   ylab("")+
   xlab(expression("Fine Sand (%)"^(1/3))) + 
-  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 10))
 
 #dev.off()
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_ATP_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 atp = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_ATP_picomoles_per_g)) +
-  geom_point(size = 5, shape  = 1) +
+  geom_point(size = 2, shape  = 1) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect, label.x = 1.1, label.y = 11, size = 3, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = 1.1, label.y = 10.25, size = 3, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed') + 
   #ylab(expression("Effect Size Respiration Rate (mg kg"^-1*")"^(1/3))) +
   ylab("")+
   xlab(expression("Median ATP (pmol g"^-1*")"^(1/3)))+ 
-  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 10))
 
 #dev.off()
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_TOC_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 toc = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_X01395_C_percent_per_mg)) +
-  geom_point(shape = 1, size = 5) +
+  geom_point(shape = 1, size = 2) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = 0.55, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = 0.55, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect, label.x = 0.55, label.y = 11, size = 3, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = 0.55, label.y = 10.25, size = 3, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed') + 
   #ylab(expression("Effect Size Respiration Rate (mg kg"^-1*")"^(1/3))) +
   ylab("")+
   xlab(expression("Median TOC (%)"^(1/3)))+ 
-  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 10))
 
 #dev.off()
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_TN_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 tn = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_X01397_N_percent_per_mg)) +
-  geom_point(shape =1, size = 5) +
+  geom_point(shape =1, size = 2) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = 0.225, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = 0.225, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect, label.x = 0.225, label.y = 11, size = 3, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = 0.225, label.y = 10.25, size = 3, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed')+ 
  # ylab("Effect Size Respiration Rate (mg/kg)") +
   ylab("")+
   xlab(expression("Median TN (%)"^(1/3)))+ 
-  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 10))
 
 #dev.off()
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Median_SpC_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 spc = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Median_SpC_microsiemens_per_cm)) +
-  geom_point(shape = 1, size = 5) +
+  geom_point(shape = 1, size = 2) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = 2.5, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = 2.5, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
-  stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed')+ 
+  stat_cor(data = cube_effect, label.x = 2.5, label.y = 11, size = 3, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = 2.5, label.y = 10.25, size = 3, digits = 2, aes(label = paste(..p.label..)))+
+  #stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed')+ 
   #ylab("Effect Size Respiration Rate (mg/kg)") +
   ylab("")+
   xlab(expression("Median SpC (\u03BCS cm"^-1*")"^(1/3)))+ 
-  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 10))
 
 #dev.off()
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Effect_Fe_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
 fe = ggplot(cube_effect, aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Effect_Size_Fe_mg_per_kg)) +
-  geom_point(shape = 1, size = 5) +
-  geom_point(fe_cube_effect, mapping = aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Effect_Size_Fe_mg_per_kg), color = "red", size = 5) +
+  geom_point(shape = 1, size = 2) +
+  geom_point(fe_cube_effect, mapping = aes(y = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H, x = cube_Effect_Size_Fe_mg_per_kg), color = "red", size = 2) +
   theme_bw() +
   #stat_cor(data = fe_cube_out, size = 5, digits = 2, aes(label = paste(..rr.label.., ..p.label.., sep = "~`;`~")))+
-  stat_cor(data = cube_effect, label.x = -2.5, label.y = 11, size = 6, digits = 2, aes(label = paste(..rr.label..)))+
-  stat_cor(data = cube_effect, label.x = -2.5, label.y = 10.25, size = 6, digits = 2, aes(label = paste(..p.label..)))+
+  stat_cor(data = cube_effect, label.x = -2.5, label.y = 11, size = 3, digits = 2, aes(label = paste(..rr.label..)))+
+  stat_cor(data = cube_effect, label.x = -2.5, label.y = 10.25, size = 3, digits = 2, aes(label = paste(..p.label..)))+
   stat_poly_line(data = cube_effect, se = FALSE, linetype = 'dashed')+ 
   #ylab(expression("Effect Size Respiration Rate (mg kg"^-1*")"^(1/3))) +
   ylab("")+
   xlab(expression("Effect Size Fe (II) (mg kg"^-1*")"^(1/3)))+ 
-  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 20))
+  theme(legend.position  = "none", aspect.ratio = 1, axis.title.x = element_text(size = 10))
 
 #dev.off()
 
@@ -698,10 +698,18 @@ color_palette_p = colorRampPalette(c("#B2182B", "#F7F7F7", "#2166AC"))(200)
 color_palette_l = colorRampPalette(c("#F7F7F7", "#2166AC"))(200)
 
 lasso_df = lasso_pear_df %>% 
-  filter(type == "LASSO")
+  filter(type == "LASSO")%>% 
+  arrange(Coefficients)
+
 
 pearson_df = lasso_pear_df %>% 
-  filter(type == "Pearson")
+  filter(type == "Pearson") %>% 
+  arrange(Coefficients)
+
+# Reorder the `variable` based on `Coefficients`
+pearson_df$variable <- factor(pearson_df$variable, levels = pearson_df$variable[order(pearson_df$Coefficients)])
+
+
 
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Combined_Heat_Matrix.png"), width = 12, height = 4, units = "in", res = 300)
@@ -726,32 +734,30 @@ pearson_df = lasso_pear_df %>%
         axis.ticks.y = element_blank())+#, 
   #axis.text.y = element_blank()) +
   scale_x_discrete(position = "top")
+ 
+ combined_matrix
+ 
+ ggsave("./Physical_Manuscript_Figures/Combined_Pearson_Lasso_Matrix.png", plot = combined_matrix, width = 9, height = 4)
 
 #dev.off()
 
 ## Merge Matrices + Scatter Plots
 
-col_scatter = ggarrange(fs, atp, tn, fe, spc, toc, ncol = 3, nrow = 2, common.legend =  T, legend = "right",  labels = c("B", "C", "D", "E", "F", "G", "H"), label.x = 0.875, label.y = 0.22, align = "hv", heights = c(1,1), font.label = list(size = 25))
+col_scatter = ggarrange(fs, atp, tn, fe, toc, spc, ncol = 3, nrow = 2, common.legend =  T, legend = "right",  labels = c("B", "C", "D", "E", "F", "G", "H"), label.x = 0.875, label.y = 0.28, align = "hv", heights = c(1,1), font.label = list(size = 12))
 
-col_scatter_ann = annotate_figure(col_scatter, left = text_grob(expression("Effect Size Respiration Rate mg kg"^-1*")"^(1/3)), rot = 90, size = 22))
+col_scatter_ann = annotate_figure(col_scatter, left = text_grob(expression("Effect Size Respiration Rate mg kg"^-1*")"^(1/3)), rot = 90, size = 12))
 
 col_scatter_ann
 
-ggsave("./Physical_Manuscript_Figures/Scatter_Plots.png", plot = col_scatter_ann, width = 18, height = 12)
+ggsave("./Physical_Manuscript_Figures/Scatter_Plots.png", plot = col_scatter_ann, width = 9, height = 6)
 
+combine_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Combined_Pearson_Lasso_Matrix.png")
 
-scatter_matrix = ggarrange(combined_matrix, col_scatter_ann, nrow = 2, heights = c(1,1))
-scatter_matrix
-
-#ggsave("./Physical_Manuscript_Figures/Scatter_Heat_Map_Format.png", plot = scatter_matrix, width = 18, height = 12)
-
-combine_hm_image = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Archive/2024-09-19_Combined_Heat_Matrix.png")
-
-combine_label_image = image_annotate(combine_hm_image, "A", size = 100, location = "+25+50", color = "black")
+combine_label_image = image_annotate(combine_hm_image, "A", size = 100, location = "+25+25", color = "black")
 
 scatter_plot = image_read("C:/GitHub/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Scatter_Plots.png")
 
-scatter_scale = image_scale(scatter_plot, "59%")
+scatter_scale = image_scale(scatter_plot, "100%")
 
 # Get the original dimensions of scatter_scale
 scatter_width <- image_info(scatter_scale)$width
@@ -760,7 +766,7 @@ scatter_height <- image_info(scatter_scale)$height
 # Add padding to the left by increasing the canvas width
 scatter_scale_padded <- image_extent(
   scatter_scale,
-  geometry = paste0(scatter_width + 300, "x", scatter_height), # Add 200 pixels to the width
+  geometry = paste0(scatter_width, "x", scatter_height), # Add 200 pixels to the width
   gravity = "center" # Content stays on the left, padding is added to the left
 )
 
