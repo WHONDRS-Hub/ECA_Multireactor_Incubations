@@ -297,7 +297,7 @@ effect = read.csv("./Data/EC_Sediment_Effect_Size.csv", skip = 2) %>%
   filter(!grepl("EC_011|EC_012|EC_023|EC_052|EC_053|EC_057", Sample_Name)) %>%
  select(-c(IGSN, Field_Name, Material, Methods_Deviation)) 
 
-## Histogram of wet respiratino raates with vertical line where neutral moments occur
+## Histogram of wet respiration rates with vertical line where neutral moments occur
 
 
 hist_df = wet_respiration %>% left_join(effect) %>% 
@@ -366,6 +366,72 @@ fe_cube_effect = effect_data %>%
 #   filter(Rep == "W")%>% 
 #   column_to_rownames("Sample_Name") %>% 
 #   select(-c(Rep))
+
+
+# Histograms --------------------------------------------------------------
+
+## Histogram of all Rates
+
+if (print.images == T) {
+  png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/All_Rates_Cubed_Histogram.png"), width = 4, height = 4, units = "in", res = 300)
+  
+  all_cube_hist = ggplot(cube_respiration, aes(x = cube_Respiration_mg_kg)) +
+    geom_histogram(position = "identity", alpha = 0.8, aes(fill = Treat))+
+    scale_fill_manual(values = c("#D55E00","#0072B2"))  +
+    #ggtitle("Wet Rates")+
+    theme(strip.text = element_text(
+      size = 4))+
+    ylim(0, 87.5)+
+    theme_bw() + 
+    theme(legend.position = c(0.85, 0.8), 
+          legend.key.size = unit(0.15, "in"), 
+          legend.title = element_text(size = 8),
+          axis.title.x = element_text(size = 10)) +
+    guides(fill = guide_legend(title="Treatment")) + 
+    xlab(expression(atop("\n Respiration Rate" ^(1/3)*"", "(mg O"[2]*" kg"^-1*" H"^-1*")"))) +
+    ylab("Count")
+  
+  all_cube_hist
+  
+}
+dev.off()
+
+# Histogram of effect size
+
+cube_effect_limits <- c(-12, 12)
+
+if (print.images == T) {
+  png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/Cube_Median_Effect_Histogram.png"), width = 4, height = 4, units = "in", res = 300)
+  
+  cube_effect_hist = ggplot(cube_effect, aes(x = cube_Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H))+
+    # geom_histogram(binwidth = 0.15, fill = "#009E73")+
+    geom_histogram(binwidth = 0.5, aes(fill = after_stat(x))) +
+    scale_fill_gradient2(name = "Cubed Root Effect Size", limits = cube_effect_limits, low = "firebrick2", mid = "goldenrod2",
+                         high = "dodgerblue2", midpoint = (max(cube_effect_limits)+min(cube_effect_limits))/2) +
+    theme_bw()+
+    #theme(axis.title.x = element_text(size = 4),
+    #  axis.title.y = element_text(size = 4),
+    #  axis.text.x = element_text(size = 4),
+    #  axis.text.y = element_text(size =4))+
+    xlim(c(-12, 12))+
+    ylab("Count\n")+
+    theme(legend.position = "none",
+          #legend.position = c(0.8, 0.8),
+          #legend.key.size = unit(0.15, "in"), 
+          #legend.title = element_text(size = 8),
+          axis.title.x = element_text(size = 10)) + 
+    #xlab(expression(atop("\n Cubed Root Effect Size", "(Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")"))) 
+    xlab(expression(atop("\n Effect Size Respiration Rate" ^(1/3)*"","(Median Wet - Median Dry Rate; mg O"[2]*" kg"^-1*" H"^-1*")")))
+  
+  cube_effect_hist
+
+}  
+
+dev.off()
+
+combined_hist = ggarrange(all_cube_hist, cube_effect_hist, ncol = 2, labels = c("A", "B"), hjust = -5, vjust = 2.5)
+
+ggsave("./Physical_Manuscript_Figures/Combined_Cube_Histograms.pdf", plot = combined_hist, width = 10, height = 5)
 
 ## Pearson Correlation Matrix ####
 
