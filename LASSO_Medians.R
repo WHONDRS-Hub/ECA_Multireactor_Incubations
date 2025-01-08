@@ -45,6 +45,7 @@ cube_respiration = all_data %>%
   mutate(cube_Respiration_mg_kg = cube_root(abs(as.numeric(Respiration_Rate_mg_DO_per_kg_per_H)))) %>% 
   mutate(Treat = if_else(grepl("D", Sample_Name), "Dry", "Wet"))
 
+# Find medians not grouped by wet and dry
 median_respiration = all_data %>% 
   select(-c(Respiration_R_Squared, Respiration_R_Squared_Adj, Respiration_p_value, Total_Incubation_Time_Min, Number_Points_In_Respiration_Regression, Number_Points_Removed_Respiration_Regression,DO_Concentration_At_Incubation_Time_Zero)) %>% 
   mutate(across(c(SpC_microsiemens_per_cm:Respiration_Rate_mg_DO_per_kg_per_H), as.numeric)) %>% 
@@ -310,7 +311,7 @@ ggplot(hist_df, aes(x = Median_Wet_Respiration)) +
   geom_histogram(bins = 50)+
   geom_vline(aes(xintercept = Median_Wet_Respiration), data = subset(hist_df, Effect_Size_Respiration_Rate_mg_DO_per_kg_per_H < 70))
 
-ggsave("./Physical_Manuscript_Figures/Median_Wet_Rates_Effect.png", width = 30, height = 20)
+#ggsave("./Physical_Manuscript_Figures/Median_Wet_Rates_Effect.png", width = 30, height = 20)
 
 
 ## Read in grain size/ssa variables ####
@@ -491,7 +492,7 @@ all_effect_melted <- all_pearson_melted %>%
 all_choose_melted <- all_pearson_melted %>% 
   filter(!grepl("Respiration", variable)) %>%
   filter(!grepl("Silt", variable)) %>%
-  filter(!grepl("Silt", Variable)) %>% #try removing silt (0 values)
+  filter(!grepl("Silt", Variable)) %>% #try removing silt (has 0 values)
   #distinct(value, .keep_all = TRUE) %>% 
   left_join(all_effect_melted, by = "Variable") %>% 
   rename(Variable_1 = Variable) %>% 
@@ -509,7 +510,7 @@ all_loop_melt = all_choose_melted %>%
 # Pearson correlation coefficient to remove above
 correlation = 0.7
 
-## Start loop to remove highly correlated (> 0.5)
+## Start loop to remove highly correlated (> 0.7)
 all_effect_filter = function(all_loop_melt) {
   
   rows_to_keep = rep(TRUE, nrow(all_loop_melt))
@@ -632,6 +633,7 @@ ds_lasso_df = ds_lasso_df %>%
 
 ds_lasso_df$y = "LASSO"
 
+# Assign D50 fractions
 cube_effect = cube_effect %>% 
   rownames_to_column("Sample_Name") %>% 
   left_join(d50) %>% 
@@ -639,6 +641,8 @@ cube_effect = cube_effect %>%
                         labels = c("Clay/Silt", "Fine Sand", "Med/Coarse Sand"), 
                         include.lowest = T, right = F)) %>%
   column_to_rownames("Sample_Name")
+
+## Scatter Plots ####
 
 #png(file = paste0("C:/Github/ECA_Multireactor_Incubations/Physical_Manuscript_Figures/", as.character(Sys.Date()),"_Cube_Median_Effect_vs_Fine_Sand_Scatter.png"), width = 6, height = 6, units = "in", res = 300)
 
